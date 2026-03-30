@@ -14,7 +14,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
+        sans: ["Montserrat", "sans-serif"],
+        bebas: ["Bebas Neue", "cursive"],
+        montserrat: ["Montserrat", "sans-serif"],
+        nunito: ["Nunito Sans", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

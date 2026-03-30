@@ -73,25 +73,28 @@ const PainBlock = ({
   return (
     <div
       ref={ref}
-      className={`fade-in-section max-w-6xl mx-auto px-6 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center ${
-        reverse ? "md:direction-rtl" : ""
-      }`}
-      style={{ direction: reverse ? "rtl" : "ltr" }}
+      className={`fade-in-section min-h-[60vh] flex items-center justify-center`}
+      style={{ padding: '120px 40px' }}
     >
-      {/* Text */}
-      <div style={{ direction: "ltr" }} className="flex flex-col gap-4">
-        <h2 className="text-3xl md:text-5xl font-black uppercase leading-tight tracking-tight text-foreground">
-          {pain}
-        </h2>
-        <p className="text-lg text-muted-foreground">{reassurance}</p>
-      </div>
+      <div
+        className={`max-w-6xl mx-auto w-full grid md:grid-cols-2 gap-12 items-center`}
+        style={{ direction: reverse ? "rtl" : "ltr" }}
+      >
+        {/* Text */}
+        <div style={{ direction: "ltr" }} className="flex flex-col gap-4">
+          <h2 className="text-3xl md:text-5xl font-bebas uppercase leading-tight tracking-wide text-foreground">
+            {pain}
+          </h2>
+          <p className="text-lg font-nunito text-muted-foreground">{reassurance}</p>
+        </div>
 
-      {/* Sticker Icon */}
-      <div className="flex justify-center" style={{ direction: "ltr" }}>
-        <div
-          className={`sticker-icon w-36 h-36 md:w-48 md:h-48 ${iconBg} rounded-3xl flex items-center justify-center border-4 border-foreground`}
-        >
-          <Icon size={72} strokeWidth={2.5} className="text-foreground" />
+        {/* Sticker Icon */}
+        <div className="flex justify-center" style={{ direction: "ltr" }}>
+          <div
+            className={`sticker-icon w-36 h-36 md:w-48 md:h-48 ${iconBg} rounded-3xl flex items-center justify-center border-4 border-foreground`}
+          >
+            <Icon size={72} strokeWidth={2.5} className="text-foreground" />
+          </div>
         </div>
       </div>
     </div>
