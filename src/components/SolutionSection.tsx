@@ -8,7 +8,7 @@ import {
   Rss,
 } from "lucide-react";
 import { useScrollFadeIn } from "@/hooks/useScrollFadeIn";
-import stockMascot from "@/assets/stock-mascot-clean.png";
+import stockAnalyticsHero from "@/assets/stock-analytics-hero.png";
 
 const solutionBlocks = [
   {
@@ -111,10 +111,10 @@ const SolutionBlock = ({
 
   const imageEl = customImage ? (
     <div className="flex justify-center">
-      <div className="w-full max-w-md rounded-2xl overflow-hidden">
+      <div className="w-full max-w-md rounded-2xl overflow-hidden bg-background">
         <img
-          src={stockMascot}
-          alt="Stock Analytics - AI verified trades dashboard"
+          src={stockAnalyticsHero}
+          alt="Stock Analytics - AI verified trades dashboard with mascot"
           className="w-full h-auto object-contain"
         />
       </div>
