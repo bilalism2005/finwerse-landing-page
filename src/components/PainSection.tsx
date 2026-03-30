@@ -74,16 +74,16 @@ const PainBlock = ({
   return (
     <div
       ref={ref}
-      className="fade-in-section min-h-[60vh] flex items-center justify-center py-[120px] px-5 sm:px-6 md:px-10"
+      className="fade-in-section min-h-[80vh] flex items-center justify-center py-[160px] px-6 md:px-10 lg:px-20"
     >
       <div
-        className="max-w-6xl mx-auto w-full grid md:grid-cols-2 gap-12 md:gap-16 items-center"
+        className="max-w-6xl mx-auto w-full grid md:grid-cols-2 gap-16 lg:gap-24 items-center"
         style={{ direction: reverse ? "rtl" : "ltr" }}
       >
         {/* Text */}
         <div style={{ direction: "ltr" }} className="flex flex-col">
           {painLines ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               {painLines.map((line, i) => (
                 <h2 key={i} className="text-3xl md:text-4xl font-bebas uppercase leading-tight tracking-wide text-foreground">
                   {line}
@@ -91,7 +91,7 @@ const PainBlock = ({
               ))}
             </div>
           ) : (
-            <h2 className="text-3xl md:text-5xl font-bebas uppercase leading-tight tracking-wide text-foreground mb-5">
+            <h2 className="text-3xl md:text-5xl font-bebas uppercase leading-tight tracking-wide text-foreground mb-6">
               {pain}
             </h2>
           )}
@@ -101,9 +101,9 @@ const PainBlock = ({
         {/* Sticker Icon */}
         <div className="flex justify-center" style={{ direction: "ltr" }}>
           <div
-            className={`sticker-icon w-36 h-36 md:w-48 md:h-48 ${iconBg} rounded-3xl flex items-center justify-center border-4 border-foreground`}
+            className={`sticker-icon w-40 h-40 md:w-56 md:h-56 ${iconBg} rounded-3xl flex items-center justify-center border-4 border-foreground`}
           >
-            <Icon size={72} strokeWidth={2.5} className="text-foreground" />
+            <Icon size={80} strokeWidth={2.5} className="text-foreground" />
           </div>
         </div>
       </div>
