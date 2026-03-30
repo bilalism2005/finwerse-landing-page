@@ -8,6 +8,7 @@ import {
   Rss,
 } from "lucide-react";
 import { useScrollFadeIn } from "@/hooks/useScrollFadeIn";
+import stockAnalyticsHero from "@/assets/stock-analytics-hero.png";
 
 const solutionBlocks = [
   {
@@ -21,6 +22,7 @@ const solutionBlocks = [
       "Decide with data, not tips",
     ],
     imageLeft: true,
+    customImage: true,
   },
   {
     icon: ShieldCheck,
@@ -103,10 +105,21 @@ const SolutionBlock = ({
   label,
   bullets,
   imageLeft,
+  customImage,
 }: (typeof solutionBlocks)[0]) => {
   const ref = useScrollFadeIn();
 
-  const imageEl = (
+  const imageEl = customImage ? (
+    <div className="flex justify-center">
+      <div className="w-full max-w-md rounded-2xl overflow-hidden">
+        <img
+          src={stockAnalyticsHero}
+          alt="Stock Analytics - AI verified trades dashboard"
+          className="w-full h-auto object-contain"
+        />
+      </div>
+    </div>
+  ) : (
     <div className="flex justify-center">
       <div
         className={`w-full max-w-sm aspect-[4/3] ${iconBg}/10 rounded-2xl border border-border flex items-center justify-center`}
