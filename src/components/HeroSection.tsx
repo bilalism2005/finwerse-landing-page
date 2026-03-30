@@ -2,7 +2,7 @@ import PhoneScreen from "./PhoneScreen";
 
 const HeroSection = () => {
   return (
-    <section id="home" className="relative min-h-screen flex items-center justify-center hero-grid pt-20">
+    <section id="home" className="relative min-h-screen flex items-center justify-center hero-grid pt-8">
       <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-20 w-full grid md:grid-cols-2 gap-16 lg:gap-24 items-center py-[140px]">
         {/* Phone Mockup */}
         <div className="flex justify-center md:justify-start">
@@ -17,7 +17,8 @@ const HeroSection = () => {
         {/* Hero Text */}
         <div className="flex flex-col">
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-bebas uppercase leading-[0.95] tracking-wide text-foreground mb-8">
-            TURN RANDOM TIPS INTO VERIFIED TRADES
+            TURN RANDOM TIPS INTO{" "}
+            <span className="whitespace-nowrap">VERIFIED TRADES</span>
           </h1>
           <p className="text-lg font-nunito text-muted-foreground mb-10">
             AI-powered scores for every stock.
