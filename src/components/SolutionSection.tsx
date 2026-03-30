@@ -22,6 +22,7 @@ const solutionBlocks = [
       "Decide with data, not tips",
     ],
     imageLeft: true,
+    customImage: true,
   },
   {
     icon: ShieldCheck,
