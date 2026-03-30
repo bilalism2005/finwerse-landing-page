@@ -8,7 +8,7 @@ import {
   Rss,
 } from "lucide-react";
 import { useScrollFadeIn } from "@/hooks/useScrollFadeIn";
-import stockAnalyticsHero from "@/assets/stock-analytics-hero.png";
+import stockMascot from "@/assets/stock-mascot-clean.png";
 
 const solutionBlocks = [
   {
