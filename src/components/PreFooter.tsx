@@ -11,11 +11,11 @@ const PreFooter = () => {
   const ref = useScrollFadeIn();
 
   return (
-    <section ref={ref} className="fade-in-section bg-background py-[120px] px-5 sm:px-6 md:px-10">
+    <section ref={ref} className="fade-in-section bg-background py-[160px] px-6 md:px-10 lg:px-20">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col lg:flex-row gap-6 items-stretch">
+        <div className="flex flex-col lg:flex-row gap-8 items-stretch">
           {/* Social Grid - Left */}
-          <div className="grid grid-cols-2 gap-4 shrink-0">
+          <div className="grid grid-cols-2 gap-5 shrink-0">
             {socials.map((s) => (
               <a
                 key={s.name}
@@ -31,11 +31,11 @@ const PreFooter = () => {
           </div>
 
           {/* CTA Card - Right */}
-          <div className="flex-1 bg-primary rounded-3xl p-10 md:p-14 flex flex-col items-center justify-center gap-8 text-center min-h-[280px]">
+          <div className="flex-1 bg-primary rounded-3xl p-10 md:p-16 flex flex-col items-center justify-center gap-10 text-center min-h-[300px]">
             <h2 className="text-3xl md:text-5xl font-bebas uppercase leading-tight tracking-wide text-primary-foreground">
               LET'S TRADE ON DATA. NOT ON TIPS.
             </h2>
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div>
               <button className="bg-primary-foreground text-primary font-montserrat font-bold text-sm uppercase tracking-widest px-8 py-4 rounded-full hover:opacity-90 transition-opacity">
                 TRY NOW
               </button>
