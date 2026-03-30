@@ -1,18 +1,16 @@
-import {
-  BarChart3,
-  ShieldCheck,
-  Bell,
-  MessageSquare,
-  Brain,
-  LineChart,
-  Rss,
-} from "lucide-react";
 import { useScrollFadeIn } from "@/hooks/useScrollFadeIn";
+
+import stockAnalyticsImg from "@/assets/stock-analytics.png";
+import portfolioHealthImg from "@/assets/portfolio-health.png";
+import entryExitAlertsImg from "@/assets/entry-exit-alerts.png";
+import askAiImg from "@/assets/ask-ai.png";
+import impulseAnalyzerImg from "@/assets/impulse-analyzer.png";
+import chartAnalyzerImg from "@/assets/chart-analyzer.png";
+import focusFeedImg from "@/assets/focus-feed.png";
 
 const solutionBlocks = [
   {
-    icon: BarChart3,
-    iconBg: "bg-primary",
+    image: stockAnalyticsImg,
     heading: "VERIFIED TRADES ONLY. EVERYTHING ELSE STAYS OUT.",
     label: "Stock Analytics",
     bullets: [
@@ -23,8 +21,7 @@ const solutionBlocks = [
     imageLeft: true,
   },
   {
-    icon: ShieldCheck,
-    iconBg: "bg-emerald-500",
+    image: portfolioHealthImg,
     heading: "PORTFOLIO THAT HOLDS WHEN OTHERS FALL.",
     label: "Portfolio Health",
     bullets: [
@@ -35,8 +32,7 @@ const solutionBlocks = [
     imageLeft: false,
   },
   {
-    icon: Bell,
-    iconBg: "bg-amber-500",
+    image: entryExitAlertsImg,
     heading: "ALWAYS ON TIME. EVERY TRADE.",
     label: "Entry-Exit Alerts",
     bullets: [
@@ -47,8 +43,7 @@ const solutionBlocks = [
     imageLeft: true,
   },
   {
-    icon: MessageSquare,
-    iconBg: "bg-sky-500",
+    image: askAiImg,
     heading: "INSTANT CLARITY. HOURS SAVED.",
     label: "AI Chatbot",
     bullets: [
@@ -59,8 +54,7 @@ const solutionBlocks = [
     imageLeft: false,
   },
   {
-    icon: Brain,
-    iconBg: "bg-rose-500",
+    image: impulseAnalyzerImg,
     heading: "FEWER EMOTIONAL TRADES. PORTFOLIO RECOVERS.",
     label: "Impulse Analyzer",
     bullets: [
@@ -71,8 +65,7 @@ const solutionBlocks = [
     imageLeft: true,
   },
   {
-    icon: LineChart,
-    iconBg: "bg-violet-500",
+    image: chartAnalyzerImg,
     heading: "BE YOUR OWN ANALYST.",
     label: "Chart Analyzer",
     bullets: [
@@ -83,8 +76,7 @@ const solutionBlocks = [
     imageLeft: false,
   },
   {
-    icon: Rss,
-    iconBg: "bg-teal-500",
+    image: focusFeedImg,
     heading: "UNBOTHERED BY HEADLINES.",
     label: "Focus Feed",
     bullets: [
@@ -97,8 +89,7 @@ const solutionBlocks = [
 ];
 
 const SolutionBlock = ({
-  icon: Icon,
-  iconBg,
+  image,
   heading,
   label,
   bullets,
@@ -108,11 +99,14 @@ const SolutionBlock = ({
 
   const imageEl = (
     <div className="flex justify-center">
-      <div
-        className={`w-full max-w-sm aspect-[4/3] ${iconBg}/10 rounded-2xl border border-border flex items-center justify-center`}
-      >
-        <Icon size={64} strokeWidth={1.5} className={`${iconBg.replace("bg-", "text-")}`} />
-      </div>
+      <img
+        src={image}
+        alt={label}
+        loading="lazy"
+        width={512}
+        height={512}
+        className="w-full max-w-sm rounded-2xl sticker-icon"
+      />
     </div>
   );
 
