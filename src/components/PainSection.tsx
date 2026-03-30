@@ -27,7 +27,7 @@ const painBlocks = [
   {
     icon: Clock,
     iconBg: "bg-yellow-500",
-    pain: "LATE ENTRY. MISSED THE MOVE. / WAITED FOR MORE. LEFT WITH LESS.",
+    painLines: ["LATE ENTRY. MISSED THE MOVE.", "WAITED FOR MORE. LEFT WITH LESS."],
     reassurance: "Mistimed entries and exits are universal. Alerts make them avoidable.",
     reverse: false,
   },
@@ -65,26 +65,36 @@ const PainBlock = ({
   icon: Icon,
   iconBg,
   pain,
+  painLines,
   reassurance,
   reverse,
-}: (typeof painBlocks)[0]) => {
+}: (typeof painBlocks)[0] & { painLines?: string[] }) => {
   const ref = useScrollFadeIn();
 
   return (
     <div
       ref={ref}
-      className={`fade-in-section min-h-[60vh] flex items-center justify-center`}
-      style={{ padding: '120px 40px' }}
+      className="fade-in-section min-h-[60vh] flex items-center justify-center py-[120px] px-5 sm:px-6 md:px-10"
     >
       <div
-        className={`max-w-6xl mx-auto w-full grid md:grid-cols-2 gap-12 items-center`}
+        className="max-w-6xl mx-auto w-full grid md:grid-cols-2 gap-12 md:gap-16 items-center"
         style={{ direction: reverse ? "rtl" : "ltr" }}
       >
         {/* Text */}
-        <div style={{ direction: "ltr" }} className="flex flex-col gap-4">
-          <h2 className="text-3xl md:text-5xl font-bebas uppercase leading-tight tracking-wide text-foreground">
-            {pain}
-          </h2>
+        <div style={{ direction: "ltr" }} className="flex flex-col">
+          {painLines ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              {painLines.map((line, i) => (
+                <h2 key={i} className="text-3xl md:text-4xl font-bebas uppercase leading-tight tracking-wide text-foreground">
+                  {line}
+                </h2>
+              ))}
+            </div>
+          ) : (
+            <h2 className="text-3xl md:text-5xl font-bebas uppercase leading-tight tracking-wide text-foreground mb-5">
+              {pain}
+            </h2>
+          )}
           <p className="text-lg font-nunito text-muted-foreground">{reassurance}</p>
         </div>
 

@@ -11,7 +11,7 @@ const PreFooter = () => {
   const ref = useScrollFadeIn();
 
   return (
-    <section ref={ref} className="fade-in-section bg-background" style={{ padding: '120px 40px' }}>
+    <section ref={ref} className="fade-in-section bg-background py-[120px] px-5 sm:px-6 md:px-10">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-6 items-stretch">
           {/* Social Grid - Left */}
@@ -31,7 +31,7 @@ const PreFooter = () => {
           </div>
 
           {/* CTA Card - Right */}
-          <div className="flex-1 bg-primary rounded-3xl p-10 md:p-14 flex flex-col items-center justify-center gap-6 text-center min-h-[280px]">
+          <div className="flex-1 bg-primary rounded-3xl p-10 md:p-14 flex flex-col items-center justify-center gap-8 text-center min-h-[280px]">
             <h2 className="text-3xl md:text-5xl font-bebas uppercase leading-tight tracking-wide text-primary-foreground">
               LET'S TRADE ON DATA. NOT ON TIPS.
             </h2>
