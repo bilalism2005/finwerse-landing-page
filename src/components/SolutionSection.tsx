@@ -118,15 +118,15 @@ const SolutionBlock = ({
 
   const textEl = (
     <div className="flex flex-col gap-5">
-      <span className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+      <span className="text-xs font-montserrat font-bold uppercase tracking-[0.2em] text-primary">
         {label}
       </span>
-      <h2 className="text-3xl md:text-5xl font-black uppercase leading-tight tracking-tight text-foreground">
+      <h2 className="text-3xl md:text-5xl font-bebas uppercase leading-tight tracking-wide text-foreground">
         {heading}
       </h2>
       <ul className="flex flex-col gap-3">
         {bullets.map((b, i) => (
-          <li key={i} className="flex items-start gap-3 text-muted-foreground">
+          <li key={i} className="flex items-start gap-3 font-nunito text-muted-foreground">
             <span className="mt-1.5 w-2 h-2 rounded-full bg-primary flex-shrink-0" />
             {b}
           </li>
@@ -138,19 +138,22 @@ const SolutionBlock = ({
   return (
     <div
       ref={ref}
-      className="fade-in-section max-w-6xl mx-auto px-6 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center"
+      className="fade-in-section min-h-[60vh] flex items-center justify-center"
+      style={{ padding: '120px 40px' }}
     >
-      {imageLeft ? (
-        <>
-          {imageEl}
-          {textEl}
-        </>
-      ) : (
-        <>
-          {textEl}
-          {imageEl}
-        </>
-      )}
+      <div className="max-w-6xl mx-auto w-full grid md:grid-cols-2 gap-12 items-center">
+        {imageLeft ? (
+          <>
+            {imageEl}
+            {textEl}
+          </>
+        ) : (
+          <>
+            {textEl}
+            {imageEl}
+          </>
+        )}
+      </div>
     </div>
   );
 };
