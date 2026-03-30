@@ -1,4 +1,4 @@
-import { Smartphone } from "lucide-react";
+import PhoneScreen from "./PhoneScreen";
 
 const HeroSection = () => {
   return (
@@ -6,11 +6,10 @@ const HeroSection = () => {
       <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-20 w-full grid md:grid-cols-2 gap-16 lg:gap-24 items-center py-[140px]">
         {/* Phone Mockup */}
         <div className="flex justify-center md:justify-start">
-          <div className="relative w-64 h-[500px] bg-secondary rounded-[2.5rem] border-2 border-border flex items-center justify-center overflow-hidden">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-background rounded-b-2xl" />
-            <div className="flex flex-col items-center gap-4 text-muted-foreground">
-              <Smartphone size={48} strokeWidth={1} />
-              <span className="text-xs font-nunito uppercase tracking-widest">Finverse App</span>
+          <div className="relative w-64 h-[500px] bg-secondary rounded-[2.5rem] border-2 border-border overflow-hidden">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-background rounded-b-2xl z-10" />
+            <div className="h-full overflow-y-auto scrollbar-hide">
+              <PhoneScreen />
             </div>
           </div>
         </div>
