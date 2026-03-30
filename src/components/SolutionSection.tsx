@@ -113,7 +113,7 @@ const SolutionBlock = ({
     <div className="flex justify-center">
       <div className="w-full max-w-md rounded-2xl overflow-hidden">
         <img
-          src={stockAnalyticsHero}
+          src={stockMascot}
           alt="Stock Analytics - AI verified trades dashboard"
           className="w-full h-auto object-contain"
         />
