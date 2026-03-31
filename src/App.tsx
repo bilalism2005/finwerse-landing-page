@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Auth from "./pages/Auth.tsx";
+import AuthCallback from "./pages/AuthCallback.tsx";
 import WhatsApp from "./pages/WhatsApp.tsx";
 import BrokerConnect from "./pages/BrokerConnect.tsx";
 import AppLayout from "./components/AppLayout.tsx";
