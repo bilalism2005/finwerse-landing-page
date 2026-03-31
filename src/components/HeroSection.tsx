@@ -26,9 +26,10 @@ const HeroSection = () => {
             AI-powered scores for every stock.
           </p>
           <div>
-            <button className="neon-shadow bg-background text-foreground font-montserrat font-bold text-sm uppercase tracking-widest px-8 py-4 border border-border hover:bg-secondary transition-colors">
-              TRY NOW
-            </button>
+            <button
+              onClick={() => navigate("/broker-connect")}
+              className="neon-shadow bg-background text-foreground font-montserrat font-bold text-sm uppercase tracking-widest px-8 py-4 border border-border hover:bg-secondary transition-colors"
+            >
           </div>
         </div>
       </div>
