@@ -17,7 +17,7 @@ const Header = () => {
           </a>
         </nav>
         <button
-          onClick={() => navigate("/broker-connect")}
+          onClick={() => navigate("/auth")}
           className="px-5 py-2 text-sm font-montserrat font-medium text-foreground border border-foreground/30 rounded-full hover:border-foreground/60 transition-colors"
         >
           Try Now

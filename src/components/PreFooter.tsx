@@ -39,7 +39,7 @@ const PreFooter = () => {
             </h2>
             <div>
               <button
-                onClick={() => navigate("/broker-connect")}
+                onClick={() => navigate("/auth")}
                 className="bg-primary-foreground text-primary font-montserrat font-bold text-sm uppercase tracking-widest px-8 py-4 rounded-full hover:opacity-90 transition-opacity"
               >
                 TRY NOW
