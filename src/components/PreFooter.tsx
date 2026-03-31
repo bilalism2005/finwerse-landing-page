@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useScrollFadeIn } from "@/hooks/useScrollFadeIn";
 
 const socials = [
