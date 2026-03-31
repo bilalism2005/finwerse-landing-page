@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Auth from "./pages/Auth.tsx";
+import AuthCallback from "./pages/AuthCallback.tsx";
 import WhatsApp from "./pages/WhatsApp.tsx";
 import BrokerConnect from "./pages/BrokerConnect.tsx";
 import AppLayout from "./components/AppLayout.tsx";
@@ -66,6 +67,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/whatsapp" element={<ProtectedRoute><WhatsApp /></ProtectedRoute>} />
           <Route path="/broker-connect" element={<ProtectedRoute><BrokerConnect /></ProtectedRoute>} />
           <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
