@@ -16,12 +16,12 @@ const Header = () => {
             Solutions
           </a>
         </nav>
-        <a
-          href="#trynow"
+        <button
+          onClick={() => navigate("/broker-connect")}
           className="px-5 py-2 text-sm font-montserrat font-medium text-foreground border border-foreground/30 rounded-full hover:border-foreground/60 transition-colors"
         >
           Try Now
-        </a>
+        </button>
       </div>
     </header>
   );

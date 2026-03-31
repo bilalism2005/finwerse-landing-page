@@ -38,7 +38,10 @@ const PreFooter = () => {
               LET'S TRADE ON DATA. NOT ON TIPS.
             </h2>
             <div>
-              <button className="bg-primary-foreground text-primary font-montserrat font-bold text-sm uppercase tracking-widest px-8 py-4 rounded-full hover:opacity-90 transition-opacity">
+              <button
+                onClick={() => navigate("/broker-connect")}
+                className="bg-primary-foreground text-primary font-montserrat font-bold text-sm uppercase tracking-widest px-8 py-4 rounded-full hover:opacity-90 transition-opacity"
+              >
                 TRY NOW
               </button>
             </div>
