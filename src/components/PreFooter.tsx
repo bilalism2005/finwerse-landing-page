@@ -10,6 +10,7 @@ const socials = [
 
 const PreFooter = () => {
   const ref = useScrollFadeIn();
+  const navigate = useNavigate();
 
   return (
     <section ref={ref} className="fade-in-section bg-background py-[160px] px-6 md:px-10 lg:px-20">
