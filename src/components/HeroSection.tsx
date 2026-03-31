@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import PhoneScreen from "./PhoneScreen";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
   return (
     <section id="home" className="relative min-h-screen flex items-center justify-center hero-grid pt-8">
       <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-20 w-full grid md:grid-cols-2 gap-16 lg:gap-24 items-center py-[140px]">
