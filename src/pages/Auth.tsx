@@ -43,7 +43,7 @@ const Auth = () => {
     setError("");
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/whatsapp` },
     });
     if (authError) {
       setError("Google sign-in is not available yet. Please use email to create an account.");
