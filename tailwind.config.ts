@@ -14,10 +14,12 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Montserrat", "sans-serif"],
+        sans: ["DM Sans", "sans-serif"],
         bebas: ["Bebas Neue", "cursive"],
         montserrat: ["Montserrat", "sans-serif"],
         nunito: ["Nunito Sans", "sans-serif"],
+        dm: ["DM Sans", "sans-serif"],
+        mono: ["Space Mono", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
