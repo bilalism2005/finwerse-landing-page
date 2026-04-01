@@ -27,7 +27,7 @@ const HeroSection = () => {
           </p>
           <div>
             <button
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate("/broker-connect")}
               className="neon-shadow bg-background text-foreground font-montserrat font-bold text-sm uppercase tracking-widest px-8 py-4 border border-border hover:bg-secondary transition-colors"
             >
               TRY NOW
