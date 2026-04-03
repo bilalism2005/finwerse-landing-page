@@ -17,7 +17,7 @@ const BrokerConnect = () => {
   return (
     <div className="min-h-screen bg-[#0D0D0D] text-[#F0F0F0] font-dm flex flex-col">
       <div className="p-6 md:p-10">
-        <span className="text-xl font-bebas tracking-wide">Finverse</span>
+        <span className="text-xl font-bebas tracking-wide">Finwerse</span>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">

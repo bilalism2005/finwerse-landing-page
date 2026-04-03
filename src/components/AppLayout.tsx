@@ -25,7 +25,7 @@ const AppLayout = () => {
           <button onClick={() => setSidebarOpen(true)} className="p-1.5 hover:bg-[#1a1a1a] rounded-lg transition-colors">
             <Menu size={20} />
           </button>
-          <span className="text-xl font-bebas tracking-wide cursor-pointer" onClick={() => navigate("/")}>Finverse</span>
+          <span className="text-xl font-bebas tracking-wide cursor-pointer" onClick={() => navigate("/")}>Finwerse</span>
           <nav className="flex items-center gap-1 ml-4">
             {navItems.map((item) => {
               const active = location.pathname === item.path;
@@ -52,7 +52,7 @@ const AppLayout = () => {
         <button onClick={() => setSidebarOpen(true)} className="p-1.5">
           <Menu size={20} />
         </button>
-        <span className="text-lg font-bebas tracking-wide">Finverse</span>
+        <span className="text-lg font-bebas tracking-wide">Finwerse</span>
         <button className="p-1.5">
           <User size={18} />
         </button>
@@ -68,7 +68,7 @@ const AppLayout = () => {
         className={`fixed top-0 left-0 bottom-0 z-[70] w-72 bg-[#111111] border-r border-[#1a1a1a] transform transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex items-center justify-between p-5 border-b border-[#1a1a1a]">
-          <span className="text-lg font-bebas tracking-wide">Finverse</span>
+          <span className="text-lg font-bebas tracking-wide">Finwerse</span>
           <button onClick={() => setSidebarOpen(false)} className="p-1 hover:bg-[#1a1a1a] rounded-lg">
             <X size={18} />
           </button>

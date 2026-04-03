@@ -6,7 +6,7 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
       <div className="max-w-7xl mx-auto px-10 py-4 flex items-center justify-between">
         <span className="text-3xl font-bebas tracking-wide text-foreground uppercase">
-          Finverse
+          Finwerse
         </span>
         <nav className="hidden md:flex items-center gap-8">
           <a href="#home" className="text-sm font-montserrat font-medium text-foreground/80 hover:text-foreground transition-colors">

@@ -5,7 +5,7 @@ const Footer = () => {
     <footer className="bg-accent rounded-t-[2.5rem] py-20 px-5 sm:px-6 md:px-10">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-end justify-between gap-8">
         <span className="text-6xl md:text-8xl font-bebas uppercase tracking-wide text-accent-foreground">
-          FINVERSE
+          FINWERSE
         </span>
         <div className="flex flex-col gap-3">
           <a
