@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { brokers } from "@/lib/dummyData";
 import { Check } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const BrokerConnect = () => {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ const BrokerConnect = () => {
   const handleConnect = (brokerName: string) => {
     setConnected(brokerName);
     setToast(`Connected to ${brokerName}. Loading your portfolio...`);
+    supabase.auth.updateUser({ data: { onboarded: true } });
     setTimeout(() => navigate("/app/discover"), 1800);
   };
 
@@ -65,7 +67,10 @@ const BrokerConnect = () => {
           </div>
 
           <button
-            onClick={() => navigate("/app/discover")}
+            onClick={async () => {
+              await supabase.auth.updateUser({ data: { onboarded: true } });
+              navigate("/app/discover");
+            }}
             className="mt-8 text-[#666] text-sm hover:text-[#999] transition-colors mx-auto block"
           >
             Skip for now →

@@ -1,7 +1,19 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Search, Briefcase, Sparkles, Newspaper, Menu, X, User, Bell, BarChart3, Settings, Link2 } from "lucide-react";
+import { Search, Briefcase, Sparkles, Newspaper, Menu, X, User, Bell, BarChart3, Settings, Link2, LogOut } from "lucide-react";
 import { alerts } from "@/lib/dummyData";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const navItems = [
   { label: "Discover", path: "/app/discover", icon: Search },
@@ -14,8 +26,14 @@ const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   const isAskAI = location.pathname === "/app/ask-ai";
   const unreadAlerts = alerts.filter((a) => a.active).length;
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] text-[#F0F0F0] font-dm relative">
@@ -97,6 +115,37 @@ const AppLayout = () => {
             <Settings size={18} />
             <span>Settings</span>
           </button>
+
+          <div className="mt-1">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1a] transition-colors text-sm text-red-400">
+                  <LogOut size={18} />
+                  <span>Sign Out</span>
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-[#111111] border-[#2a2a2a] text-[#F0F0F0]">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Sign out?</AlertDialogTitle>
+                  <AlertDialogDescription className="text-[#666]">
+                    You'll need to sign in again to access your account.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="bg-transparent border-[#2a2a2a] text-[#F0F0F0] hover:bg-[#1a1a1a]">
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleSignOut}
+                    className="bg-red-500 hover:bg-red-600 text-white"
+                  >
+                    Sign Out
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+
           <div className="mt-4 mx-4 p-3 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a]">
             <div className="flex items-center gap-2 text-xs text-[#666]">
               <Link2 size={14} />

@@ -12,7 +12,10 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (session) navigate("/broker-connect", { replace: true });
+    if (session) {
+      const onboarded = session.user.user_metadata?.onboarded;
+      navigate(onboarded ? "/app/discover" : "/broker-connect", { replace: true });
+    }
   }, [session, navigate]);
 
   return (
