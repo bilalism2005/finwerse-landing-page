@@ -3,10 +3,13 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import BrokerConnect from "./pages/BrokerConnect.tsx";
 import AppLayout from "./components/AppLayout.tsx";
+import ProtectedRoute from "./components/ProtectedRoute.tsx";
+import Auth from "./pages/Auth.tsx";
 import Discover from "./pages/Discover.tsx";
 import StockDetail from "./pages/StockDetail.tsx";
 import Portfolio from "./pages/Portfolio.tsx";
@@ -23,21 +26,25 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/broker-connect" element={<BrokerConnect />} />
-          <Route path="/app" element={<AppLayout />}>
-            <Route path="discover" element={<Discover />} />
-            <Route path="stock/:symbol" element={<StockDetail />} />
-            <Route path="portfolio" element={<Portfolio />} />
-            <Route path="ask-ai" element={<AskAI />} />
-            <Route path="feed" element={<Feed />} />
-            <Route path="alerts" element={<Alerts />} />
-            <Route path="impulse-analyzer" element={<ImpulseAnalyzer />} />
-          </Route>
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/broker-connect" element={<BrokerConnect />} />
+              <Route path="/app" element={<AppLayout />}>
+                <Route path="discover" element={<Discover />} />
+                <Route path="stock/:symbol" element={<StockDetail />} />
+                <Route path="portfolio" element={<Portfolio />} />
+                <Route path="ask-ai" element={<AskAI />} />
+                <Route path="feed" element={<Feed />} />
+                <Route path="alerts" element={<Alerts />} />
+                <Route path="impulse-analyzer" element={<ImpulseAnalyzer />} />
+              </Route>
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
