@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Search, Briefcase, Sparkles, Newspaper, Menu, X, User, Bell, BarChart3, Settings, Link2, LogOut } from "lucide-react";
+import { Search, Briefcase, Sparkles, Newspaper, Menu, X, User, Bell, BarChart3, Settings, Link2, LogOut, Users } from "lucide-react";
 import { alerts } from "@/lib/dummyData";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -14,6 +14,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+
+const WHATSAPP_COMMUNITY_LINK = "https://chat.whatsapp.com/EMvWWplb3ma5eofToe3yW7";
 
 const navItems = [
   { label: "Discover", path: "/app/discover", icon: Search },
@@ -24,11 +33,22 @@ const navItems = [
 
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [communityPopup, setCommunityPopup] = useState(() => sessionStorage.getItem('show_community_popup') === 'true');
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const isAskAI = location.pathname === "/app/ask-ai";
   const unreadAlerts = alerts.filter((a) => a.active).length;
+
+  const handleDismissPopup = () => {
+    setCommunityPopup(false);
+    sessionStorage.removeItem('show_community_popup');
+  };
+
+  const handleJoinCommunity = () => {
+    window.open(WHATSAPP_COMMUNITY_LINK, '_blank');
+    handleDismissPopup();
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -111,6 +131,13 @@ const AppLayout = () => {
             <BarChart3 size={18} />
             <span>Impulse Analyzer</span>
           </button>
+          <button
+            onClick={() => { setCommunityPopup(true); setSidebarOpen(false); }}
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1a] transition-colors text-sm text-green-400"
+          >
+            <Users size={18} />
+            <span>Community</span>
+          </button>
           <button className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-[#1a1a1a] transition-colors text-sm">
             <Settings size={18} />
             <span>Settings</span>
@@ -187,6 +214,38 @@ const AppLayout = () => {
           );
         })}
       </nav>
+
+      {/* Community Popup — shown once for new users after broker connect */}
+      <Dialog open={communityPopup} onOpenChange={handleDismissPopup}>
+        <DialogContent className="bg-[#111111] border-[#2a2a2a] text-[#F0F0F0] max-w-sm mx-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-500/10 mb-3 mx-auto">
+              <Users size={24} className="text-green-400" />
+            </div>
+            <DialogTitle className="text-center text-lg font-bebas tracking-wide text-[#F0F0F0]">
+              You're an Early User
+            </DialogTitle>
+            <DialogDescription className="text-center text-[#999] text-sm leading-relaxed">
+              Enjoy Pro benefits free for early users from the community. Join the early users community now.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-2">
+            <button
+              onClick={handleJoinCommunity}
+              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            >
+              <Users size={16} />
+              Join Now
+            </button>
+            <button
+              onClick={handleDismissPopup}
+              className="w-full py-2.5 rounded-xl border border-[#2a2a2a] text-[#666] hover:text-[#999] hover:border-[#333] text-sm transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

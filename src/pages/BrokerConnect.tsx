@@ -13,6 +13,7 @@ const BrokerConnect = () => {
     setConnected(brokerName);
     setToast(`Connected to ${brokerName}. Loading your portfolio...`);
     supabase.auth.updateUser({ data: { onboarded: true } });
+    sessionStorage.setItem('show_community_popup', 'true');
     setTimeout(() => navigate("/app/discover"), 1800);
   };
 
@@ -69,6 +70,7 @@ const BrokerConnect = () => {
           <button
             onClick={async () => {
               await supabase.auth.updateUser({ data: { onboarded: true } });
+              sessionStorage.setItem('show_community_popup', 'true');
               navigate("/app/discover");
             }}
             className="mt-8 text-[#666] text-sm hover:text-[#999] transition-colors mx-auto block"
