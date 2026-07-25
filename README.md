@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# Finwerse
 
-TODO: Document your project here
+Finwerse — AI-powered scores for every stock

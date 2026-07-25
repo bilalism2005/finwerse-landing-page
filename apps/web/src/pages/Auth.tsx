@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@finwerse/shared";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -34,7 +34,7 @@ const Auth = () => {
 
   const handleGoogle = async () => {
     setError(null);
-    const { error } = await signInWithGoogle();
+    const { error } = await signInWithGoogle(window.location.origin + "/auth");
     if (error) setError(error);
   };
 

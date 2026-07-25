@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Search, Briefcase, Sparkles, Newspaper, Menu, X, User, Bell, BarChart3, Settings, Link2, LogOut, Users } from "lucide-react";
 import { alerts } from "@/lib/dummyData";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@finwerse/shared";
 import {
   AlertDialog,
   AlertDialogAction,

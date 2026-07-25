@@ -5,7 +5,7 @@ import HeroSection from "@/components/HeroSection";
 import SolutionSection from "@/components/SolutionSection";
 import PreFooter from "@/components/PreFooter";
 import Footer from "@/components/Footer";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@finwerse/shared";
 
 const Index = () => {
   const { session, loading } = useAuth();

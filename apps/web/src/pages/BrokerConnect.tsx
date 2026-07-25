@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { brokers } from "@/lib/dummyData";
 import { Check } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@finwerse/shared";
 
 const BrokerConnect = () => {
   const navigate = useNavigate();
@@ -12,7 +12,7 @@ const BrokerConnect = () => {
   const handleConnect = (brokerName: string) => {
     setConnected(brokerName);
     setToast(`Connected to ${brokerName}. Loading your portfolio...`);
-    supabase.auth.updateUser({ data: { onboarded: true } });
+    getSupabase().auth.updateUser({ data: { onboarded: true } });
     sessionStorage.setItem('show_community_popup', 'true');
     setTimeout(() => navigate("/app/discover"), 1800);
   };
@@ -69,7 +69,7 @@ const BrokerConnect = () => {
 
           <button
             onClick={async () => {
-              await supabase.auth.updateUser({ data: { onboarded: true } });
+              await getSupabase().auth.updateUser({ data: { onboarded: true } });
               sessionStorage.setItem('show_community_popup', 'true');
               navigate("/app/discover");
             }}
