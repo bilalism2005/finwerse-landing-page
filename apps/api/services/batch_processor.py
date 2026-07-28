@@ -78,30 +78,36 @@ class BatchProcessor:
         now = datetime.now()
         to_date_str = now.strftime("%Y-%m-%d %H:%M")
         
-        # Fetch daily for last 100 days
-        from_date_daily = (now - timedelta(days=150)).strftime("%Y-%m-%d %H:%M")
+        # Angel One only supports ONE_DAY interval for equity
+        # Fetch ~3 years of daily data (enough to resample into weekly/monthly)
+        from_date_daily = (now - timedelta(days=365*3)).strftime("%Y-%m-%d %H:%M")
         daily_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_daily, to_date_str)
         
-        # Fetch weekly for last 100 weeks
-        from_date_weekly = (now - timedelta(weeks=120)).strftime("%Y-%m-%d %H:%M")
-        weekly_data = self.fetch_angel_candles(mapping.angel_token, "ONE_WEEK", from_date_weekly, to_date_str)
-        
-        # Fetch monthly for last 100 months
-        from_date_monthly = (now - timedelta(days=30*120)).strftime("%Y-%m-%d %H:%M")
-        monthly_data = self.fetch_angel_candles(mapping.angel_token, "ONE_MONTH", from_date_monthly, to_date_str)
-        
-        if not daily_data or not weekly_data or not monthly_data:
+        if not daily_data:
             logger.warning(f"Missing candle data for {mapping.stock_symbol}, skipping technicals.")
             tech_scores = {"short": 0, "medium": 0, "long": 0}
         else:
             df_daily = pd.DataFrame(daily_data, columns=['date', 'open', 'high', 'low', 'close', 'volume'])
-            df_weekly = pd.DataFrame(weekly_data, columns=['date', 'open', 'high', 'low', 'close', 'volume'])
-            df_monthly = pd.DataFrame(monthly_data, columns=['date', 'open', 'high', 'low', 'close', 'volume'])
             
             # Convert types
-            for df in [df_daily, df_weekly, df_monthly]:
-                for col in ['open', 'high', 'low', 'close', 'volume']:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            for col in ['open', 'high', 'low', 'close', 'volume']:
+                df_daily[col] = pd.to_numeric(df_daily[col], errors='coerce')
+            df_daily['date'] = pd.to_datetime(df_daily['date'])
+            df_daily = df_daily.set_index('date').sort_index()
+            
+            # Resample daily data into weekly and monthly
+            df_weekly = df_daily.resample('W').agg({
+                'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
+            }).dropna()
+            
+            df_monthly = df_daily.resample('ME').agg({
+                'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
+            }).dropna()
+            
+            # Reset index for scoring functions
+            df_daily = df_daily.reset_index()
+            df_weekly = df_weekly.reset_index()
+            df_monthly = df_monthly.reset_index()
             
             tech_scores = compute_technical_scores(df_daily, df_weekly, df_monthly)
 

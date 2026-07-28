@@ -70,7 +70,14 @@ class AngelOneClient:
             "todate": to_date
         }
         response = httpx.post(url, headers=headers, json=payload)
-        return response.json()
+        if response.status_code != 200:
+            logger.error(f"Angel One historical data error: HTTP {response.status_code}")
+            return {"status": False, "message": f"HTTP {response.status_code}", "data": None}
+        try:
+            return response.json()
+        except Exception:
+            logger.error(f"Angel One returned non-JSON response")
+            return {"status": False, "message": "Non-JSON response", "data": None}
 
 class IndianAPIClient:
     def __init__(self):
@@ -91,6 +98,6 @@ class EODHDClient:
         self.base_url = "https://eodhd.com/api"
 
     def get_news(self, symbol, from_date, to_date):
-        url = f"{self.base_url}/news?s={symbol}.NSE&from={from_date}&to={to_date}&limit=50&api_token={self.api_key}&fmt=json"
+        url = f"{self.base_url}/news?s={symbol}&from={from_date}&to={to_date}&limit=50&api_token={self.api_key}&fmt=json"
         response = httpx.get(url)
         return response.json()
