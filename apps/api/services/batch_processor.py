@@ -113,7 +113,7 @@ class BatchProcessor:
             
             tech_scores = compute_technical_scores(df_daily, df_weekly, df_monthly)
 
-        # 2. Fetch Sentiment from EODHD
+        # 2. Fetch Sentiment from EODHD and Cache in DB
         sentiment_scores = {"short": "Not Available", "medium": "Not Available", "long": "Not Available"}
         if mapping.eodhd_symbol:
             # EODHD news API maps Indian tickers to global/US symbols (.US suffix instead of .NSE)
@@ -125,34 +125,61 @@ class BatchProcessor:
             to_date_news = now.strftime("%Y-%m-%d")
             try:
                 news_data = self.fetch_eodhd_news(eodhd_news_symbol, from_date_news, to_date_news)
-                if isinstance(news_data, list) and len(news_data) > 0:
-                    # Deduplicate news articles
-                    seen_keys = set()
-                    deduped_news = []
+                if isinstance(news_data, list):
+                    # Cache articles in DB
                     for art in news_data:
-                        title = art.get("title", "").strip().lower()
-                        date_str = art.get("date", "")
-                        try:
-                            dt = datetime.fromisoformat(date_str)
-                            hour_bucket = dt.strftime("%Y-%m-%d %H")
-                            key = (title, hour_bucket)
-                            if key not in seen_keys:
-                                seen_keys.add(key)
-                                deduped_news.append(art)
-                        except Exception:
-                            if title not in seen_keys:
-                                seen_keys.add(title)
-                                deduped_news.append(art)
+                        url = art.get("link") or art.get("url") or ""
+                        if not url:
+                            continue
+                        # Check duplicate by unique source_url
+                        exists = self.db.query(models.StockNews).filter(models.StockNews.source_url == url).first()
+                        if not exists:
+                            date_str = art.get("date", "")
+                            try:
+                                dt = datetime.fromisoformat(date_str)
+                            except Exception:
+                                dt = now
+                            polarity = safe_float(art.get("sentiment", {}).get("polarity", 0.0))
+                            
+                            db_news = models.StockNews(
+                                stock_symbol=mapping.stock_symbol,
+                                article_date=dt,
+                                polarity=polarity,
+                                source_url=url
+                            )
+                            self.db.add(db_news)
+                    self.db.commit()
+            except Exception as e:
+                logger.error(f"Error fetching and caching news for {mapping.stock_symbol}: {e}")
+                self.db.rollback()
+
+            # Read cached articles for this stock from DB for the rolling 30-day window
+            try:
+                thirty_days_ago = now - timedelta(days=30)
+                db_articles = self.db.query(models.StockNews).filter(
+                    models.StockNews.stock_symbol == mapping.stock_symbol,
+                    models.StockNews.article_date >= thirty_days_ago
+                ).all()
+                
+                if db_articles:
+                    # Convert DB model items to dict list for deduplication and scoring
+                    raw_articles = []
+                    for art in db_articles:
+                        raw_articles.append({
+                            "title": "", # Title deduplication is not needed as source_url has unique DB constraint
+                            "date": art.article_date.isoformat(),
+                            "sentiment": {"polarity": art.polarity}
+                        })
                     
                     # Calculate timeframe weighted sentiment
                     sentiment_scores = {
-                        "short": compute_timeframe_sentiment(deduped_news, 3, now),
-                        "medium": compute_timeframe_sentiment(deduped_news, 15, now),
-                        "long": compute_timeframe_sentiment(deduped_news, 30, now)
+                        "short": compute_timeframe_sentiment(raw_articles, 3, now),
+                        "medium": compute_timeframe_sentiment(raw_articles, 15, now),
+                        "long": compute_timeframe_sentiment(raw_articles, 30, now)
                     }
-                    logger.info(f"Computed sentiment scores for {mapping.stock_symbol}: {sentiment_scores}")
+                    logger.info(f"Computed database-cached sentiment scores for {mapping.stock_symbol}: {sentiment_scores}")
             except Exception as e:
-                logger.error(f"Error fetching news for {mapping.stock_symbol}: {e}")
+                logger.error(f"Error calculating sentiment from database cache for {mapping.stock_symbol}: {e}")
 
         # 3. Compute Safety Score
         safety_scores = {"short": 50, "medium": 50, "long": 50}
