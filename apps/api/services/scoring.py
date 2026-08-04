@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ---- Pure pandas technical indicator implementations ----
 
@@ -9,6 +9,8 @@ def sma(series, length):
 
 def ema(series, length):
     return series.ewm(span=length, adjust=False).mean()
+
+# ... (other indicator functions) ...
 
 def rsi(close, length=14):
     delta = close.diff()
@@ -159,6 +161,49 @@ def compute_overall_score(technical, safety, sentiment, timeframe):
         return (technical * new_w_tech) + (safety * new_w_safety)
     
     return (technical * w['technical']) + (sentiment * w['sentiment']) + (safety * w['safety'])
+
+def compute_timeframe_sentiment(articles, timeframe_days, now):
+    weighted_sum = 0.0
+    total_weight = 0.0
+    count = 0
+    
+    for art in articles:
+        date_str = art.get("date", "")
+        try:
+            # Handle standard ISO dates from EODHD
+            dt = datetime.fromisoformat(date_str)
+            
+            # Convert both now and dt to naive UTC datetimes for safe comparison
+            if dt.tzinfo is not None:
+                dt_naive = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            else:
+                dt_naive = dt
+                
+            if now.tzinfo is not None:
+                now_naive = now.astimezone(timezone.utc).replace(tzinfo=None)
+            else:
+                now_naive = now
+                
+            age_seconds = (now_naive - dt_naive).total_seconds()
+            age_days = age_seconds / 86400.0
+            
+            if 0 <= age_days <= timeframe_days:
+                polarity = safe_float(art.get("sentiment", {}).get("polarity", 0.0))
+                # Linear decay from 1.0 (today) to 0.1 (oldest boundary)
+                weight = 1.0 - 0.9 * (age_days / timeframe_days)
+                weight = max(0.1, min(1.0, weight))
+                
+                weighted_sum += polarity * weight
+                total_weight += weight
+                count += 1
+        except Exception:
+            continue
+            
+    if count == 0:
+        return "Not Available"
+        
+    raw_sentiment = weighted_sum / total_weight if total_weight > 0 else 0.0
+    return raw_sentiment * 100.0
 
 def safe_float(val, default=0.0):
     if val is None:

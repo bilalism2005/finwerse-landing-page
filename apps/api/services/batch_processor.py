@@ -8,7 +8,7 @@ import httpx
 
 import models
 from services.data_fetcher import AngelOneClient, IndianAPIClient, EODHDClient
-from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores, safe_float
+from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores, safe_float, compute_timeframe_sentiment
 
 logger = logging.getLogger(__name__)
 
@@ -116,15 +116,41 @@ class BatchProcessor:
         # 2. Fetch Sentiment from EODHD
         sentiment_scores = {"short": "Not Available", "medium": "Not Available", "long": "Not Available"}
         if mapping.eodhd_symbol:
-            from_date_news = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+            # EODHD news API maps Indian tickers to global/US symbols (.US suffix instead of .NSE)
+            eodhd_news_symbol = mapping.eodhd_symbol
+            if eodhd_news_symbol.endswith(".NSE"):
+                eodhd_news_symbol = eodhd_news_symbol.replace(".NSE", ".US")
+                
+            from_date_news = (now - timedelta(days=30)).strftime("%Y-%m-%d")
             to_date_news = now.strftime("%Y-%m-%d")
             try:
-                news_data = self.fetch_eodhd_news(mapping.eodhd_symbol, from_date_news, to_date_news)
+                news_data = self.fetch_eodhd_news(eodhd_news_symbol, from_date_news, to_date_news)
                 if isinstance(news_data, list) and len(news_data) > 0:
-                    # Simple average sentiment
-                    sentiments = [n.get('sentiment', {}).get('polarity', 0) for n in news_data]
-                    avg_sentiment = sum(sentiments) / len(sentiments) * 100 # scale to -100 to 100
-                    sentiment_scores = {"short": avg_sentiment, "medium": avg_sentiment, "long": avg_sentiment}
+                    # Deduplicate news articles
+                    seen_keys = set()
+                    deduped_news = []
+                    for art in news_data:
+                        title = art.get("title", "").strip().lower()
+                        date_str = art.get("date", "")
+                        try:
+                            dt = datetime.fromisoformat(date_str)
+                            hour_bucket = dt.strftime("%Y-%m-%d %H")
+                            key = (title, hour_bucket)
+                            if key not in seen_keys:
+                                seen_keys.add(key)
+                                deduped_news.append(art)
+                        except Exception:
+                            if title not in seen_keys:
+                                seen_keys.add(title)
+                                deduped_news.append(art)
+                    
+                    # Calculate timeframe weighted sentiment
+                    sentiment_scores = {
+                        "short": compute_timeframe_sentiment(deduped_news, 3, now),
+                        "medium": compute_timeframe_sentiment(deduped_news, 15, now),
+                        "long": compute_timeframe_sentiment(deduped_news, 30, now)
+                    }
+                    logger.info(f"Computed sentiment scores for {mapping.stock_symbol}: {sentiment_scores}")
             except Exception as e:
                 logger.error(f"Error fetching news for {mapping.stock_symbol}: {e}")
 
