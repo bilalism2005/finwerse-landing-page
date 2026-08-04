@@ -103,6 +103,38 @@ class IndianAPIClient:
             return None
         return response.json()
 
+    def get_quarterly_results(self, symbol):
+        url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=quarter_results"
+        response = httpx.get(url, headers=self.headers)
+        if response.status_code != 200:
+            logger.error(f"IndianAPI get_quarterly_results error: {response.status_code}")
+            return None
+        return response.json()
+
+    def get_yoy_results(self, symbol):
+        url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=yoy_results"
+        response = httpx.get(url, headers=self.headers)
+        if response.status_code != 200:
+            logger.error(f"IndianAPI get_yoy_results error: {response.status_code}")
+            return None
+        return response.json()
+
+    def get_balancesheet(self, symbol):
+        url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=balancesheet"
+        response = httpx.get(url, headers=self.headers)
+        if response.status_code != 200:
+            logger.error(f"IndianAPI get_balancesheet error: {response.status_code}")
+            return None
+        return response.json()
+
+    def get_shareholding_pattern(self, symbol):
+        url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=shareholding_pattern_quarterly"
+        response = httpx.get(url, headers=self.headers)
+        if response.status_code != 200:
+            logger.error(f"IndianAPI get_shareholding_pattern error: {response.status_code}")
+            return None
+        return response.json()
+
 class EODHDClient:
     def __init__(self):
         self.api_key = os.getenv("EODHD_API_KEY")

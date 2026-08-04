@@ -137,12 +137,34 @@ class BatchProcessor:
             
             time.sleep(INDIANAPI_DELAY)
             stock_data = self.indianapi_client.get_stock_details(mapping.stock_symbol)
+
+            time.sleep(INDIANAPI_DELAY)
+            quarter_data = self.indianapi_client.get_quarterly_results(mapping.stock_symbol)
+
+            time.sleep(INDIANAPI_DELAY)
+            yoy_data = self.indianapi_client.get_yoy_results(mapping.stock_symbol)
+
+            time.sleep(INDIANAPI_DELAY)
+            balance_data = self.indianapi_client.get_balancesheet(mapping.stock_symbol)
+
+            time.sleep(INDIANAPI_DELAY)
+            shareholding_data = self.indianapi_client.get_shareholding_pattern(mapping.stock_symbol)
             
-            if ratios_data and stock_data:
-                safety_scores = compute_safety_scores(ratios_data, stock_data)
-                logger.info(f"Computed safety scores for {mapping.stock_symbol}: {safety_scores}")
-            else:
-                logger.warning(f"Failed to fetch fundamentals for {mapping.stock_symbol}, fallback to default safety scores.")
+            # Pass df_daily if it exists
+            df_daily_dict = None
+            if 'df_daily' in locals() and df_daily is not None:
+                df_daily_dict = df_daily
+
+            safety_scores = compute_safety_scores(
+                ratios_data, 
+                stock_data, 
+                quarter_data, 
+                yoy_data, 
+                balance_data, 
+                shareholding_data,
+                df_daily_dict
+            )
+            logger.info(f"Computed 11-indicator safety scores for {mapping.stock_symbol}: {safety_scores}")
         except Exception as e:
             logger.error(f"Error computing safety scores for {mapping.stock_symbol}: {e}")
 
