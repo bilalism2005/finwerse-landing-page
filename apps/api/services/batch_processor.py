@@ -8,7 +8,7 @@ import httpx
 
 import models
 from services.data_fetcher import AngelOneClient, IndianAPIClient, EODHDClient
-from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores
+from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores, safe_float
 
 logger = logging.getLogger(__name__)
 
@@ -169,11 +169,11 @@ class BatchProcessor:
             logger.error(f"Error computing safety scores for {mapping.stock_symbol}: {e}")
 
         # 4. Overall Scores
-        overall_short = compute_overall_score(tech_scores['short'], safety_scores['short'], sentiment_scores['short'] if sentiment_scores['short'] != "Not Available" else None, 'short')
-        overall_medium = compute_overall_score(tech_scores['medium'], safety_scores['medium'], sentiment_scores['medium'] if sentiment_scores['medium'] != "Not Available" else None, 'medium')
-        overall_long = compute_overall_score(tech_scores['long'], safety_scores['long'], sentiment_scores['long'] if sentiment_scores['long'] != "Not Available" else None, 'long')
+        overall_short = compute_overall_score(tech_scores['short'], safety_scores['scores']['short'], sentiment_scores['short'] if sentiment_scores['short'] != "Not Available" else None, 'short')
+        overall_medium = compute_overall_score(tech_scores['medium'], safety_scores['scores']['medium'], sentiment_scores['medium'] if sentiment_scores['medium'] != "Not Available" else None, 'medium')
+        overall_long = compute_overall_score(tech_scores['long'], safety_scores['scores']['long'], sentiment_scores['long'] if sentiment_scores['long'] != "Not Available" else None, 'long')
 
-        # 5. Save to DB
+        # 5. Save Scores to DB
         score_record = self.db.query(models.StockScore).filter(models.StockScore.stock_symbol == mapping.stock_symbol).first()
         if not score_record:
             score_record = models.StockScore(stock_symbol=mapping.stock_symbol)
@@ -183,9 +183,9 @@ class BatchProcessor:
         score_record.technical_score_medium = tech_scores['medium']
         score_record.technical_score_long = tech_scores['long']
         
-        score_record.safety_score_short = safety_scores['short']
-        score_record.safety_score_medium = safety_scores['medium']
-        score_record.safety_score_long = safety_scores['long']
+        score_record.safety_score_short = safety_scores['scores']['short']
+        score_record.safety_score_medium = safety_scores['scores']['medium']
+        score_record.safety_score_long = safety_scores['scores']['long']
         
         score_record.sentiment_score_short = str(sentiment_scores['short'])
         score_record.sentiment_score_medium = str(sentiment_scores['medium'])
@@ -194,6 +194,24 @@ class BatchProcessor:
         score_record.overall_score_short = overall_short
         score_record.overall_score_medium = overall_medium
         score_record.overall_score_long = overall_long
+        
+        # 6. Save Fundamentals to DB
+        fund_record = self.db.query(models.StockFundamental).filter(models.StockFundamental.stock_symbol == mapping.stock_symbol).first()
+        if not fund_record:
+            fund_record = models.StockFundamental(stock_symbol=mapping.stock_symbol)
+            self.db.add(fund_record)
+            
+        metrics = safety_scores.get('metrics', {})
+        fund_record.period = metrics.get('period')
+        fund_record.sales = safe_float(metrics.get('sales'))
+        fund_record.eps = safe_float(metrics.get('eps'))
+        fund_record.opm = safe_float(metrics.get('opm'))
+        fund_record.roce = safe_float(metrics.get('roce'))
+        fund_record.roe = safe_float(metrics.get('roe'))
+        fund_record.debt_to_equity = safe_float(metrics.get('debt_to_equity'))
+        fund_record.pe_ratio = safe_float(metrics.get('pe_ratio'))
+        fund_record.market_cap = safe_float(metrics.get('market_cap'))
+        fund_record.fii_holding_pct = safe_float(metrics.get('fii_holding_pct'))
         
         self.db.commit()
         logger.info(f"Successfully processed {mapping.stock_symbol}")

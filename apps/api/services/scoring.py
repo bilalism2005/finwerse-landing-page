@@ -437,4 +437,18 @@ def compute_safety_scores(ratios, stock, quarter, yoy, balance, shareholding, df
         # Re-weight proportionally if any metrics are missing
         results[tf] = weighted_sum / total_weight if total_weight > 0 else 0.0
         
-    return results
+    return {
+        "scores": results,
+        "metrics": {
+            "period": latest_y or latest_q or "",
+            "sales": sales_list.get(latest_y) if latest_y else None,
+            "eps": eps_list.get(latest_y) if latest_y else None,
+            "opm": opm,
+            "roce": roce,
+            "roe": roe,
+            "debt_to_equity": de_ratio,
+            "pe_ratio": pe,
+            "market_cap": mcap,
+            "fii_holding_pct": fii_list.get(fii_quarters[-1]) if fii_quarters else None
+        }
+    }
