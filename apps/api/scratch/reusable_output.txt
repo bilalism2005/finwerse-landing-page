@@ -1,0 +1,25 @@
+=== stockDetailsReusableData ===
+close: 1130.00
+date: 03 Aug 2026
+time: 07:00:18
+price: 1164.10
+percentChange: 3.02
+marketCap: 472342.75
+yhigh: 1727.85
+ylow: 984.00
+high: 1164.90
+low: 1138.80
+pPerEBasicExcludingExtraordinaryItemsTTM: 13.49
+currentDividendYieldCommonStockPrimaryIssueLTM: 4.25
+totalDebtPerTotalEquityMostRecentQuarter: 0.10
+priceYTDPricePercentChange: -30.04
+price5DayPercentChange: 8.57
+NetIncome: 29440.00
+FiscalYear: 2026
+interimNetIncome: 7769.00
+stockAnalyst: [{'colorCode': '#02552E', 'ratingName': 'Strong Buy', 'ratingValue': 1, 'numberOfAnalystsLatest': '12', 'numberOfAnalysts1WeekAgo': '13', 'numberOfAnalysts1MonthAgo': '15', 'numberOfAnalysts2MonthAgo': '14', 'numberOfAnalysts3MonthAgo': '14'}, {'colorCode': '#06AA5A', 'ratingName': 'Buy', 'ratingValue': 2, 'numberOfAnalystsLatest': '9', 'numberOfAnalysts1WeekAgo': '8', 'numberOfAnalysts1MonthAgo': '13', 'numberOfAnalysts2MonthAgo': '13', 'numberOfAnalysts3MonthAgo': '13'}, {'colorCode': '#898989', 'ratingName': 'Hold', 'ratingValue': 3, 'numberOfAnalystsLatest': '18', 'numberOfAnalysts1WeekAgo': '18', 'numberOfAnalysts1MonthAgo': '13', 'numberOfAnalysts2MonthAgo': '14', 'numberOfAnalysts3MonthAgo': '14'}, {'colorCode': '#FF0000', 'ratingName': 'Sell', 'ratingValue': 4, 'numberOfAnalystsLatest': '4', 'numberOfAnalysts1WeekAgo': '4', 'numberOfAnalysts1MonthAgo': '2', 'numberOfAnalysts2MonthAgo': '2', 'numberOfAnalysts3MonthAgo': '2'}, {'colorCode': '#B40000', 'ratingName': 'Strong Sell', 'ratingValue': 5, 'numberOfAnalystsLatest': '0.00', 'numberOfAnalysts1WeekAgo': '0.00', 'numberOfAnalysts1MonthAgo': '0.00', 'numberOfAnalysts2MonthAgo': '0.00', 'numberOfAnalysts3MonthAgo': '0.00'}, {'colorCode': '', 'ratingName': 'Total', 'ratingValue': 6, 'numberOfAnalystsLatest': '43', 'numberOfAnalysts1WeekAgo': '43', 'numberOfAnalysts1MonthAgo': '43', 'numberOfAnalysts2MonthAgo': '43', 'numberOfAnalysts3MonthAgo': '43'}]
+peerCompanyList: [{'tickerId': 'S0003051', 'companyName': 'Tata Consultancy Services', 'priceToBookValueRatio': 7.66, 'priceToEarningsValueRatio': 15.67, 'marketCap': 879195.26, 'price': 2430, 'percentChange': 2.72, 'netChange': 64.4, 'returnOnAverageEquity5YearAverage': 48.55, 'returnOnAverageEquityTrailing12Month': 47.99, 'ltDebtPerEquityMostRecentFiscalYear': 8.93, 'netProfitMargin5YearAverage': 19.07, 'netProfitMarginPercentTrailing12Month': 18.15, 'dividendYieldIndicatedAnnualDividend': 2.86, 'totalSharesOutstanding': 361.81, 'languageSupport': 'TCS', 'imageUrl': 'https://www.livemint.com/lm-img/markets/logo/tr/S0003051.png', 'overallRating': 'Moderately Bullish', 'ylow': 1976, 'yhigh': 3336.7}, {'tickerId': 'S0003045', 'companyName': 'HCL Technologies', 'priceToBookValueRatio': 4.35, 'priceToEarningsValueRatio': 18.81, 'marketCap': 367158.89, 'price': 1353, 'percentChange': 0.48, 'netChange': 6.5, 'returnOnAverageEquity5YearAverage': 23.46, 'returnOnAverageEquityTrailing12Month': None, 'ltDebtPerEquityMostRecentFiscalYear': 4.28, 'netProfitMargin5YearAverage': 14.36, 'netProfitMarginPercentTrailing12Month': 12.97, 'dividendYieldIndicatedAnnualDividend': 4.98, 'totalSharesOutstanding': 271.37, 'languageSupport': 'एचसीएल टेक्नोलॉजीज', 'imageUrl': 'https://www.livemint.com/lm-img/markets/logo/tr/S0003045.png', 'overallRating': 'Moderately Bullish', 'ylow': 1030, 'yhigh': 1770}, {'tickerId': 'S0003115', 'companyName': 'Tech Mahindra', 'priceToBookValueRatio': 5.2, 'priceToEarningsValueRatio': 27.9, 'marketCap': 161076.94, 'price': 1643.5, 'percentChange': -0.49, 'netChange': -8.1, 'returnOnAverageEquity5YearAverage': 16.03, 'returnOnAverageEquityTrailing12Month': None, 'ltDebtPerEquityMostRecentFiscalYear': 5.36, 'netProfitMargin5YearAverage': 8.45, 'netProfitMarginPercentTrailing12Month': 8.72, 'dividendYieldIndicatedAnnualDividend': 3.24, 'totalSharesOutstanding': 98.01, 'languageSupport': 'टेक महिंद्रा', 'imageUrl': 'https://www.livemint.com/lm-img/markets/logo/tr/S0003115.png', 'overallRating': 'Bullish', 'ylow': 1304.25, 'yhigh': 1850}]
+sectorPriceToEarningsValueRatio: 24.60
+averageRating: Buy
+promoterShareHolding: None
+mutualFundShareHolding: {'holdingDate': '2026-06-30', 'percentage': '23.00'}

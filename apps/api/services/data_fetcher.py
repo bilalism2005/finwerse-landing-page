@@ -82,14 +82,25 @@ class AngelOneClient:
 class IndianAPIClient:
     def __init__(self):
         self.api_key = os.getenv("INDIANAPI_KEY")
-        self.base_url = "https://indianapi.in/api/v1"
+        self.base_url = "https://stock.indianapi.in"
         self.headers = {
-            "Authorization": f"Bearer {self.api_key}"
+            "x-api-key": self.api_key
         }
 
-    def get_fundamentals(self, symbol):
-        url = f"{self.base_url}/stock/{symbol}/historical_stats?stats=ratios"
+    def get_ratios(self, symbol):
+        url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=ratios"
         response = httpx.get(url, headers=self.headers)
+        if response.status_code != 200:
+            logger.error(f"IndianAPI get_ratios error: {response.status_code}")
+            return None
+        return response.json()
+
+    def get_stock_details(self, symbol):
+        url = f"{self.base_url}/stock?name={symbol}"
+        response = httpx.get(url, headers=self.headers)
+        if response.status_code != 200:
+            logger.error(f"IndianAPI get_stock_details error: {response.status_code}")
+            return None
         return response.json()
 
 class EODHDClient:

@@ -8,12 +8,12 @@ import httpx
 
 import models
 from services.data_fetcher import AngelOneClient, IndianAPIClient, EODHDClient
-from services.scoring import compute_technical_scores, compute_overall_score
+from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores
 
 logger = logging.getLogger(__name__)
 
-# Angel One limits: ~3 requests per second
-ANGEL_ONE_DELAY = 0.35
+# Angel One limits: ~3 requests per second. We use 2.0s delay to be safe and avoid burst limits.
+ANGEL_ONE_DELAY = 2.0
 
 # EODHD limits: 1000 requests per minute -> ~16 requests per second
 EODHD_DELAY = 0.07 
@@ -49,8 +49,9 @@ class BatchProcessor:
             to_date=to_date
         )
         if not res.get('status'):
-            if "Too Many Requests" in str(res) or res.get('errorcode') == 'AB1010': # Example rate limit code
-                raise RateLimitException("Angel One Rate Limit Hit")
+            msg = str(res.get('message', ''))
+            if "Too Many Requests" in str(res) or "403" in msg or "429" in msg or res.get('errorcode') == 'AB1010':
+                raise RateLimitException(f"Angel One Rate Limit Hit: {msg}")
             logger.error(f"Angel One Error: {res}")
             return None
         return res.get('data')
@@ -78,9 +79,10 @@ class BatchProcessor:
         now = datetime.now()
         to_date_str = now.strftime("%Y-%m-%d %H:%M")
         
-        # Angel One only supports ONE_DAY interval for equity
-        # Fetch ~3 years of daily data (enough to resample into weekly/monthly)
-        from_date_daily = (now - timedelta(days=365*3)).strftime("%Y-%m-%d %H:%M")
+        # Angel One allows up to 2000 trading days of ONE_DAY candle history.
+        # 2000 days resamples to ~400 weekly and ~95 monthly candles — well above
+        # the 69-candle warmup needed for CCI(60,9).
+        from_date_daily = (now - timedelta(days=2000)).strftime("%Y-%m-%d %H:%M")
         daily_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_daily, to_date_str)
         
         if not daily_data:
@@ -126,9 +128,23 @@ class BatchProcessor:
             except Exception as e:
                 logger.error(f"Error fetching news for {mapping.stock_symbol}: {e}")
 
-        # 3. Compute Safety Score (Mocked for now until IndianAPI integration is fully wired in batch)
-        # In a real scenario, we'd fetch fundamentals here or retrieve from DB if updated recently
+        # 3. Compute Safety Score
         safety_scores = {"short": 50, "medium": 50, "long": 50}
+        try:
+            logger.info(f"Fetching fundamental data for {mapping.stock_symbol}...")
+            time.sleep(INDIANAPI_DELAY)
+            ratios_data = self.indianapi_client.get_ratios(mapping.stock_symbol)
+            
+            time.sleep(INDIANAPI_DELAY)
+            stock_data = self.indianapi_client.get_stock_details(mapping.stock_symbol)
+            
+            if ratios_data and stock_data:
+                safety_scores = compute_safety_scores(ratios_data, stock_data)
+                logger.info(f"Computed safety scores for {mapping.stock_symbol}: {safety_scores}")
+            else:
+                logger.warning(f"Failed to fetch fundamentals for {mapping.stock_symbol}, fallback to default safety scores.")
+        except Exception as e:
+            logger.error(f"Error computing safety scores for {mapping.stock_symbol}: {e}")
 
         # 4. Overall Scores
         overall_short = compute_overall_score(tech_scores['short'], safety_scores['short'], sentiment_scores['short'] if sentiment_scores['short'] != "Not Available" else None, 'short')
