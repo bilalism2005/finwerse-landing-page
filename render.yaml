@@ -15,9 +15,9 @@ services:
         sync: false
       - key: ANGEL_ONE_CLIENT_ID
         sync: false
-      - key: ANGEL_ONE_PASSWORD
+      - key: ANGEL_ONE_PIN
         sync: false
-      - key: ANGEL_ONE_TOTP_KEY
+      - key: ANGEL_ONE_TOTP_SECRET
         sync: false
       - key: ANGEL_ONE_API_KEY
         sync: false
