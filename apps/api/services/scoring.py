@@ -205,6 +205,51 @@ def compute_timeframe_sentiment(articles, timeframe_days, now):
     raw_sentiment = weighted_sum / total_weight if total_weight > 0 else 0.0
     return raw_sentiment * 100.0
 
+def validate_article_for_stock(article, original_symbol, company_name):
+    if not company_name:
+        return True
+        
+    title = article.get("title", "").strip().lower()
+    content = article.get("content", "").strip().lower()
+    full_text = f"{title} {content}"
+    
+    # Layer 1: Exact Symbol Match
+    article_symbols = [s.lower() for s in article.get("symbols", [])]
+    if original_symbol.lower() in article_symbols:
+        return True
+        
+    # Layer 2: Company Name Token Check
+    clean_name = company_name.lower()
+    for suffix in ["limited", "ltd", "incorporated", "inc", "corporation", "corp", "co"]:
+        clean_name = clean_name.replace(f" {suffix}", "").strip()
+        
+    tokens = [t.strip() for t in clean_name.split() if len(t.strip()) >= 3]
+    has_company_mention = False
+    for token in tokens:
+        if token in ["industries", "services", "system", "systems", "group"]:
+            continue
+        if token in full_text:
+            has_company_mention = True
+            break
+            
+    abbrev = original_symbol.split(".")[0].lower()
+    if len(abbrev) >= 3 and abbrev in full_text:
+        has_company_mention = True
+        
+    if not has_company_mention:
+        return False
+        
+    # Layer 3: Conflict Exclusion Guards
+    if original_symbol.upper().startswith("RELIANCE"):
+        if "reliance, inc." in full_text or "reliance steel" in full_text or "steel & aluminum" in full_text:
+            return False
+            
+    if original_symbol.upper().startswith("TCS"):
+        if "container store" in full_text or "cream" in full_text or "dermatitis" in full_text or "corticosteroid" in full_text:
+            return False
+            
+    return True
+
 def safe_float(val, default=0.0):
     if val is None:
         return default

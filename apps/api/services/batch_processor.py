@@ -8,7 +8,7 @@ import httpx
 
 import models
 from services.data_fetcher import AngelOneClient, IndianAPIClient, EODHDClient
-from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores, safe_float, compute_timeframe_sentiment
+from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores, safe_float, compute_timeframe_sentiment, validate_article_for_stock
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,53 @@ class BatchProcessor:
             
             tech_scores = compute_technical_scores(df_daily, df_weekly, df_monthly)
 
-        # 2. Fetch Sentiment from EODHD and Cache in DB
+        # 2. Compute Safety Score (Moved up to get company_name for news filtering)
+        safety_scores = {"short": 50, "medium": 50, "long": 50}
+        stock_data = None
+        try:
+            logger.info(f"Fetching fundamental data for {mapping.stock_symbol}...")
+            time.sleep(INDIANAPI_DELAY)
+            ratios_data = self.indianapi_client.get_ratios(mapping.stock_symbol)
+            
+            time.sleep(INDIANAPI_DELAY)
+            stock_data = self.indianapi_client.get_stock_details(mapping.stock_symbol)
+
+            time.sleep(INDIANAPI_DELAY)
+            quarter_data = self.indianapi_client.get_quarterly_results(mapping.stock_symbol)
+
+            time.sleep(INDIANAPI_DELAY)
+            yoy_data = self.indianapi_client.get_yoy_results(mapping.stock_symbol)
+
+            time.sleep(INDIANAPI_DELAY)
+            balance_data = self.indianapi_client.get_balancesheet(mapping.stock_symbol)
+
+            time.sleep(INDIANAPI_DELAY)
+            shareholding_data = self.indianapi_client.get_shareholding_pattern(mapping.stock_symbol)
+            
+            # Pass df_daily if it exists
+            df_daily_dict = None
+            if 'df_daily' in locals() and df_daily is not None:
+                df_daily_dict = df_daily
+
+            safety_scores = compute_safety_scores(
+                ratios_data, 
+                stock_data, 
+                quarter_data, 
+                yoy_data, 
+                balance_data, 
+                shareholding_data,
+                df_daily_dict
+            )
+            logger.info(f"Computed 11-indicator safety scores for {mapping.stock_symbol}: {safety_scores}")
+        except Exception as e:
+            logger.error(f"Error computing safety scores for {mapping.stock_symbol}: {e}")
+
+        # Extract company name for dynamic news filtering
+        company_name = ""
+        if stock_data:
+            company_name = stock_data.get("stockDetailsReusableData", {}).get("name", "")
+
+        # 3. Fetch Sentiment from EODHD and Cache in DB
         sentiment_scores = {"short": "Not Available", "medium": "Not Available", "long": "Not Available"}
         if mapping.eodhd_symbol:
             # EODHD news API maps Indian tickers to global/US symbols (.US suffix instead of .NSE)
@@ -131,6 +177,12 @@ class BatchProcessor:
                         url = art.get("link") or art.get("url") or ""
                         if not url:
                             continue
+                        
+                        # Validate if the article belongs to this company
+                        if not validate_article_for_stock(art, mapping.stock_symbol, company_name):
+                            logger.info(f"Article skipped (mismatch/collision): {art.get('title')} | url: {url}")
+                            continue
+
                         # Check duplicate by unique source_url
                         exists = self.db.query(models.StockNews).filter(models.StockNews.source_url == url).first()
                         if not exists:
@@ -180,46 +232,6 @@ class BatchProcessor:
                     logger.info(f"Computed database-cached sentiment scores for {mapping.stock_symbol}: {sentiment_scores}")
             except Exception as e:
                 logger.error(f"Error calculating sentiment from database cache for {mapping.stock_symbol}: {e}")
-
-        # 3. Compute Safety Score
-        safety_scores = {"short": 50, "medium": 50, "long": 50}
-        try:
-            logger.info(f"Fetching fundamental data for {mapping.stock_symbol}...")
-            time.sleep(INDIANAPI_DELAY)
-            ratios_data = self.indianapi_client.get_ratios(mapping.stock_symbol)
-            
-            time.sleep(INDIANAPI_DELAY)
-            stock_data = self.indianapi_client.get_stock_details(mapping.stock_symbol)
-
-            time.sleep(INDIANAPI_DELAY)
-            quarter_data = self.indianapi_client.get_quarterly_results(mapping.stock_symbol)
-
-            time.sleep(INDIANAPI_DELAY)
-            yoy_data = self.indianapi_client.get_yoy_results(mapping.stock_symbol)
-
-            time.sleep(INDIANAPI_DELAY)
-            balance_data = self.indianapi_client.get_balancesheet(mapping.stock_symbol)
-
-            time.sleep(INDIANAPI_DELAY)
-            shareholding_data = self.indianapi_client.get_shareholding_pattern(mapping.stock_symbol)
-            
-            # Pass df_daily if it exists
-            df_daily_dict = None
-            if 'df_daily' in locals() and df_daily is not None:
-                df_daily_dict = df_daily
-
-            safety_scores = compute_safety_scores(
-                ratios_data, 
-                stock_data, 
-                quarter_data, 
-                yoy_data, 
-                balance_data, 
-                shareholding_data,
-                df_daily_dict
-            )
-            logger.info(f"Computed 11-indicator safety scores for {mapping.stock_symbol}: {safety_scores}")
-        except Exception as e:
-            logger.error(f"Error computing safety scores for {mapping.stock_symbol}: {e}")
 
         # 4. Overall Scores
         overall_short = compute_overall_score(tech_scores['short'], safety_scores['scores']['short'], sentiment_scores['short'] if sentiment_scores['short'] != "Not Available" else None, 'short')
