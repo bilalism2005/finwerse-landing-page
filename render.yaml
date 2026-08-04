@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: finwerse-api
+    env: python
+    plan: free
+    rootDir: apps/api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: INDIANAPI_KEY
+        sync: false
+      - key: EODHD_API_KEY
+        sync: false
+      - key: ANGEL_ONE_CLIENT_ID
+        sync: false
+      - key: ANGEL_ONE_PASSWORD
+        sync: false
+      - key: ANGEL_ONE_TOTP_KEY
+        sync: false
+      - key: ANGEL_ONE_API_KEY
+        sync: false
