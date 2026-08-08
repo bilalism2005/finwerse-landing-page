@@ -146,6 +146,143 @@ def compute_technical_scores(df_daily, df_weekly, df_monthly):
         "long": min(max(long_raw, -100), 100)
     }
 
+def compute_crossover_series(val_series, sma_series):
+    n = len(val_series)
+    scores = np.full(n, np.nan)
+    
+    diff = val_series - sma_series
+    
+    # We need at least 2 points to check for a crossover/state
+    for i in range(1, n):
+        current_diff = diff.iloc[i]
+        if pd.isna(current_diff) or current_diff == 0:
+            continue
+            
+        current_state = 1 if current_diff > 0 else -1
+        age = 1
+        
+        # Traverse backward to find when state changed
+        for j in range(i - 1, -1, -1):
+            prev_diff = diff.iloc[j]
+            if pd.isna(prev_diff):
+                break
+            prev_state = 1 if prev_diff > 0 else -1
+            if prev_state != current_state:
+                break
+            age += 1
+            
+        scores[i] = get_decay_score(current_state, age)
+        
+    return pd.Series(scores, index=val_series.index)
+
+def compute_historical_technical_scores(df_daily, df_weekly, df_monthly):
+    """
+    Computes technical scores for all dates in the historical timeline.
+    DataFrames should have columns: ['open', 'high', 'low', 'close', 'volume', 'date']
+    """
+    # Ensure float64 dtype
+    for df in [df_daily, df_weekly, df_monthly]:
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = df[col].astype('float64')
+
+    # --- Daily ---
+    cci_d_vals = cci(df_daily['high'], df_daily['low'], df_daily['close'], length=30)
+    cci_sma_d = sma(cci_d_vals, 9)
+    rsi_d_vals = rsi(df_daily['close'], 14)
+    rsi_sma_d = sma(rsi_d_vals, 9)
+    macd_d_line, macd_d_signal, _ = macd(df_daily['close'], 12, 26, 9)
+    
+    cci_d_scores = compute_crossover_series(cci_d_vals, cci_sma_d)
+    rsi_d_scores = compute_crossover_series(rsi_d_vals, rsi_sma_d)
+    macd_d_scores = compute_crossover_series(macd_d_line, macd_d_signal)
+
+    # --- Weekly ---
+    cci_w_vals = cci(df_weekly['high'], df_weekly['low'], df_weekly['close'], length=60)
+    cci_sma_w = sma(cci_w_vals, 9)
+    rsi_w_vals = rsi(df_weekly['close'], 14)
+    rsi_sma_w = sma(rsi_w_vals, 9)
+    macd_w_line, macd_w_signal, _ = macd(df_weekly['close'], 12, 26, 9)
+    
+    cci_w_scores = compute_crossover_series(cci_w_vals, cci_sma_w)
+    rsi_w_scores = compute_crossover_series(rsi_w_vals, rsi_sma_w)
+    macd_w_scores = compute_crossover_series(macd_w_line, macd_w_signal)
+
+    # --- Monthly ---
+    cci_m_vals = cci(df_monthly['high'], df_monthly['low'], df_monthly['close'], length=60)
+    cci_sma_m = sma(cci_m_vals, 9)
+    rsi_m_vals = rsi(df_monthly['close'], 14)
+    rsi_sma_m = sma(rsi_m_vals, 9)
+    macd_m_line, macd_m_signal, _ = macd(df_monthly['close'], 12, 26, 9)
+
+    cci_m_scores = compute_crossover_series(cci_m_vals, cci_sma_m)
+    rsi_m_scores = compute_crossover_series(rsi_m_vals, rsi_sma_m)
+    macd_m_scores = compute_crossover_series(macd_m_line, macd_m_signal)
+
+    # Create DataFrames with Date column
+    df_d = pd.DataFrame({
+        'date': df_daily['date'],
+        'cci_d': cci_d_scores.values,
+        'rsi_d': rsi_d_scores.values,
+        'macd_d': macd_d_scores.values
+    }).sort_values('date')
+
+    df_w = pd.DataFrame({
+        'date': df_weekly['date'],
+        'cci_w': cci_w_scores.values,
+        'rsi_w': rsi_w_scores.values,
+        'macd_w': macd_w_scores.values
+    }).sort_values('date')
+
+    df_m = pd.DataFrame({
+        'date': df_monthly['date'],
+        'cci_m': cci_m_scores.values,
+        'rsi_m': rsi_m_scores.values,
+        'macd_m': macd_m_scores.values
+    }).sort_values('date')
+
+    # Align Weekly and Monthly scores to Daily index using backward direction (last known weekly/monthly score)
+    merged = pd.merge_asof(df_d, df_w, on='date', direction='backward')
+    merged = pd.merge_asof(merged, df_m, on='date', direction='backward')
+
+    # Combined Scores
+    short_raw = (
+        (merged['cci_d'] + merged['cci_w'] + merged['cci_m'] / 4.0) +
+        (merged['macd_d'] + merged['macd_w'] + merged['macd_m'] / 4.0) +
+        (merged['rsi_d'] + merged['rsi_w'] + merged['rsi_m'] / 4.0)
+    ) / 6.75
+
+    medium_raw = (
+        (merged['cci_m'] + merged['cci_w'] + merged['cci_d'] / 3.0) +
+        (merged['macd_m'] + merged['macd_w'] + merged['macd_d'] / 3.0) +
+        (merged['rsi_m'] + merged['rsi_w'] + merged['rsi_d'] / 3.0)
+    ) / 7.0
+
+    long_raw = (
+        (merged['cci_m'] + merged['cci_w'] + merged['cci_d'] / 4.0) +
+        (merged['macd_m'] + merged['macd_w'] + merged['macd_d'] / 4.0) +
+        (merged['rsi_m'] + merged['rsi_w'] + merged['rsi_d'] / 4.0)
+    ) / 6.75
+
+    merged['short'] = short_raw.clip(-100, 100)
+    merged['medium'] = medium_raw.clip(-100, 100)
+    merged['long'] = long_raw.clip(-100, 100)
+
+    # Return as list of dicts for easy database saving
+    historical_scores = []
+    for _, row in merged.iterrows():
+        s = row['short']
+        m = row['medium']
+        l = row['long']
+        
+        historical_scores.append({
+            'date': row['date'],
+            'short': None if pd.isna(s) else float(s),
+            'medium': None if pd.isna(m) else float(m),
+            'long': None if pd.isna(l) else float(l)
+        })
+        
+    return historical_scores
+
 def compute_overall_score(technical, safety, sentiment, timeframe):
     weights = {
         'short': {'technical': 0.60, 'sentiment': 0.30, 'safety': 0.10},
