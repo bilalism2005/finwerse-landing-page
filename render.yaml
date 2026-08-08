@@ -23,3 +23,29 @@ services:
         sync: false
       - key: ANGEL_ONE_API_KEY
         sync: false
+
+  - type: web
+    name: finwerse-api-staging
+    env: python
+    plan: free
+    branch: staging
+    rootDir: apps/api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: DATABASE_URL
+        sync: false
+      - key: INDIANAPI_KEY
+        sync: false
+      - key: EODHD_API_KEY
+        sync: false
+      - key: ANGEL_ONE_CLIENT_ID
+        sync: false
+      - key: ANGEL_ONE_PIN
+        sync: false
+      - key: ANGEL_ONE_TOTP_SECRET
+        sync: false
+      - key: ANGEL_ONE_API_KEY
+        sync: false
