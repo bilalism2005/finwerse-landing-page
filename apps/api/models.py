@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 from database import Base
 
@@ -68,3 +68,17 @@ class StockNews(Base):
     article_date = Column(DateTime(timezone=True), index=True)
     polarity = Column(Float)
     source_url = Column(String, unique=True, index=True) # Used for deduplication
+
+class StockHistoricalScore(Base):
+    __tablename__ = "stock_historical_scores"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    stock_symbol = Column(String, index=True)
+    date = Column(DateTime(timezone=True), index=True)
+    technical_score_short = Column(Float, nullable=True)
+    technical_score_medium = Column(Float, nullable=True)
+    technical_score_long = Column(Float, nullable=True)
+    
+    __table_args__ = (
+        UniqueConstraint('stock_symbol', 'date', name='uq_stock_symbol_date'),
+    )
+

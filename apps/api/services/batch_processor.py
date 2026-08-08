@@ -1,6 +1,6 @@
 import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 from sqlalchemy.orm import Session
@@ -8,9 +8,28 @@ import httpx
 
 import models
 from services.data_fetcher import AngelOneClient, IndianAPIClient, EODHDClient
-from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores, safe_float, compute_timeframe_sentiment, validate_article_for_stock
+from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores, safe_float, compute_timeframe_sentiment, validate_article_for_stock, compute_historical_technical_scores
 
 logger = logging.getLogger(__name__)
+
+def parse_date(date_str):
+    try:
+        dt = datetime.fromisoformat(date_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
+        return dt
+    except Exception:
+        dt = pd.to_datetime(date_str).to_pydatetime()
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
+        return dt
+
+def to_utc_naive(dt):
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 
 # Angel One limits: ~3 requests per second. We use 2.0s delay to be safe and avoid burst limits.
 ANGEL_ONE_DELAY = 2.0
@@ -48,13 +67,27 @@ class BatchProcessor:
             from_date=from_date, 
             to_date=to_date
         )
-        if not res.get('status'):
-            msg = str(res.get('message', ''))
-            if "Too Many Requests" in str(res) or "403" in msg or "429" in msg or res.get('errorcode') == 'AB1010':
+        
+        # Check if the token has expired
+        if isinstance(res, dict) and (res.get('errorCode') == 'AG8001' or res.get('message') == 'Invalid Token'):
+            logger.warning("Angel One session token expired (AG8001). Re-authenticating...")
+            self.angel_client.login()  # Force login to refresh jwt_token
+            # Retry request once
+            res = self.angel_client.get_historical_candles(
+                symboltoken=token, 
+                interval=interval, 
+                from_date=from_date, 
+                to_date=to_date
+            )
+
+        if not res or not res.get('status'):
+            msg = str(res.get('message', '')) if res else 'Empty response'
+            if res and ("Too Many Requests" in str(res) or "403" in msg or "429" in msg or res.get('errorcode') == 'AB1010'):
                 raise RateLimitException(f"Angel One Rate Limit Hit: {msg}")
             logger.error(f"Angel One Error: {res}")
             return None
         return res.get('data')
+
 
     @retry(
         wait=wait_exponential(multiplier=1, min=2, max=10),
@@ -72,32 +105,161 @@ class BatchProcessor:
     def process_stock(self, mapping: models.SymbolMapping):
         logger.info(f"Processing {mapping.stock_symbol}...")
         
-        # 1. Fetch data from Angel One (requires login first)
+        # 1. Fetch/Update Daily Candle Data in Database Cache
         if not self.angel_client.jwt_token:
             self.angel_client.login()
             
-        now = datetime.now()
-        to_date_str = now.strftime("%Y-%m-%d %H:%M")
+        now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
         
-        # Angel One allows up to 2000 trading days of ONE_DAY candle history.
-        # 2000 days resamples to ~400 weekly and ~95 monthly candles — well above
-        # the 69-candle warmup needed for CCI(60,9).
-        from_date_daily = (now - timedelta(days=2000)).strftime("%Y-%m-%d %H:%M")
-        daily_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_daily, to_date_str)
-        
-        if not daily_data:
-            logger.warning(f"Missing candle data for {mapping.stock_symbol}, skipping technicals.")
-            tech_scores = {"short": 0, "medium": 0, "long": 0}
-        else:
-            df_daily = pd.DataFrame(daily_data, columns=['date', 'open', 'high', 'low', 'close', 'volume'])
+        # Check if we already have daily candles in Supabase for this stock
+        max_candle = self.db.query(models.StockCandle).filter(
+            models.StockCandle.stock_symbol == mapping.stock_symbol,
+            models.StockCandle.timeframe == 'D'
+        ).order_by(models.StockCandle.date.desc()).first()
+
+        # Get existing dates from the DB
+        existing_candles = self.db.query(models.StockCandle.date).filter(
+            models.StockCandle.stock_symbol == mapping.stock_symbol,
+            models.StockCandle.timeframe == 'D'
+        ).all()
+        existing_dates = {to_utc_naive(c[0]) for c in existing_candles}
+
+        if not max_candle:
+            logger.info(f"Performing exhaustive historical backfill for {mapping.stock_symbol}...")
+            current_to_date = now
+            total_candles_fetched = 0
             
-            # Convert types
+            while True:
+                to_date_str = current_to_date.strftime("%Y-%m-%d %H:%M")
+                # Go back 1999 days (~5.5 years)
+                from_date_obj = current_to_date - timedelta(days=1999)
+                from_date_str = from_date_obj.strftime("%Y-%m-%d %H:%M")
+                
+                logger.info(f"Fetching candles from {from_date_str} to {to_date_str}...")
+                daily_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
+                
+                if not daily_data or len(daily_data) == 0:
+                    logger.info("No more candles returned by API. Backfill complete.")
+                    break
+                    
+                logger.info(f"Fetched {len(daily_data)} candles.")
+                
+                # Bulk insert this batch using the O(1) set check
+                new_candles = []
+                for c in daily_data:
+                    dt = parse_date(c[0])
+                    dt_utc = to_utc_naive(dt)
+                    if dt_utc not in existing_dates:
+                        db_candle = models.StockCandle(
+                            stock_symbol=mapping.stock_symbol,
+                            timeframe='D',
+                            date=dt,
+                            open=safe_float(c[1]),
+                            high=safe_float(c[2]),
+                            low=safe_float(c[3]),
+                            close=safe_float(c[4]),
+                            volume=safe_float(c[5])
+                        )
+                        new_candles.append(db_candle)
+                        existing_dates.add(dt_utc)
+                
+                if new_candles:
+                    self.db.add_all(new_candles)
+                    self.db.commit()
+                    
+                total_candles_fetched += len(daily_data)
+                
+                # Determine the earliest date in the fetched batch
+                earliest_date_str = daily_data[0][0]
+                earliest_date = parse_date(earliest_date_str)
+                
+                if earliest_date >= current_to_date or len(daily_data) < 10:
+                    break
+                    
+                current_to_date = earliest_date - timedelta(days=1)
+                time.sleep(1.0)
+                
+            logger.info(f"Finished backfill. Total candles fetched/processed: {total_candles_fetched}")
+        else:
+            # Incremental update: fetch from the last date in the DB up to today
+            last_date = max_candle.date
+            # Format dates (overlap by starting from last_date to overwrite today's/yesterday's candle in case it was incomplete)
+            from_date_str = last_date.strftime("%Y-%m-%d %H:%M")
+            to_date_str = now.strftime("%Y-%m-%d %H:%M")
+            
+            logger.info(f"Fetching incremental candles from {from_date_str} to {to_date_str}...")
+            recent_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
+            
+            if recent_data:
+                # Optimized batch upsert for incremental candles
+                recent_dates = [parse_date(c[0]) for c in recent_data]
+                existing_candles_recent = self.db.query(models.StockCandle).filter(
+                    models.StockCandle.stock_symbol == mapping.stock_symbol,
+                    models.StockCandle.timeframe == 'D',
+                    models.StockCandle.date.in_(recent_dates)
+                ).all()
+                existing_map = {to_utc_naive(ec.date): ec for ec in existing_candles_recent}
+                
+                new_count = 0
+                updated_count = 0
+                for c in recent_data:
+                    dt = parse_date(c[0])
+                    dt_utc = to_utc_naive(dt)
+                    exists = existing_map.get(dt_utc)
+                    
+                    if not exists:
+                        db_candle = models.StockCandle(
+                            stock_symbol=mapping.stock_symbol,
+                            timeframe='D',
+                            date=dt,
+                            open=safe_float(c[1]),
+                            high=safe_float(c[2]),
+                            low=safe_float(c[3]),
+                            close=safe_float(c[4]),
+                            volume=safe_float(c[5])
+                        )
+                        self.db.add(db_candle)
+                        new_count += 1
+                        existing_dates.add(dt_utc)
+                    else:
+                        exists.open = safe_float(c[1])
+                        exists.high = safe_float(c[2])
+                        exists.low = safe_float(c[3])
+                        exists.close = safe_float(c[4])
+                        exists.volume = safe_float(c[5])
+                        updated_count += 1
+                self.db.commit()
+                logger.info(f"Incremental update complete: added {new_count}, updated {updated_count} candles.")
+
+        # Load ALL daily candles from the database to build weekly/monthly and compute scores
+        db_candles = self.db.query(models.StockCandle).filter(
+            models.StockCandle.stock_symbol == mapping.stock_symbol,
+            models.StockCandle.timeframe == 'D'
+        ).order_by(models.StockCandle.date.asc()).all()
+
+        if not db_candles:
+            logger.warning(f"No candle data available in DB for {mapping.stock_symbol}, skipping technicals.")
+            tech_scores = {"short": 0.0, "medium": 0.0, "long": 0.0}
+            df_daily = None
+        else:
+            daily_list = []
+            for c in db_candles:
+                daily_list.append({
+                    "date": c.date,
+                    "open": c.open,
+                    "high": c.high,
+                    "low": c.low,
+                    "close": c.close,
+                    "volume": c.volume
+                })
+            
+            df_daily = pd.DataFrame(daily_list)
             for col in ['open', 'high', 'low', 'close', 'volume']:
                 df_daily[col] = pd.to_numeric(df_daily[col], errors='coerce')
+            
             df_daily['date'] = pd.to_datetime(df_daily['date'])
             df_daily = df_daily.set_index('date').sort_index()
             
-            # Resample daily data into weekly and monthly
             df_weekly = df_daily.resample('W').agg({
                 'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
             }).dropna()
@@ -106,15 +268,75 @@ class BatchProcessor:
                 'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
             }).dropna()
             
-            # Reset index for scoring functions
             df_daily = df_daily.reset_index()
             df_weekly = df_weekly.reset_index()
             df_monthly = df_monthly.reset_index()
             
-            tech_scores = compute_technical_scores(df_daily, df_weekly, df_monthly)
+            # Compute historical scores
+            logger.info(f"Computing historical technical scores for {mapping.stock_symbol}...")
+            hist_scores = compute_historical_technical_scores(df_daily, df_weekly, df_monthly)
+            
+            # Write/Upsert historical scores in database (Optimized via single query map lookup)
+            logger.info(f"Saving historical score records to database...")
+            
+            # To avoid overwriting thousands of unchanged historical scores over WAN on every run,
+            # we only upsert scores starting from our incremental fetch boundary (minus a 5-day buffer).
+            affected_from_date = None
+            if max_candle:
+                affected_from_date = last_date - timedelta(days=5)
+                
+            existing_scores = self.db.query(models.StockHistoricalScore).filter(
+                models.StockHistoricalScore.stock_symbol == mapping.stock_symbol
+            ).all()
+            existing_score_map = {to_utc_naive(es.date): es for es in existing_scores}
+            
+            score_inserts = []
+            saved_count = 0
+            for hs in hist_scores:
+                # Skip saving if it's before the affected date range
+                if affected_from_date and hs['date'] < affected_from_date:
+                    continue
+                    
+                hs_date_utc = to_utc_naive(hs['date'])
+                exists_score = existing_score_map.get(hs_date_utc)
+                
+                if not exists_score:
+                    db_hist_score = models.StockHistoricalScore(
+                        stock_symbol=mapping.stock_symbol,
+                        date=hs['date'],
+                        technical_score_short=hs['short'],
+                        technical_score_medium=hs['medium'],
+                        technical_score_long=hs['long']
+                    )
+                    score_inserts.append(db_hist_score)
+                    saved_count += 1
+                else:
+                    # Only update if the values are actually different to prevent dirty tracking updates
+                    if (exists_score.technical_score_short != hs['short'] or
+                        exists_score.technical_score_medium != hs['medium'] or
+                        exists_score.technical_score_long != hs['long']):
+                        exists_score.technical_score_short = hs['short']
+                        exists_score.technical_score_medium = hs['medium']
+                        exists_score.technical_score_long = hs['long']
+                        saved_count += 1
+                    
+            if score_inserts:
+                self.db.add_all(score_inserts)
+            self.db.commit()
+            logger.info(f"Saved/updated {saved_count} historical scores for {mapping.stock_symbol}.")
+            
+            if hist_scores:
+                latest_hs = hist_scores[-1]
+                tech_scores = {
+                    "short": latest_hs["short"] if latest_hs["short"] is not None else 0.0,
+                    "medium": latest_hs["medium"] if latest_hs["medium"] is not None else 0.0,
+                    "long": latest_hs["long"] if latest_hs["long"] is not None else 0.0
+                }
+            else:
+                tech_scores = {"short": 0.0, "medium": 0.0, "long": 0.0}
 
         # 2. Compute Safety Score (Moved up to get company_name for news filtering)
-        safety_scores = {"short": 50, "medium": 50, "long": 50}
+        safety_scores = {"scores": {"short": 50.0, "medium": 50.0, "long": 50.0}, "metrics": {}}
         stock_data = None
         try:
             logger.info(f"Fetching fundamental data for {mapping.stock_symbol}...")
@@ -279,7 +501,9 @@ class BatchProcessor:
         fund_record.fii_holding_pct = safe_float(metrics.get('fii_holding_pct'))
         
         self.db.commit()
-        logger.info(f"Successfully processed {mapping.stock_symbol}")
+        logger.info(f"Successfully processed {mapping.stock_symbol}. Sleeping 3s to respect API rate limits...")
+        time.sleep(3.0)
+
 
     def run(self):
         logger.info("Starting Batch Processing Loop...")
