@@ -5,6 +5,14 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { initSupabase } from '@finwerse/shared';
+
+// Initialize Supabase once at module load (mirrors apps/web/src/main.tsx).
+// EXPO_PUBLIC_* vars are inlined by the Expo bundler from .env.
+initSupabase(
+  process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? ''
+);
 
 export {
   // Catch any errors thrown by the Layout component.
