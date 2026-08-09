@@ -117,9 +117,14 @@ def compute_technical_scores(df_daily, df_weekly, df_monthly):
     rsi_state_m, rsi_age_m = calculate_candles_since_crossover(rsi_m_vals, rsi_sma_m)
     macd_state_m, macd_age_m = calculate_candles_since_crossover(macd_m_line, macd_m_signal)
 
-    cci_m = get_decay_score(cci_state_m, cci_age_m)
-    rsi_m = get_decay_score(rsi_state_m, rsi_age_m)
-    macd_m_score = get_decay_score(macd_state_m, macd_age_m)
+    # Use 0 for any NaN scores (e.g. insufficient bars for CCI length)
+    def safe_score(state, age):
+        val = get_decay_score(state, age)
+        return 0 if (val is None or (isinstance(val, float) and np.isnan(val))) else val
+
+    cci_m = safe_score(cci_state_m, cci_age_m)
+    rsi_m = safe_score(rsi_state_m, rsi_age_m)
+    macd_m_score = safe_score(macd_state_m, macd_age_m)
 
     # --- Combine into Short / Medium / Long ---
     short_raw = (
@@ -243,6 +248,12 @@ def compute_historical_technical_scores(df_daily, df_weekly, df_monthly):
     # Align Weekly and Monthly scores to Daily index using backward direction (last known weekly/monthly score)
     merged = pd.merge_asof(df_d, df_w, on='date', direction='backward')
     merged = pd.merge_asof(merged, df_m, on='date', direction='backward')
+
+    # Fill NaN indicator scores with 0 so a missing monthly/weekly indicator
+    # (e.g. CCI needs 69 monthly bars but stock only has 66) does not poison
+    # the entire formula and produce NaN scores stored as 0 in the DB.
+    score_cols = ['cci_d', 'rsi_d', 'macd_d', 'cci_w', 'rsi_w', 'macd_w', 'cci_m', 'rsi_m', 'macd_m']
+    merged[score_cols] = merged[score_cols].fillna(0.0)
 
     # Combined Scores
     short_raw = (
