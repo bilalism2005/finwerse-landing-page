@@ -90,49 +90,37 @@ class IndianAPIClient:
     def get_ratios(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=ratios"
         response = httpx.get(url, headers=self.headers)
-        if response.status_code != 200:
-            logger.error(f"IndianAPI get_ratios error: {response.status_code}")
-            return None
+        response.raise_for_status()
         return response.json()
 
     def get_stock_details(self, symbol):
         url = f"{self.base_url}/stock?name={symbol}"
         response = httpx.get(url, headers=self.headers)
-        if response.status_code != 200:
-            logger.error(f"IndianAPI get_stock_details error: {response.status_code}")
-            return None
+        response.raise_for_status()
         return response.json()
 
     def get_quarterly_results(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=quarter_results"
         response = httpx.get(url, headers=self.headers)
-        if response.status_code != 200:
-            logger.error(f"IndianAPI get_quarterly_results error: {response.status_code}")
-            return None
+        response.raise_for_status()
         return response.json()
 
     def get_yoy_results(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=yoy_results"
         response = httpx.get(url, headers=self.headers)
-        if response.status_code != 200:
-            logger.error(f"IndianAPI get_yoy_results error: {response.status_code}")
-            return None
+        response.raise_for_status()
         return response.json()
 
     def get_balancesheet(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=balancesheet"
         response = httpx.get(url, headers=self.headers)
-        if response.status_code != 200:
-            logger.error(f"IndianAPI get_balancesheet error: {response.status_code}")
-            return None
+        response.raise_for_status()
         return response.json()
 
     def get_shareholding_pattern(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=shareholding_pattern_quarterly"
         response = httpx.get(url, headers=self.headers)
-        if response.status_code != 200:
-            logger.error(f"IndianAPI get_shareholding_pattern error: {response.status_code}")
-            return None
+        response.raise_for_status()
         return response.json()
 
 class EODHDClient:
@@ -143,4 +131,5 @@ class EODHDClient:
     def get_news(self, symbol, from_date, to_date):
         url = f"{self.base_url}/news?s={symbol}&from={from_date}&to={to_date}&limit=50&api_token={self.api_key}&fmt=json"
         response = httpx.get(url)
+        response.raise_for_status()
         return response.json()

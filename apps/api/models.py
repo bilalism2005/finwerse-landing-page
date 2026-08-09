@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, UniqueConstraint, CheckConstraint
 from sqlalchemy.sql import func
 from database import Base
 
@@ -14,6 +14,7 @@ class StockScore(Base):
     __tablename__ = "stock_scores"
     stock_symbol = Column(String, primary_key=True, index=True)
     computed_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    data_status = Column(String, nullable=True, server_default="SUCCESS")  # SUCCESS, RATE_LIMITED, FAILED
     
     technical_score_short = Column(Float, nullable=True)
     technical_score_medium = Column(Float, nullable=True)
@@ -34,6 +35,15 @@ class StockScore(Base):
     sector = Column(String, nullable=True)
     market_cap_category = Column(String, nullable=True)
 
+    __table_args__ = (
+        CheckConstraint('technical_score_short BETWEEN -100 AND 100', name='chk_technical_score_short'),
+        CheckConstraint('technical_score_medium BETWEEN -100 AND 100', name='chk_technical_score_medium'),
+        CheckConstraint('technical_score_long BETWEEN -100 AND 100', name='chk_technical_score_long'),
+        CheckConstraint('overall_score_short BETWEEN -100 AND 100', name='chk_overall_score_short'),
+        CheckConstraint('overall_score_medium BETWEEN -100 AND 100', name='chk_overall_score_medium'),
+        CheckConstraint('overall_score_long BETWEEN -100 AND 100', name='chk_overall_score_long'),
+    )
+
 class StockCandle(Base):
     __tablename__ = "stock_candles"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -45,6 +55,11 @@ class StockCandle(Base):
     low = Column(Float)
     close = Column(Float)
     volume = Column(Float)
+
+    __table_args__ = (
+        CheckConstraint('open >= 0 AND close >= 0 AND high >= 0 AND low >= 0', name='chk_candle_positive'),
+        CheckConstraint('high >= low', name='chk_candle_high_low'),
+    )
 
 class StockFundamental(Base):
     __tablename__ = "stock_fundamentals"
@@ -80,5 +95,8 @@ class StockHistoricalScore(Base):
     
     __table_args__ = (
         UniqueConstraint('stock_symbol', 'date', name='uq_stock_symbol_date'),
+        CheckConstraint('technical_score_short BETWEEN -100 AND 100', name='chk_hist_technical_score_short'),
+        CheckConstraint('technical_score_medium BETWEEN -100 AND 100', name='chk_hist_technical_score_medium'),
+        CheckConstraint('technical_score_long BETWEEN -100 AND 100', name='chk_hist_technical_score_long'),
     )
 

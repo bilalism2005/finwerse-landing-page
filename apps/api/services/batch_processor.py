@@ -29,6 +29,14 @@ def to_utc_naive(dt):
         return dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
 
+def validate_candle_sanity(symbol, date, open_p, high, low, close, volume):
+    if open_p < 0 or close < 0 or high < 0 or low < 0:
+        raise ValueError(f"Sanity check failed for {symbol} on {date}: Negative values found (O:{open_p}, H:{high}, L:{low}, C:{close})")
+    if high < low:
+        raise ValueError(f"Sanity check failed for {symbol} on {date}: High cannot be less than low (H:{high}, L:{low})")
+    if high < open_p or high < close or low > open_p or low > close:
+        raise ValueError(f"Sanity check failed for {symbol} on {date}: High/Low out of bounds relative to Open/Close (O:{open_p}, H:{high}, L:{low}, C:{close})")
+
 
 
 # Angel One limits: ~3 requests per second. We use 2.0s delay to be safe and avoid burst limits.
@@ -104,6 +112,7 @@ class BatchProcessor:
 
     def process_stock(self, mapping: models.SymbolMapping):
         logger.info(f"Processing {mapping.stock_symbol}...")
+        data_status = "SUCCESS"
         
         # 1. Fetch/Update Daily Candle Data in Database Cache
         if not self.angel_client.jwt_token:
@@ -124,112 +133,146 @@ class BatchProcessor:
         ).all()
         existing_dates = {to_utc_naive(c[0]) for c in existing_candles}
 
-        if not max_candle:
-            logger.info(f"Performing exhaustive historical backfill for {mapping.stock_symbol}...")
-            current_to_date = now
-            total_candles_fetched = 0
-            
-            while True:
-                to_date_str = current_to_date.strftime("%Y-%m-%d %H:%M")
-                # Go back 1999 days (~5.5 years)
-                from_date_obj = current_to_date - timedelta(days=1999)
-                from_date_str = from_date_obj.strftime("%Y-%m-%d %H:%M")
+        try:
+            if not max_candle:
+                logger.info(f"Performing exhaustive historical backfill for {mapping.stock_symbol}...")
+                current_to_date = now
+                total_candles_fetched = 0
                 
-                logger.info(f"Fetching candles from {from_date_str} to {to_date_str}...")
-                daily_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
-                
-                if not daily_data or len(daily_data) == 0:
-                    logger.info("No more candles returned by API. Backfill complete.")
-                    break
+                while True:
+                    to_date_str = current_to_date.strftime("%Y-%m-%d %H:%M")
+                    # Go back 1999 days (~5.5 years)
+                    from_date_obj = current_to_date - timedelta(days=1999)
+                    from_date_str = from_date_obj.strftime("%Y-%m-%d %H:%M")
                     
-                logger.info(f"Fetched {len(daily_data)} candles.")
+                    logger.info(f"Fetching candles from {from_date_str} to {to_date_str}...")
+                    daily_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
+                    
+                    if not daily_data or len(daily_data) == 0:
+                        logger.info("No more candles returned by API. Backfill complete.")
+                        break
+                        
+                    logger.info(f"Fetched {len(daily_data)} candles.")
+                    
+                    # Bulk insert this batch using the O(1) set check
+                    new_candles = []
+                    for c in daily_data:
+                        dt = parse_date(c[0])
+                        dt_utc = to_utc_naive(dt)
+                        if dt_utc not in existing_dates:
+                            try:
+                                o_val = safe_float(c[1])
+                                h_val = safe_float(c[2])
+                                l_val = safe_float(c[3])
+                                cl_val = safe_float(c[4])
+                                v_val = safe_float(c[5])
+                                validate_candle_sanity(mapping.stock_symbol, dt, o_val, h_val, l_val, cl_val, v_val)
+                                db_candle = models.StockCandle(
+                                    stock_symbol=mapping.stock_symbol,
+                                    timeframe='D',
+                                    date=dt,
+                                    open=o_val,
+                                    high=h_val,
+                                    low=l_val,
+                                    close=cl_val,
+                                    volume=v_val
+                                )
+                                new_candles.append(db_candle)
+                                existing_dates.add(dt_utc)
+                            except ValueError as ve:
+                                logger.error(ve)
+                    
+                    if new_candles:
+                        self.db.add_all(new_candles)
+                        self.db.commit()
+                        
+                    total_candles_fetched += len(daily_data)
+                    
+                    # Determine the earliest date in the fetched batch
+                    earliest_date_str = daily_data[0][0]
+                    earliest_date = parse_date(earliest_date_str)
+                    
+                    if earliest_date >= current_to_date or len(daily_data) < 10:
+                        break
+                        
+                    current_to_date = earliest_date - timedelta(days=1)
+                    time.sleep(1.0)
+                    
+                logger.info(f"Finished backfill. Total candles fetched/processed: {total_candles_fetched}")
+            else:
+                # Incremental update: fetch from the last date in the DB up to today
+                last_date = max_candle.date
+                # Format dates (overlap by starting from last_date to overwrite today's/yesterday's candle in case it was incomplete)
+                from_date_str = last_date.strftime("%Y-%m-%d %H:%M")
+                to_date_str = now.strftime("%Y-%m-%d %H:%M")
                 
-                # Bulk insert this batch using the O(1) set check
-                new_candles = []
-                for c in daily_data:
-                    dt = parse_date(c[0])
-                    dt_utc = to_utc_naive(dt)
-                    if dt_utc not in existing_dates:
-                        db_candle = models.StockCandle(
-                            stock_symbol=mapping.stock_symbol,
-                            timeframe='D',
-                            date=dt,
-                            open=safe_float(c[1]),
-                            high=safe_float(c[2]),
-                            low=safe_float(c[3]),
-                            close=safe_float(c[4]),
-                            volume=safe_float(c[5])
-                        )
-                        new_candles.append(db_candle)
-                        existing_dates.add(dt_utc)
+                logger.info(f"Fetching incremental candles from {from_date_str} to {to_date_str}...")
+                recent_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
                 
-                if new_candles:
-                    self.db.add_all(new_candles)
+                if recent_data:
+                    # Optimized batch upsert for incremental candles
+                    recent_dates = [parse_date(c[0]) for c in recent_data]
+                    existing_candles_recent = self.db.query(models.StockCandle).filter(
+                        models.StockCandle.stock_symbol == mapping.stock_symbol,
+                        models.StockCandle.timeframe == 'D',
+                        models.StockCandle.date.in_(recent_dates)
+                    ).all()
+                    existing_map = {to_utc_naive(ec.date): ec for ec in existing_candles_recent}
+                    
+                    new_count = 0
+                    updated_count = 0
+                    for c in recent_data:
+                        dt = parse_date(c[0])
+                        dt_utc = to_utc_naive(dt)
+                        exists = existing_map.get(dt_utc)
+                        
+                        if not exists:
+                            try:
+                                o_val = safe_float(c[1])
+                                h_val = safe_float(c[2])
+                                l_val = safe_float(c[3])
+                                cl_val = safe_float(c[4])
+                                v_val = safe_float(c[5])
+                                validate_candle_sanity(mapping.stock_symbol, dt, o_val, h_val, l_val, cl_val, v_val)
+                                db_candle = models.StockCandle(
+                                    stock_symbol=mapping.stock_symbol,
+                                    timeframe='D',
+                                    date=dt,
+                                    open=o_val,
+                                    high=h_val,
+                                    low=l_val,
+                                    close=cl_val,
+                                    volume=v_val
+                                )
+                                self.db.add(db_candle)
+                                new_count += 1
+                                existing_dates.add(dt_utc)
+                            except ValueError as ve:
+                                logger.error(ve)
+                        else:
+                            try:
+                                o_val = safe_float(c[1])
+                                h_val = safe_float(c[2])
+                                l_val = safe_float(c[3])
+                                cl_val = safe_float(c[4])
+                                v_val = safe_float(c[5])
+                                validate_candle_sanity(mapping.stock_symbol, dt, o_val, h_val, l_val, cl_val, v_val)
+                                exists.open = o_val
+                                exists.high = h_val
+                                exists.low = l_val
+                                exists.close = cl_val
+                                exists.volume = v_val
+                                updated_count += 1
+                            except ValueError as ve:
+                                logger.error(ve)
                     self.db.commit()
-                    
-                total_candles_fetched += len(daily_data)
-                
-                # Determine the earliest date in the fetched batch
-                earliest_date_str = daily_data[0][0]
-                earliest_date = parse_date(earliest_date_str)
-                
-                if earliest_date >= current_to_date or len(daily_data) < 10:
-                    break
-                    
-                current_to_date = earliest_date - timedelta(days=1)
-                time.sleep(1.0)
-                
-            logger.info(f"Finished backfill. Total candles fetched/processed: {total_candles_fetched}")
-        else:
-            # Incremental update: fetch from the last date in the DB up to today
-            last_date = max_candle.date
-            # Format dates (overlap by starting from last_date to overwrite today's/yesterday's candle in case it was incomplete)
-            from_date_str = last_date.strftime("%Y-%m-%d %H:%M")
-            to_date_str = now.strftime("%Y-%m-%d %H:%M")
-            
-            logger.info(f"Fetching incremental candles from {from_date_str} to {to_date_str}...")
-            recent_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
-            
-            if recent_data:
-                # Optimized batch upsert for incremental candles
-                recent_dates = [parse_date(c[0]) for c in recent_data]
-                existing_candles_recent = self.db.query(models.StockCandle).filter(
-                    models.StockCandle.stock_symbol == mapping.stock_symbol,
-                    models.StockCandle.timeframe == 'D',
-                    models.StockCandle.date.in_(recent_dates)
-                ).all()
-                existing_map = {to_utc_naive(ec.date): ec for ec in existing_candles_recent}
-                
-                new_count = 0
-                updated_count = 0
-                for c in recent_data:
-                    dt = parse_date(c[0])
-                    dt_utc = to_utc_naive(dt)
-                    exists = existing_map.get(dt_utc)
-                    
-                    if not exists:
-                        db_candle = models.StockCandle(
-                            stock_symbol=mapping.stock_symbol,
-                            timeframe='D',
-                            date=dt,
-                            open=safe_float(c[1]),
-                            high=safe_float(c[2]),
-                            low=safe_float(c[3]),
-                            close=safe_float(c[4]),
-                            volume=safe_float(c[5])
-                        )
-                        self.db.add(db_candle)
-                        new_count += 1
-                        existing_dates.add(dt_utc)
-                    else:
-                        exists.open = safe_float(c[1])
-                        exists.high = safe_float(c[2])
-                        exists.low = safe_float(c[3])
-                        exists.close = safe_float(c[4])
-                        exists.volume = safe_float(c[5])
-                        updated_count += 1
-                self.db.commit()
-                logger.info(f"Incremental update complete: added {new_count}, updated {updated_count} candles.")
+                    logger.info(f"Incremental update complete: added {new_count}, updated {updated_count} candles.")
+        except RateLimitException as re:
+            data_status = "RATE_LIMITED"
+            logger.warning(f"Angel One rate limit exception for {mapping.stock_symbol}: {re}")
+        except Exception as e:
+            data_status = "FAILED"
+            logger.error(f"Angel One candle fetch failed for {mapping.stock_symbol}: {e}")
 
         # Load ALL daily candles from the database to build weekly/monthly and compute scores
         db_candles = self.db.query(models.StockCandle).filter(
@@ -373,7 +416,15 @@ class BatchProcessor:
                 df_daily_dict
             )
             logger.info(f"Computed 11-indicator safety scores for {mapping.stock_symbol}: {safety_scores}")
+        except httpx.HTTPStatusError as he:
+            if he.response.status_code == 429:
+                data_status = "RATE_LIMITED"
+                logger.warning(f"IndianAPI rate limit hit (429) for {mapping.stock_symbol}")
+            else:
+                data_status = "FAILED"
+                logger.error(f"IndianAPI HTTP error {he.response.status_code} for {mapping.stock_symbol}")
         except Exception as e:
+            data_status = "FAILED"
             logger.error(f"Error computing safety scores for {mapping.stock_symbol}: {e}")
 
         # Extract company name for dynamic news filtering
@@ -423,7 +474,16 @@ class BatchProcessor:
                             )
                             self.db.add(db_news)
                     self.db.commit()
+            except httpx.HTTPStatusError as he:
+                if he.response.status_code == 429:
+                    if data_status != "FAILED":
+                        data_status = "RATE_LIMITED"
+                    logger.warning(f"EODHD rate limit hit (429) for {mapping.stock_symbol}")
+                else:
+                    data_status = "FAILED"
+                    logger.error(f"EODHD HTTP error {he.response.status_code} for {mapping.stock_symbol}")
             except Exception as e:
+                data_status = "FAILED"
                 logger.error(f"Error fetching and caching news for {mapping.stock_symbol}: {e}")
                 self.db.rollback()
 
@@ -466,6 +526,7 @@ class BatchProcessor:
             score_record = models.StockScore(stock_symbol=mapping.stock_symbol)
             self.db.add(score_record)
             
+        score_record.data_status = data_status
         score_record.technical_score_short = tech_scores['short']
         score_record.technical_score_medium = tech_scores['medium']
         score_record.technical_score_long = tech_scores['long']
