@@ -1,0 +1,6 @@
+# Force LF line endings for lockfiles and package configurations to prevent cross-platform build drift
+bun.lock text eol=lf
+package.json text eol=lf
+apps/mobile/package.json text eol=lf
+apps/web/package.json text eol=lf
+packages/shared/package.json text eol=lf
