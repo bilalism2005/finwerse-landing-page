@@ -22,6 +22,11 @@ apps/mobile/node_modules/
 apps/mobile/android/
 apps/mobile/ios/
 
+# Ignore old/temp modules and folders from local overrides
+node_modules_old/
+node_modules_root_temp/
+package_root_temp.json
+
 # Ignore general development directories
 node_modules/
 dist/
