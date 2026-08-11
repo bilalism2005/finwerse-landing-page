@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Replace with your actual local IP address when running on physical device
-const API_BASE_URL = 'https://finwerse-api-staging.onrender.com'; 
+const API_BASE_URL = 'https://finverse-api-staging.onrender.com'; 
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
