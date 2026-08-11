@@ -1,0 +1,32 @@
+# Ignore API backend files
+apps/api/
+apps/api/venv/
+apps/api/logs/
+apps/api/*.log
+apps/api/*.sqlite
+
+# Ignore landing page frontend
+apps/web/
+apps/web/dist/
+
+# Ignore AI agent folders and logs
+.agents/
+.gemini/
+
+# Ignore local Expo and Metro cache folders
+.expo/
+apps/mobile/.expo/
+apps/mobile/web-build/
+apps/mobile/dist/
+apps/mobile/node_modules/
+apps/mobile/android/
+apps/mobile/ios/
+
+# Ignore general development directories
+node_modules/
+dist/
+build/
+.vscode/
+.idea/
+.DS_Store
+*.log

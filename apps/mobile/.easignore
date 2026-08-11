@@ -1,0 +1,17 @@
+# Ignore non-mobile app directories in monorepo relative to git root
+../../apps/api/
+../../apps/web/
+../../.agents/
+../../.gemini/
+
+# Ignore local dependencies and native builds
+node_modules/
+.expo/
+web-build/
+dist/
+android/
+ios/
+
+# General files
+.DS_Store
+*.log
