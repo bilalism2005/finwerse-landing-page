@@ -2,9 +2,13 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let supabase: SupabaseClient | null = null;
 
-export function initSupabase(url: string, anonKey: string) {
+export function initSupabase(
+  url: string,
+  anonKey: string,
+  options?: Parameters<typeof createClient>[2]
+) {
   if (!supabase) {
-    supabase = createClient(url, anonKey);
+    supabase = createClient(url, anonKey, options ?? {});
   }
   return supabase;
 }

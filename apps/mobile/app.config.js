@@ -3,6 +3,7 @@ module.exports = ({ config }) => {
   return {
     ...config,
     name: isProd ? "Finwerse" : "Finwerse (Staging)",
+    scheme: isProd ? "com.finwerse.mobile" : "com.finwerse.mobile.staging",
     ios: {
       ...config.ios,
       bundleIdentifier: isProd ? "com.finwerse.mobile" : "com.finwerse.mobile.staging",
