@@ -49,3 +49,56 @@ services:
         sync: false
       - key: ANGEL_ONE_API_KEY
         sync: false
+
+  - type: cron
+    name: finwerse-batch-cron
+    env: python
+    plan: free
+    rootDir: apps/api
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.run_daily_batch
+    schedule: "15 10 * * *"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: DATABASE_URL
+        sync: false
+      - key: INDIANAPI_KEY
+        sync: false
+      - key: EODHD_API_KEY
+        sync: false
+      - key: ANGEL_ONE_CLIENT_ID
+        sync: false
+      - key: ANGEL_ONE_PIN
+        sync: false
+      - key: ANGEL_ONE_TOTP_SECRET
+        sync: false
+      - key: ANGEL_ONE_API_KEY
+        sync: false
+
+  - type: cron
+    name: finwerse-batch-cron-staging
+    env: python
+    plan: free
+    branch: staging
+    rootDir: apps/api
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.run_daily_batch
+    schedule: "15 10 * * *"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.2
+      - key: DATABASE_URL
+        sync: false
+      - key: INDIANAPI_KEY
+        sync: false
+      - key: EODHD_API_KEY
+        sync: false
+      - key: ANGEL_ONE_CLIENT_ID
+        sync: false
+      - key: ANGEL_ONE_PIN
+        sync: false
+      - key: ANGEL_ONE_TOTP_SECRET
+        sync: false
+      - key: ANGEL_ONE_API_KEY
+        sync: false

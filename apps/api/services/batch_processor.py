@@ -8,8 +8,8 @@ import httpx
 
 import models
 from services.data_fetcher import AngelOneClient, IndianAPIClient, EODHDClient
+from config.holidays import get_trading_days_between
 from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores, safe_float, compute_timeframe_sentiment, validate_article_for_stock, compute_historical_technical_scores
-
 logger = logging.getLogger(__name__)
 
 def parse_date(date_str):
@@ -200,14 +200,27 @@ class BatchProcessor:
                     
                 logger.info(f"Finished backfill. Total candles fetched/processed: {total_candles_fetched}")
             else:
-                # Incremental update: fetch from the last date in the DB up to today
+                # Incremental update: check missing trading days
                 last_date = max_candle.date
-                # Format dates (overlap by starting from last_date to overwrite today's/yesterday's candle in case it was incomplete)
-                from_date_str = last_date.strftime("%Y-%m-%d %H:%M")
-                to_date_str = now.strftime("%Y-%m-%d %H:%M")
+                last_date_obj = last_date.date() if hasattr(last_date, 'date') else last_date
+                today_obj = now.date()
                 
-                logger.info(f"Fetching incremental candles from {from_date_str} to {to_date_str}...")
-                recent_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
+                # Check how many trading days are missing (from day after last_date to today)
+                missing_trading_days = get_trading_days_between(last_date_obj + timedelta(days=1), today_obj)
+                
+                # We always want to fetch at least to update today's candle (if it's a trading day) or yesterday's
+                # But if missing_trading_days == 0 and last_date_obj is not less than today, we can skip.
+                # Actually, if missing is 0 and last_date is today or in the future, skip.
+                if missing_trading_days == 0 and last_date_obj >= today_obj:
+                    logger.info(f"No new trading days for {mapping.stock_symbol} since {last_date_obj}. Skipping incremental fetch.")
+                    recent_data = []
+                else:
+                    # Format dates (overlap by starting from last_date to overwrite today's/yesterday's candle in case it was incomplete)
+                    from_date_str = last_date.strftime("%Y-%m-%d %H:%M")
+                    to_date_str = now.strftime("%Y-%m-%d %H:%M")
+                    
+                    logger.info(f"Fetching incremental candles (Missing trading days: {missing_trading_days}) from {from_date_str} to {to_date_str}...")
+                    recent_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
                 
                 if recent_data:
                     # Optimized batch upsert for incremental candles
@@ -378,54 +391,78 @@ class BatchProcessor:
             else:
                 tech_scores = {"short": 0.0, "medium": 0.0, "long": 0.0}
 
-        # 2. Compute Safety Score (Moved up to get company_name for news filtering)
+        # 2. Compute Safety Score
         safety_scores = {"scores": {"short": 50.0, "medium": 50.0, "long": 50.0}, "metrics": {}}
         stock_data = None
-        try:
-            logger.info(f"Fetching fundamental data for {mapping.stock_symbol}...")
-            time.sleep(INDIANAPI_DELAY)
-            ratios_data = self.indianapi_client.get_ratios(mapping.stock_symbol)
-            
-            time.sleep(INDIANAPI_DELAY)
-            stock_data = self.indianapi_client.get_stock_details(mapping.stock_symbol)
+        
+        fund_record = self.db.query(models.StockFundamental).filter(models.StockFundamental.stock_symbol == mapping.stock_symbol).first()
+        should_fetch_fundamentals = True
+        if fund_record and fund_record.updated_at:
+            updated_at_utc = to_utc_naive(fund_record.updated_at)
+            days_since_update = (to_utc_naive(now) - updated_at_utc).days
+            # Fetch if older than 7 days, OR if it's Friday and we haven't fetched today yet
+            if days_since_update < 7 and not (now.weekday() == 4 and days_since_update >= 1):
+                should_fetch_fundamentals = False
 
-            time.sleep(INDIANAPI_DELAY)
-            quarter_data = self.indianapi_client.get_quarterly_results(mapping.stock_symbol)
-
-            time.sleep(INDIANAPI_DELAY)
-            yoy_data = self.indianapi_client.get_yoy_results(mapping.stock_symbol)
-
-            time.sleep(INDIANAPI_DELAY)
-            balance_data = self.indianapi_client.get_balancesheet(mapping.stock_symbol)
-
-            time.sleep(INDIANAPI_DELAY)
-            shareholding_data = self.indianapi_client.get_shareholding_pattern(mapping.stock_symbol)
-            
-            # Pass df_daily if it exists
-            df_daily_dict = None
-            if 'df_daily' in locals() and df_daily is not None:
-                df_daily_dict = df_daily
-
-            safety_scores = compute_safety_scores(
-                ratios_data, 
-                stock_data, 
-                quarter_data, 
-                yoy_data, 
-                balance_data, 
-                shareholding_data,
-                df_daily_dict
-            )
-            logger.info(f"Computed 11-indicator safety scores for {mapping.stock_symbol}: {safety_scores}")
-        except httpx.HTTPStatusError as he:
-            if he.response.status_code == 429:
-                data_status = "RATE_LIMITED"
-                logger.warning(f"IndianAPI rate limit hit (429) for {mapping.stock_symbol}")
-            else:
+        if should_fetch_fundamentals:
+            try:
+                logger.info(f"Fetching fundamental data for {mapping.stock_symbol}...")
+                time.sleep(INDIANAPI_DELAY)
+                ratios_data = self.indianapi_client.get_ratios(mapping.stock_symbol)
+                
+                time.sleep(INDIANAPI_DELAY)
+                stock_data = self.indianapi_client.get_stock_details(mapping.stock_symbol)
+    
+                time.sleep(INDIANAPI_DELAY)
+                quarter_data = self.indianapi_client.get_quarterly_results(mapping.stock_symbol)
+    
+                time.sleep(INDIANAPI_DELAY)
+                yoy_data = self.indianapi_client.get_yoy_results(mapping.stock_symbol)
+    
+                time.sleep(INDIANAPI_DELAY)
+                balance_data = self.indianapi_client.get_balancesheet(mapping.stock_symbol)
+    
+                time.sleep(INDIANAPI_DELAY)
+                shareholding_data = self.indianapi_client.get_shareholding_pattern(mapping.stock_symbol)
+                
+                df_daily_dict = None
+                if 'df_daily' in locals() and df_daily is not None:
+                    df_daily_dict = df_daily
+    
+                safety_scores = compute_safety_scores(
+                    ratios_data, 
+                    stock_data, 
+                    quarter_data, 
+                    yoy_data, 
+                    balance_data, 
+                    shareholding_data,
+                    df_daily_dict
+                )
+                logger.info(f"Computed 11-indicator safety scores for {mapping.stock_symbol}: {safety_scores}")
+            except httpx.HTTPStatusError as he:
+                if he.response.status_code == 429:
+                    data_status = "RATE_LIMITED"
+                    logger.warning(f"IndianAPI rate limit hit (429) for {mapping.stock_symbol}")
+                else:
+                    data_status = "FAILED"
+                    logger.error(f"IndianAPI HTTP error {he.response.status_code} for {mapping.stock_symbol}")
+            except Exception as e:
                 data_status = "FAILED"
-                logger.error(f"IndianAPI HTTP error {he.response.status_code} for {mapping.stock_symbol}")
-        except Exception as e:
-            data_status = "FAILED"
-            logger.error(f"Error computing safety scores for {mapping.stock_symbol}: {e}")
+                logger.error(f"Error computing safety scores for {mapping.stock_symbol}: {e}")
+        else:
+            # Use cached scores from DB
+            score_record_cache = self.db.query(models.StockScore).filter(models.StockScore.stock_symbol == mapping.stock_symbol).first()
+            if score_record_cache and score_record_cache.safety_score_short is not None:
+                logger.info(f"Using cached fundamental data and safety scores for {mapping.stock_symbol}...")
+                safety_scores = {
+                    "scores": {
+                        "short": score_record_cache.safety_score_short,
+                        "medium": score_record_cache.safety_score_medium,
+                        "long": score_record_cache.safety_score_long
+                    },
+                    "metrics": {} # Not needed when not updating fundamentals
+                }
+
 
         # Extract company name for dynamic news filtering
         company_name = ""
@@ -440,8 +477,19 @@ class BatchProcessor:
             if eodhd_news_symbol.endswith(".NSE"):
                 eodhd_news_symbol = eodhd_news_symbol.replace(".NSE", ".US")
                 
-            from_date_news = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+            # Delta-based fetching for EODHD: check max article_date in DB
+            max_news = self.db.query(models.StockNews).filter(models.StockNews.stock_symbol == mapping.stock_symbol).order_by(models.StockNews.article_date.desc()).first()
+            if max_news and max_news.article_date:
+                # Fetch from the last recorded article date
+                from_date_news = max_news.article_date.strftime("%Y-%m-%d")
+            else:
+                # If no existing news, fetch last 30 days
+                from_date_news = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+                
             to_date_news = now.strftime("%Y-%m-%d")
+            
+            # Avoid fetching if from_date is equal to to_date and it's already fetched? 
+            # EODHD accepts same date for from and to, it just fetches that day.
             try:
                 news_data = self.fetch_eodhd_news(eodhd_news_symbol, from_date_news, to_date_news)
                 if isinstance(news_data, list):
@@ -543,23 +591,24 @@ class BatchProcessor:
         score_record.overall_score_medium = overall_medium
         score_record.overall_score_long = overall_long
         
-        # 6. Save Fundamentals to DB
-        fund_record = self.db.query(models.StockFundamental).filter(models.StockFundamental.stock_symbol == mapping.stock_symbol).first()
-        if not fund_record:
-            fund_record = models.StockFundamental(stock_symbol=mapping.stock_symbol)
-            self.db.add(fund_record)
-            
-        metrics = safety_scores.get('metrics', {})
-        fund_record.period = metrics.get('period')
-        fund_record.sales = safe_float(metrics.get('sales'))
-        fund_record.eps = safe_float(metrics.get('eps'))
-        fund_record.opm = safe_float(metrics.get('opm'))
-        fund_record.roce = safe_float(metrics.get('roce'))
-        fund_record.roe = safe_float(metrics.get('roe'))
-        fund_record.debt_to_equity = safe_float(metrics.get('debt_to_equity'))
-        fund_record.pe_ratio = safe_float(metrics.get('pe_ratio'))
-        fund_record.market_cap = safe_float(metrics.get('market_cap'))
-        fund_record.fii_holding_pct = safe_float(metrics.get('fii_holding_pct'))
+        # 6. Save Fundamentals to DB (Only if we actually fetched them)
+        if should_fetch_fundamentals:
+            fund_record = self.db.query(models.StockFundamental).filter(models.StockFundamental.stock_symbol == mapping.stock_symbol).first()
+            if not fund_record:
+                fund_record = models.StockFundamental(stock_symbol=mapping.stock_symbol)
+                self.db.add(fund_record)
+                
+            metrics = safety_scores.get('metrics', {})
+            fund_record.period = metrics.get('period')
+            fund_record.sales = safe_float(metrics.get('sales'))
+            fund_record.eps = safe_float(metrics.get('eps'))
+            fund_record.opm = safe_float(metrics.get('opm'))
+            fund_record.roce = safe_float(metrics.get('roce'))
+            fund_record.roe = safe_float(metrics.get('roe'))
+            fund_record.debt_to_equity = safe_float(metrics.get('debt_to_equity'))
+            fund_record.pe_ratio = safe_float(metrics.get('pe_ratio'))
+            fund_record.market_cap = safe_float(metrics.get('market_cap'))
+            fund_record.fii_holding_pct = safe_float(metrics.get('fii_holding_pct'))
         
         self.db.commit()
         logger.info(f"Successfully processed {mapping.stock_symbol}. Sleeping 3s to respect API rate limits...")
