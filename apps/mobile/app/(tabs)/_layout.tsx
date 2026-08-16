@@ -89,6 +89,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="heart.fill" color={color} />,
         }}
       />
+<Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Ask AI',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

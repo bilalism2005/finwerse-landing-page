@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Boolean, ForeignKey, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Boolean, ForeignKey, UniqueConstraint, CheckConstraint, Text
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from database import Base
+from pgvector.sqlalchemy import Vector
 
 class SymbolMapping(Base):
     __tablename__ = "symbol_mapping"
@@ -147,3 +148,16 @@ class PortfolioHolding(Base):
         CheckConstraint("status IN ('held', 'sold')", name='chk_holding_status'),
         CheckConstraint("intended_holding_period IN ('short', 'medium', 'long')", name='chk_holding_period'),
     )
+
+class CorporateFiling(Base):
+    __tablename__ = "corporate_filings"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    stock_symbol = Column(String, index=True, nullable=False)
+    filing_type = Column(String, index=True, nullable=False)
+    filing_date = Column(DateTime(timezone=True), index=True, nullable=False)
+    source_url = Column(String, nullable=True)
+    chunk_text = Column(Text, nullable=False)
+    # sentence-transformers/all-MiniLM-L6-v2 produces 384-dimensional embeddings
+    embedding_vector = Column(Vector(384), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+

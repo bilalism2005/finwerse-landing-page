@@ -13,3 +13,5 @@ pydantic==2.7.1
 pydantic-settings==2.2.1
 PyJWT==2.8.0
 groq==0.9.0
+pgvector==0.2.5
+sentence-transformers==2.7.0

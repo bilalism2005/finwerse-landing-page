@@ -25,6 +25,7 @@ app.add_middleware(
 app.include_router(stocks.router)
 app.include_router(portfolio.router)
 app.include_router(health.router)
+app.include_router(chatbot.router)
 
 
 @app.get("/")
