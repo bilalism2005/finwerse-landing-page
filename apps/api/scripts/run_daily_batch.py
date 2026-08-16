@@ -35,6 +35,12 @@ def run():
         alerts = AlertsProcessor(db)
         alerts.run()
         
+        # 4. Scrape new NSE corporate filings for the RAG chatbot
+        from services.nse_scraper import NSEFilingsScraper
+        logger.info("Starting NSE Filings Sync...")
+        scraper = NSEFilingsScraper(db)
+        scraper.process_announcements()
+        
     except Exception as e:
         logger.error(f"Failed to run batch processor: {e}")
         sys.exit(1)
