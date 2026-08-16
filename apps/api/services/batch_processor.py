@@ -330,7 +330,7 @@ class BatchProcessor:
             
             # Compute historical scores
             logger.info(f"Computing historical technical scores for {mapping.stock_symbol}...")
-            hist_scores = compute_historical_technical_scores(df_daily, df_weekly, df_monthly)
+            hist_scores, all_indicators = compute_historical_technical_scores(df_daily, df_weekly, df_monthly)
             
             # Write/Upsert historical scores in database (Optimized via single query map lookup)
             logger.info(f"Saving historical score records to database...")
@@ -380,6 +380,66 @@ class BatchProcessor:
                 self.db.add_all(score_inserts)
             self.db.commit()
             logger.info(f"Saved/updated {saved_count} historical scores for {mapping.stock_symbol}.")
+            
+            # --- Save Raw Indicator Values ---
+            logger.info(f"Saving exact indicator values to database...")
+            
+            # Get existing indicators to update instead of insert (prevent duplicate errors)
+            # Only pull for the affected dates to save memory
+            existing_inds_query = self.db.query(models.StockIndicatorValue).filter(
+                models.StockIndicatorValue.stock_symbol == mapping.stock_symbol
+            )
+            if affected_from_date:
+                existing_inds_query = existing_inds_query.filter(models.StockIndicatorValue.date >= affected_from_date)
+            
+            existing_inds = existing_inds_query.all()
+            
+            # Map: (date_utc, timeframe) -> db_record
+            existing_inds_map = {(to_utc_naive(ei.date), ei.timeframe): ei for ei in existing_inds}
+            
+            ind_inserts = []
+            ind_saved_count = 0
+            
+            for ind in all_indicators:
+                if affected_from_date and ind['date'] < affected_from_date:
+                    continue
+                    
+                ind_date_utc = to_utc_naive(ind['date'])
+                tf = ind['timeframe']
+                
+                exists_ind = existing_inds_map.get((ind_date_utc, tf))
+                
+                if not exists_ind:
+                    db_ind = models.StockIndicatorValue(
+                        stock_symbol=mapping.stock_symbol,
+                        date=ind['date'],
+                        timeframe=tf,
+                        cci_value=ind['cci_value'],
+                        cci_sma=ind['cci_sma'],
+                        cci_crossover=ind['cci_crossover'],
+                        rsi_value=ind['rsi_value'],
+                        rsi_sma=ind['rsi_sma'],
+                        rsi_crossover=ind['rsi_crossover'],
+                        macd_line=ind['macd_line'],
+                        macd_signal=ind['macd_signal'],
+                        macd_crossover=ind['macd_crossover']
+                    )
+                    ind_inserts.append(db_ind)
+                    ind_saved_count += 1
+                else:
+                    # Dirty track manually
+                    updated = False
+                    for key in ['cci_value', 'cci_sma', 'cci_crossover', 'rsi_value', 'rsi_sma', 'rsi_crossover', 'macd_line', 'macd_signal', 'macd_crossover']:
+                        if getattr(exists_ind, key) != ind[key]:
+                            setattr(exists_ind, key, ind[key])
+                            updated = True
+                    if updated:
+                        ind_saved_count += 1
+            
+            if ind_inserts:
+                self.db.add_all(ind_inserts)
+            self.db.commit()
+            logger.info(f"Saved/updated {ind_saved_count} raw indicator values for {mapping.stock_symbol}.")
             
             if hist_scores:
                 latest_hs = hist_scores[-1]

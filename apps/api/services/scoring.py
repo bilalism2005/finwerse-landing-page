@@ -223,6 +223,30 @@ def compute_historical_technical_scores(df_daily, df_weekly, df_monthly):
     rsi_m_scores = compute_crossover_series(rsi_m_vals, rsi_sma_m)
     macd_m_scores = compute_crossover_series(macd_m_line, macd_m_signal)
 
+    # --- Prepare Raw Indicator Data ---
+    def create_indicator_records(df, cci_v, cci_s, rsi_v, rsi_s, macd_l, macd_s, tf):
+        idf = pd.DataFrame({
+            'date': df['date'],
+            'timeframe': tf,
+            'cci_value': cci_v.values,
+            'cci_sma': cci_s.values,
+            'cci_crossover': (cci_v - cci_s).values,
+            'rsi_value': rsi_v.values,
+            'rsi_sma': rsi_s.values,
+            'rsi_crossover': (rsi_v - rsi_s).values,
+            'macd_line': macd_l.values,
+            'macd_signal': macd_s.values,
+            'macd_crossover': (macd_l - macd_s).values
+        })
+        idf = idf.where(pd.notnull(idf), None)
+        return idf.to_dict('records')
+
+    ind_d = create_indicator_records(df_daily, cci_d_vals, cci_sma_d, rsi_d_vals, rsi_sma_d, macd_d_line, macd_d_signal, 'D')
+    ind_w = create_indicator_records(df_weekly, cci_w_vals, cci_sma_w, rsi_w_vals, rsi_sma_w, macd_w_line, macd_w_signal, 'W')
+    ind_m = create_indicator_records(df_monthly, cci_m_vals, cci_sma_m, rsi_m_vals, rsi_sma_m, macd_m_line, macd_m_signal, 'M')
+    
+    all_indicators = ind_d + ind_w + ind_m
+
     # Create DataFrames with Date column
     df_d = pd.DataFrame({
         'date': df_daily['date'],
@@ -292,7 +316,7 @@ def compute_historical_technical_scores(df_daily, df_weekly, df_monthly):
             'long': None if pd.isna(l) else float(l)
         })
         
-    return historical_scores
+    return historical_scores, all_indicators
 
 def compute_overall_score(technical, safety, sentiment, timeframe):
     weights = {

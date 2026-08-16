@@ -65,6 +65,30 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="portfolio"
+        options={{
+          title: 'Portfolio',
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{
+                ios: 'briefcase.fill',
+                android: 'account_balance_wallet',
+                web: 'account_balance_wallet',
+              }}
+              tintColor={color}
+              size={28}
+            />
+          ),
+        }}
+      />
+<Tabs.Screen
+        name="health"
+        options={{
+          title: 'Health',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="heart.fill" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

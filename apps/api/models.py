@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Boolean, ForeignKey, UniqueConstraint, CheckConstraint
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
 from database import Base
 
 class SymbolMapping(Base):
@@ -100,3 +102,48 @@ class StockHistoricalScore(Base):
         CheckConstraint('technical_score_long BETWEEN -100 AND 100', name='chk_hist_technical_score_long'),
     )
 
+class StockIndicatorValue(Base):
+    __tablename__ = "stock_indicator_values"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    stock_symbol = Column(String, index=True)
+    date = Column(DateTime(timezone=True), index=True)
+    timeframe = Column(String, index=True) # 'D', 'W', 'M'
+    
+    cci_value = Column(Float, nullable=True)
+    cci_sma = Column(Float, nullable=True)
+    cci_crossover = Column(Float, nullable=True)
+    
+    rsi_value = Column(Float, nullable=True)
+    rsi_sma = Column(Float, nullable=True)
+    rsi_crossover = Column(Float, nullable=True)
+    
+    macd_line = Column(Float, nullable=True)
+    macd_signal = Column(Float, nullable=True)
+    macd_crossover = Column(Float, nullable=True)
+    
+    __table_args__ = (
+        UniqueConstraint('stock_symbol', 'date', 'timeframe', name='uq_stock_indicator_value'),
+    )
+
+class PortfolioHolding(Base):
+    __tablename__ = "portfolio_holdings"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(String, index=True, nullable=False) # Supabase auth user UUID stored as string
+    stock_symbol = Column(String, index=True, nullable=False)
+    quantity = Column(Integer, nullable=False)
+    avg_price = Column(Float, nullable=False)
+    purchase_date = Column(Date, nullable=False)
+    intended_holding_period = Column(String, nullable=False) # 'short', 'medium', 'long'
+    status = Column(String, nullable=False, default='held') # 'held', 'sold'
+    
+    sold_quantity = Column(Integer, nullable=True)
+    sold_date = Column(Date, nullable=True)
+    sold_price = Column(Float, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        CheckConstraint("status IN ('held', 'sold')", name='chk_holding_status'),
+        CheckConstraint("intended_holding_period IN ('short', 'medium', 'long')", name='chk_holding_period'),
+    )
