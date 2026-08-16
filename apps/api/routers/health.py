@@ -12,8 +12,16 @@ import models
 
 router = APIRouter(prefix="/portfolio/health", tags=["health"])
 
-# Initialize Groq client
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Initialize Groq client safely (prevents startup crash if env var is missing on Render)
+_groq_client = None
+def get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="GROQ_API_KEY environment variable not set on server.")
+        _groq_client = Groq(api_key=api_key)
+    return _groq_client
 
 # Models
 class StockHealthInfo(BaseModel):
@@ -245,7 +253,8 @@ Here are the holdings (sorted worst to best):
 Write the Bottleneck Report."""
 
     try:
-        completion = groq_client.chat.completions.create(
+        client = get_groq_client()
+        completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},
