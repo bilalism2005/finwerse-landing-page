@@ -30,10 +30,66 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import apiClient from '../src/api/client';
+
+// Configure how notifications behave when the app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+async function registerForPushNotificationsAsync() {
+  let token;
+  if (Platform.OS === 'android') {
+    Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.log('Failed to get push token for push notification!');
+      return;
+    }
+    token = (await Notifications.getExpoPushTokenAsync({ projectId: 'your-project-id' })).data;
+  } else {
+    console.log('Must use physical device for Push Notifications');
+  }
+
+  return token;
+}
+
 // Watches auth state and redirects to the correct route group.
 function AuthGate() {
   const { session, loading } = useAuth();
   const segments = useSegments();
+
+  useEffect(() => {
+    if (session) {
+      // Sync push token with backend on login
+      registerForPushNotificationsAsync().then(token => {
+        if (token) {
+          apiClient.post('/users/push-token', { expo_push_token: token })
+            .catch(err => console.log('Failed to sync push token', err));
+        }
+      });
+    }
+  }, [session]);
 
   useEffect(() => {
     if (loading) return;

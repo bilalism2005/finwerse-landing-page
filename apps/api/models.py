@@ -161,3 +161,34 @@ class CorporateFiling(Base):
     embedding_vector = Column(Vector(384), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class Alert(Base):
+    __tablename__ = "alerts"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(String, index=True, nullable=False)
+    alert_type = Column(String, nullable=False) # 'universe_wide', 'specific_stock', 'portfolio_only'
+    stock_symbol = Column(String, nullable=True) # Only for specific_stock
+    score_type = Column(String, nullable=False) # 'overall', 'technical', 'safety', 'sentiment'
+    timeframe = Column(String, nullable=False) # 'short', 'medium', 'long'
+    threshold_value = Column(Float, nullable=False)
+    direction = Column(String, nullable=False) # 'above', 'below'
+    status = Column(String, default='active', index=True) # 'active', 'triggered'
+    triggered_date = Column(Date, nullable=True)
+    triggered_symbol = Column(String, nullable=True) # Record which stock triggered it
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    __table_args__ = (
+        CheckConstraint("alert_type IN ('universe_wide', 'specific_stock', 'portfolio_only')", name='chk_alert_type'),
+        CheckConstraint("score_type IN ('overall', 'technical', 'safety', 'sentiment')", name='chk_score_type'),
+        CheckConstraint("timeframe IN ('short', 'medium', 'long')", name='chk_alert_timeframe'),
+        CheckConstraint("direction IN ('above', 'below')", name='chk_direction'),
+        CheckConstraint("status IN ('active', 'triggered')", name='chk_status'),
+    )
+
+class UserDevice(Base):
+    __tablename__ = "user_devices"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(String, index=True, nullable=False)
+    expo_push_token = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+

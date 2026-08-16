@@ -26,6 +26,7 @@ app.include_router(stocks.router)
 app.include_router(portfolio.router)
 app.include_router(health.router)
 app.include_router(chatbot.router)
+app.include_router(alerts.router)
 
 
 @app.get("/")

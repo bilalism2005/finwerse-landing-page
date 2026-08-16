@@ -29,6 +29,12 @@ def run():
     try:
         processor = BatchProcessor(db)
         processor.run()
+        
+        # 3. Run Alerts Processor immediately after scores are updated
+        from services.alerts_processor import AlertsProcessor
+        alerts = AlertsProcessor(db)
+        alerts.run()
+        
     except Exception as e:
         logger.error(f"Failed to run batch processor: {e}")
         sys.exit(1)
