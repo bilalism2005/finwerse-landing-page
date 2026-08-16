@@ -3,8 +3,15 @@ import httpx
 import pyotp
 import logging
 from datetime import datetime, timedelta
+from fake_useragent import UserAgent
 
 logger = logging.getLogger(__name__)
+
+def get_headers():
+    ua = UserAgent()
+    return {
+        "User-Agent": ua.random
+    }
 
 class AngelOneClient:
     def __init__(self):
@@ -83,9 +90,8 @@ class IndianAPIClient:
     def __init__(self):
         self.api_key = os.getenv("INDIANAPI_KEY")
         self.base_url = "https://stock.indianapi.in"
-        self.headers = {
-            "x-api-key": self.api_key
-        }
+        self.headers = get_headers()
+        self.headers["x-api-key"] = self.api_key
 
     def get_ratios(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=ratios"
@@ -127,9 +133,10 @@ class EODHDClient:
     def __init__(self):
         self.api_key = os.getenv("EODHD_API_KEY")
         self.base_url = "https://eodhd.com/api"
+        self.headers = get_headers()
 
     def get_news(self, symbol, from_date, to_date):
         url = f"{self.base_url}/news?s={symbol}&from={from_date}&to={to_date}&limit=50&api_token={self.api_key}&fmt=json"
-        response = httpx.get(url)
+        response = httpx.get(url, headers=self.headers)
         response.raise_for_status()
         return response.json()

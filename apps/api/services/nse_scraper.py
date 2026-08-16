@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from fake_useragent import UserAgent
 import models
 
 logger = logging.getLogger(__name__)
@@ -16,8 +17,10 @@ class NSEFilingsScraper:
         self.db = db
         self.base_url = "https://www.nseindia.com"
         self.api_url = "https://www.nseindia.com/api/corporate-announcements?index=equities"
+        
+        ua = UserAgent()
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": ua.random,
             "Accept": "*/*",
             "Accept-Language": "en-US,en;q=0.9",
             "Connection": "keep-alive"
@@ -131,27 +134,30 @@ class NSEFilingsScraper:
                 continue
                 
             # Chunk Text
-            chunks = self.text_splitter.split_text(raw_text)
+            raw_chunks = self.text_splitter.split_text(raw_text)
+            chunks = [c for c in raw_chunks if c.strip()]
             
-            # Embed & Store
-            for chunk in chunks:
-                if not chunk.strip():
-                    continue
-                # Generate embedding (returns numpy array, convert to list for pgvector)
-                embedding = self.embedding_model.encode(chunk).tolist()
-                
+            if not chunks:
+                continue
+            
+            # Embed in batches (10x-50x faster than sequentially in a loop)
+            embeddings = self.embedding_model.encode(chunks)
+            
+            db_objects = []
+            for chunk_text, embedding in zip(chunks, embeddings):
                 db_filing = models.CorporateFiling(
                     stock_symbol=symbol,
                     filing_type=desc[:50], # Truncate if too long
                     filing_date=filing_date,
                     source_url=attachment_url,
-                    chunk_text=chunk,
-                    embedding_vector=embedding
+                    chunk_text=chunk_text,
+                    embedding_vector=embedding.tolist()
                 )
-                self.db.add(db_filing)
-            
-            # Commit per document to ensure partial progress is saved
+                db_objects.append(db_filing)
+                
+            self.db.bulk_save_objects(db_objects)
             self.db.commit()
+            
             processed_count += 1
             logger.info(f"Successfully processed {symbol} filing. Stored {len(chunks)} chunks.")
             

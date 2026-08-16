@@ -31,9 +31,9 @@ class StockScore(Base):
     sentiment_score_medium = Column(String, nullable=True)
     sentiment_score_long = Column(String, nullable=True)
     
-    overall_score_short = Column(Float, nullable=True)
-    overall_score_medium = Column(Float, nullable=True)
-    overall_score_long = Column(Float, nullable=True)
+    overall_score_short = Column(Float, nullable=True, index=True)
+    overall_score_medium = Column(Float, nullable=True, index=True)
+    overall_score_long = Column(Float, nullable=True, index=True)
     
     sector = Column(String, nullable=True)
     market_cap_category = Column(String, nullable=True)
@@ -126,6 +126,8 @@ class StockIndicatorValue(Base):
         UniqueConstraint('stock_symbol', 'date', 'timeframe', name='uq_stock_indicator_value'),
     )
 
+from sqlalchemy import Index
+
 class PortfolioHolding(Base):
     __tablename__ = "portfolio_holdings"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
@@ -135,7 +137,7 @@ class PortfolioHolding(Base):
     avg_price = Column(Float, nullable=False)
     purchase_date = Column(Date, nullable=False)
     intended_holding_period = Column(String, nullable=False) # 'short', 'medium', 'long'
-    status = Column(String, nullable=False, default='held') # 'held', 'sold'
+    status = Column(String, nullable=False, default='held', index=True) # 'held', 'sold'
     
     sold_quantity = Column(Integer, nullable=True)
     sold_date = Column(Date, nullable=True)
@@ -147,6 +149,7 @@ class PortfolioHolding(Base):
     __table_args__ = (
         CheckConstraint("status IN ('held', 'sold')", name='chk_holding_status'),
         CheckConstraint("intended_holding_period IN ('short', 'medium', 'long')", name='chk_holding_period'),
+        Index('ix_portfolio_user_status', 'user_id', 'status'),
     )
 
 class CorporateFiling(Base):

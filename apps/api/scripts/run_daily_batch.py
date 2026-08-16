@@ -45,6 +45,15 @@ def run():
         logger.error(f"Failed to run batch processor: {e}")
         sys.exit(1)
     finally:
+        # Garbage collect triggered alerts older than 30 days
+        try:
+            from sqlalchemy import text
+            db.execute(text("DELETE FROM alerts WHERE status = 'triggered' AND triggered_date < NOW() - INTERVAL '30 days';"))
+            db.commit()
+            logger.info("Garbage collected old triggered alerts.")
+        except Exception as gc_e:
+            logger.error(f"Failed to garbage collect alerts: {gc_e}")
+            
         db.close()
     
     logger.info("Batch job complete.")

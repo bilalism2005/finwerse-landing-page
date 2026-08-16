@@ -183,7 +183,7 @@ class BatchProcessor:
                                 logger.error(ve)
                     
                     if new_candles:
-                        self.db.add_all(new_candles)
+                        self.db.bulk_save_objects(new_candles)
                         self.db.commit()
                         
                     total_candles_fetched += len(daily_data)
@@ -377,7 +377,7 @@ class BatchProcessor:
                         saved_count += 1
                     
             if score_inserts:
-                self.db.add_all(score_inserts)
+                self.db.bulk_save_objects(score_inserts)
             self.db.commit()
             logger.info(f"Saved/updated {saved_count} historical scores for {mapping.stock_symbol}.")
             
@@ -437,7 +437,7 @@ class BatchProcessor:
                         ind_saved_count += 1
             
             if ind_inserts:
-                self.db.add_all(ind_inserts)
+                self.db.bulk_save_objects(ind_inserts)
             self.db.commit()
             logger.info(f"Saved/updated {ind_saved_count} raw indicator values for {mapping.stock_symbol}.")
             

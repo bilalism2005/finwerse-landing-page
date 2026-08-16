@@ -175,7 +175,7 @@ async def tool_twitter(stock_symbol: str):
 
 async def tool_portfolio(db: Session, user_id: str):
     """
-    Retrieves the user's current portfolio holdings.
+    Retrieves the user's current portfolio holdings, along with their current market price and technical scores.
     """
     holdings = db.query(models.PortfolioHolding).filter(
         models.PortfolioHolding.user_id == user_id,
@@ -187,10 +187,25 @@ async def tool_portfolio(db: Session, user_id: str):
 
     portfolio = []
     for h in holdings:
+        # Get the latest score
+        score_record = db.query(models.StockScore).filter(
+            models.StockScore.stock_symbol == h.stock_symbol
+        ).first()
+        
+        # Get the latest daily candle for current price
+        candle_record = db.query(models.StockCandle).filter(
+            models.StockCandle.stock_symbol == h.stock_symbol,
+            models.StockCandle.timeframe == 'D'
+        ).order_by(desc(models.StockCandle.date)).first()
+        
         portfolio.append({
             "stock_symbol": h.stock_symbol,
             "quantity": h.quantity,
             "avg_price": h.avg_price,
-            "intended_holding_period": h.intended_holding_period
+            "current_price": candle_record.close if candle_record else None,
+            "intended_holding_period": h.intended_holding_period,
+            "overall_score_long": score_record.overall_score_long if score_record else None,
+            "overall_score_medium": score_record.overall_score_medium if score_record else None,
+            "overall_score_short": score_record.overall_score_short if score_record else None,
         })
     return {"portfolio_holdings": portfolio}

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, text
 import math
 from datetime import timedelta
 import models
@@ -29,40 +29,28 @@ def get_historical_score(db: Session, symbol: str, date_val, timeframe: str):
 
 def get_nearest_right_date(db: Session, symbol: str, actual_date, timeframe: str, is_buy: bool):
     """
-    Search unbounded history for the nearest date the score was right.
+    Search unbounded history for the nearest date the score was right using pure SQL.
     Right buy: >= 80
     Right sell: <= -80
     """
-    records = db.query(models.StockHistoricalScore).filter(
-        models.StockHistoricalScore.stock_symbol == symbol
-    ).all()
+    col_name = f"technical_score_{timeframe}"
+    condition = ">= 80" if is_buy else "<= -80"
     
-    best_record = None
-    min_diff = float('inf')
+    # Use raw SQL to find the closest date where the condition is met
+    # EXTRACT(EPOCH FROM (date - :target_date)) gets difference in seconds
+    query = text(f"""
+        SELECT date FROM stock_historical_scores
+        WHERE stock_symbol = :symbol 
+        AND {col_name} {condition}
+        AND {col_name} IS NOT NULL
+        ORDER BY ABS(EXTRACT(EPOCH FROM (date - :actual_date))) ASC
+        LIMIT 1
+    """)
     
-    for r in records:
-        if timeframe == 'short':
-            score = r.technical_score_short
-        elif timeframe == 'medium':
-            score = r.technical_score_medium
-        else:
-            score = r.technical_score_long
-            
-        if score is None:
-            continue
-            
-        is_right = (score >= 80) if is_buy else (score <= -80)
-        if is_right:
-            # We must handle both datetime and date types
-            r_date = r.date.date() if hasattr(r.date, 'date') else r.date
-            a_date = actual_date.date() if hasattr(actual_date, 'date') else actual_date
-            diff = abs((r_date - a_date).days)
-            if diff < min_diff:
-                min_diff = diff
-                best_record = r
-                
-    if best_record:
-        return best_record.date
+    result = db.execute(query, {"symbol": symbol, "actual_date": actual_date}).first()
+    
+    if result:
+        return result.date
     return None
 
 def get_price_on_date(db: Session, symbol: str, target_date):
@@ -135,9 +123,14 @@ def analyze_impulse(
                     cf_sell_date = nearest_sell_date
                     cf_sell_price = nearest_price
                     
-        # Compare outcomes
+        # Compare outcomes using CAPITAL DEPLOYED, not static quantity
+        capital_deployed = trade.avg_price * trade.quantity
+        
         actual_profit = (trade.sold_price - trade.avg_price) * trade.quantity
-        cf_profit = (cf_sell_price - cf_buy_price) * trade.quantity
+        
+        # How many shares COULD they have bought at the counterfactual buy price with the same capital?
+        cf_quantity = capital_deployed / cf_buy_price
+        cf_profit = (cf_sell_price - cf_buy_price) * cf_quantity
         
         # If counterfactual is better (larger profit or smaller loss)
         if cf_profit > actual_profit:
