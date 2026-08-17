@@ -33,14 +33,29 @@ NSE_HOLIDAYS_2025 = {
     date(2025, 8, 15),  # Independence Day
     date(2025, 8, 27),  # Ganesh Chaturthi
     date(2025, 10, 2),  # Mahatma Gandhi Jayanti
-    date(2025, 10, 21), # Diwali Laxmi Pujan
     date(2025, 10, 22), # Diwali Balipratipada
     date(2025, 11, 5),  # Gurunanak Jayanti
     date(2025, 12, 25), # Christmas
 }
 
+# NSE Holidays for Equity Segment (2026)
+NSE_HOLIDAYS_2026 = {
+    date(2026, 1, 26),  # Republic Day
+    date(2026, 3, 3),   # Holi
+    date(2026, 3, 20),  # Id-Ul-Fitr (Ramadan Eid)
+    date(2026, 4, 3),   # Good Friday
+    date(2026, 4, 14),  # Dr. Baba Saheb Ambedkar Jayanti
+    date(2026, 5, 1),   # Maharashtra Day
+    date(2026, 5, 27),  # Bakri Id
+    date(2026, 8, 15),  # Independence Day
+    date(2026, 10, 2),  # Mahatma Gandhi Jayanti
+    date(2026, 11, 8),  # Diwali Laxmi Pujan
+    date(2026, 11, 24), # Gurunanak Jayanti
+    date(2026, 12, 25), # Christmas
+}
+
 # Combine all years
-ALL_NSE_HOLIDAYS = NSE_HOLIDAYS_2024 | NSE_HOLIDAYS_2025
+ALL_NSE_HOLIDAYS = NSE_HOLIDAYS_2024 | NSE_HOLIDAYS_2025 | NSE_HOLIDAYS_2026
 
 # Some Saturdays might be working days for special trading sessions
 SPECIAL_TRADING_SESSIONS = {

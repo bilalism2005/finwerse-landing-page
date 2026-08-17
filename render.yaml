@@ -53,11 +53,11 @@ services:
   - type: cron
     name: finwerse-batch-cron
     env: python
-    plan: free
+    plan: starter
     rootDir: apps/api
     buildCommand: pip install -r requirements.txt
     startCommand: python -m scripts.run_daily_batch
-    schedule: "15 10 * * *"
+    schedule: "15 10 * * 1-5"
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.2
@@ -74,17 +74,23 @@ services:
       - key: ANGEL_ONE_TOTP_SECRET
         sync: false
       - key: ANGEL_ONE_API_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TWITTER_API_KEY
         sync: false
 
   - type: cron
     name: finwerse-batch-cron-staging
     env: python
-    plan: free
+    plan: starter
     branch: staging
     rootDir: apps/api
     buildCommand: pip install -r requirements.txt
     startCommand: python -m scripts.run_daily_batch
-    schedule: "15 10 * * *"
+    schedule: "15 10 * * 1-5"
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.2
@@ -101,4 +107,10 @@ services:
       - key: ANGEL_ONE_TOTP_SECRET
         sync: false
       - key: ANGEL_ONE_API_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TWITTER_API_KEY
         sync: false
