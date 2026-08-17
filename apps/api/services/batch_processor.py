@@ -676,11 +676,23 @@ class BatchProcessor:
         time.sleep(3.0)
 
 
-    def run(self):
+    def run(self, skip_computed_today: bool = True):
         logger.info("Starting Batch Processing Loop...")
         mappings = self.db.query(models.SymbolMapping).all()
-        for mapping in mappings:
+        logger.info(f"Found {len(mappings)} total stocks in symbol_mapping.")
+        
+        for idx, mapping in enumerate(mappings, 1):
             try:
+                if skip_computed_today:
+                    # Check if already computed today
+                    existing_score = self.db.query(models.StockScore.computed_at).filter(
+                        models.StockScore.stock_symbol == mapping.stock_symbol
+                    ).first()
+                    if existing_score and existing_score[0] and existing_score[0].date() == datetime.utcnow().date():
+                        logger.info(f"[{idx}/{len(mappings)}] Skipping {mapping.stock_symbol} (already computed today).")
+                        continue
+
+                logger.info(f"[{idx}/{len(mappings)}] Processing {mapping.stock_symbol}...")
                 self.process_stock(mapping)
             except Exception as e:
                 logger.error(f"Critical error processing {mapping.stock_symbol}: {e}")
