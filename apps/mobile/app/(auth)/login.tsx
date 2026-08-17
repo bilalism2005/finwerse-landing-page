@@ -49,7 +49,10 @@ export default function LoginScreen() {
 
       // Build the redirect URL that Supabase will call after Google auth completes.
       // On native this is the deep link scheme registered in app.config.js.
-      const redirectTo = AuthSession.makeRedirectUri({ path: 'auth-callback' });
+      const redirectTo = AuthSession.makeRedirectUri({
+        scheme: 'mobile',
+        path: 'auth-callback',
+      });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
