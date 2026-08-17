@@ -3,8 +3,8 @@ import { getSupabase } from '@finwerse/shared';
 
 const isProd = process.env.APP_ENV === 'production';
 const API_BASE_URL = isProd
-  ? 'https://finverse-api.onrender.com'
-  : 'https://finverse-api-staging.onrender.com';
+  ? 'https://finwerse-api.onrender.com'
+  : 'https://finwerse-api-staging.onrender.com';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
