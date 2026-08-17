@@ -47,6 +47,7 @@ def run():
     finally:
         # Garbage collect triggered alerts older than 30 days
         try:
+            db.rollback()
             from sqlalchemy import text
             db.execute(text("DELETE FROM alerts WHERE status = 'triggered' AND triggered_date < NOW() - INTERVAL '30 days';"))
             db.commit()

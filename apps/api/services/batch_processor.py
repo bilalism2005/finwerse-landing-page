@@ -553,34 +553,35 @@ class BatchProcessor:
             try:
                 news_data = self.fetch_eodhd_news(eodhd_news_symbol, from_date_news, to_date_news)
                 if isinstance(news_data, list):
-                    # Cache articles in DB
+                    # Cache articles in DB with duplicate URL safety
+                    from sqlalchemy.dialects.postgresql import insert as pg_insert
+                    seen_urls = set()
                     for art in news_data:
                         url = art.get("link") or art.get("url") or ""
-                        if not url:
+                        if not url or url in seen_urls:
                             continue
+                        seen_urls.add(url)
                         
                         # Validate if the article belongs to this company
                         if not validate_article_for_stock(art, mapping.stock_symbol, company_name):
                             logger.info(f"Article skipped (mismatch/collision): {art.get('title')} | url: {url}")
                             continue
 
-                        # Check duplicate by unique source_url
-                        exists = self.db.query(models.StockNews).filter(models.StockNews.source_url == url).first()
-                        if not exists:
-                            date_str = art.get("date", "")
-                            try:
-                                dt = datetime.fromisoformat(date_str)
-                            except Exception:
-                                dt = now
-                            polarity = safe_float(art.get("sentiment", {}).get("polarity", 0.0))
-                            
-                            db_news = models.StockNews(
-                                stock_symbol=mapping.stock_symbol,
-                                article_date=dt,
-                                polarity=polarity,
-                                source_url=url
-                            )
-                            self.db.add(db_news)
+                        date_str = art.get("date", "")
+                        try:
+                            dt = datetime.fromisoformat(date_str)
+                        except Exception:
+                            dt = now
+                        polarity = safe_float(art.get("sentiment", {}).get("polarity", 0.0))
+                        
+                        # Use PostgreSQL ON CONFLICT DO NOTHING to guarantee idempotency and no crashes
+                        stmt = pg_insert(models.StockNews).values(
+                            stock_symbol=mapping.stock_symbol,
+                            article_date=dt,
+                            polarity=polarity,
+                            source_url=url
+                        ).on_conflict_do_nothing(index_elements=['source_url'])
+                        self.db.execute(stmt)
                     self.db.commit()
             except httpx.HTTPStatusError as he:
                 if he.response.status_code == 429:
