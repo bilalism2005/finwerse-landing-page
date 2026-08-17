@@ -15,12 +15,45 @@ def get_embedding_model():
         _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
     return _embedding_model
 
+SYMBOL_ALIASES = {
+    "ZOMATO": "ETERNAL",
+    "M&M": "MM",
+    "L&T": "LT",
+    "BAJAJ-AUTO": "BAJAJ_AUTO",
+    "BAJAJ AUTO": "BAJAJ_AUTO",
+    "TATAMOTORS": "TATAMOTORS",
+    "TATA MOTORS": "TATAMOTORS",
+    "TATA POWER": "TATAPOWER",
+    "TATA STEEL": "TATASTEEL",
+    "HDFC": "HDFCBANK",
+}
+
+def resolve_symbol(db: Session, stock_symbol: str) -> str:
+    """Resolves ticker aliases or fuzzy company names to canonical NSE symbols."""
+    clean_sym = stock_symbol.strip().upper()
+    if clean_sym in SYMBOL_ALIASES:
+        return SYMBOL_ALIASES[clean_sym]
+    
+    # Check exact score record
+    score = db.query(models.StockScore.stock_symbol).filter(models.StockScore.stock_symbol == clean_sym).first()
+    if score:
+        return clean_sym
+        
+    # Check symbol mapping
+    mapping = db.query(models.SymbolMapping.stock_symbol).filter(
+        models.SymbolMapping.stock_symbol.ilike(f"%{clean_sym}%")
+    ).first()
+    if mapping:
+        return mapping[0]
+        
+    return clean_sym
+
 async def tool_db_access(db: Session, stock_symbol: str):
     """
     Retrieves current stock scores, indicator values, and a brief history
     for a given stock symbol.
     """
-    stock_symbol = stock_symbol.upper()
+    stock_symbol = resolve_symbol(db, stock_symbol)
     
     # Get current scores
     score_record = db.query(models.StockScore).filter(models.StockScore.stock_symbol == stock_symbol).first()
@@ -48,10 +81,10 @@ async def tool_db_access(db: Session, stock_symbol: str):
                 "date": str(ind_record.date)
             }
 
-    # Historical scores summary (e.g. last 3 recorded dates)
+    # Historical scores summary (e.g. last 10 recorded dates)
     hist_scores = db.query(models.StockHistoricalScore).filter(
         models.StockHistoricalScore.stock_symbol == stock_symbol
-    ).order_by(desc(models.StockHistoricalScore.date)).limit(3).all()
+    ).order_by(desc(models.StockHistoricalScore.date)).limit(10).all()
 
     history = []
     for h in hist_scores:
@@ -94,7 +127,7 @@ async def tool_nse_filings(db: Session, stock_symbol: str, query: str):
     """
     RAG over NSE Filings for the given stock symbol and query.
     """
-    stock_symbol = stock_symbol.upper()
+    stock_symbol = resolve_symbol(db, stock_symbol)
     model = get_embedding_model()
     
     # Create embedding for the query
@@ -122,7 +155,7 @@ async def tool_sentiment(db: Session, stock_symbol: str):
     """
     Gets recent sentiment news headlines.
     """
-    stock_symbol = stock_symbol.upper()
+    stock_symbol = resolve_symbol(db, stock_symbol)
     news = db.query(models.StockNews).filter(
         models.StockNews.stock_symbol == stock_symbol
     ).order_by(desc(models.StockNews.article_date)).limit(5).all()
