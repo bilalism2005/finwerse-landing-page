@@ -145,24 +145,39 @@ async def ask_chatbot(
     messages.append({"role": "user", "content": request.query})
 
     # NODE 1: Tool Routing
+    primary_model = "openai/gpt-oss-120b"
+    fallback_model = "openai/gpt-oss-20b"
+
+    response = None
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=primary_model,
             messages=messages,
             tools=groq_tools,
             tool_choice="auto",
             max_tokens=1000
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Node 1 Routing failed: {str(e)}")
+        logger.warning(f"Node 1 failed with {primary_model}, trying {fallback_model}: {e}")
+        try:
+            response = client.chat.completions.create(
+                model=fallback_model,
+                messages=messages,
+                tools=groq_tools,
+                tool_choice="auto",
+                max_tokens=1000
+            )
+        except Exception as e2:
+            raise HTTPException(status_code=500, detail=f"Node 1 Routing failed: {str(e2)}")
 
     response_message = response.choices[0].message
     tool_calls = response_message.tool_calls
 
     if not tool_calls:
         # If no tools were called, stream the direct response from Node 1 (acting as a normal chat)
+        content_text = response_message.content or "Hello! I am Finwerse Ask AI. How can I help you analyze stocks or your portfolio today?"
         async def direct_stream():
-            yield response_message.content
+            yield content_text
         return StreamingResponse(direct_stream(), media_type="text/plain")
 
     # Execute Tools in Parallel
@@ -171,16 +186,19 @@ async def ask_chatbot(
 
     for tool_call in tool_calls:
         func_name = tool_call.function.name
-        args = json.loads(tool_call.function.arguments)
+        try:
+            args = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
+        except Exception:
+            args = {}
         
         if func_name == "tool_db_access":
-            tasks.append(tools.tool_db_access(db, args.get("stock_symbol")))
+            tasks.append(tools.tool_db_access(db, args.get("stock_symbol", "")))
         elif func_name == "tool_nse_filings":
-            tasks.append(tools.tool_nse_filings(db, args.get("stock_symbol"), args.get("query")))
+            tasks.append(tools.tool_nse_filings(db, args.get("stock_symbol", ""), args.get("query", "")))
         elif func_name == "tool_sentiment":
-            tasks.append(tools.tool_sentiment(db, args.get("stock_symbol")))
+            tasks.append(tools.tool_sentiment(db, args.get("stock_symbol", "")))
         elif func_name == "tool_twitter":
-            tasks.append(tools.tool_twitter(args.get("stock_symbol")))
+            tasks.append(tools.tool_twitter(args.get("stock_symbol", "")))
         elif func_name == "tool_portfolio":
             tasks.append(tools.tool_portfolio(db, current_user_id))
         else:
@@ -213,16 +231,29 @@ async def ask_chatbot(
     async def stream_synthesis():
         try:
             stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=primary_model,
                 messages=synthesis_messages,
                 temperature=0.3,
                 max_tokens=1500,
                 stream=True
             )
             for chunk in stream:
-                if chunk.choices[0].delta.content:
+                if chunk.choices and chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
         except Exception as e:
-            yield f"\n[Error during synthesis: {str(e)}]"
+            try:
+                # Fallback to secondary model
+                stream2 = client.chat.completions.create(
+                    model=fallback_model,
+                    messages=synthesis_messages,
+                    temperature=0.3,
+                    max_tokens=1500,
+                    stream=True
+                )
+                for chunk in stream2:
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        yield chunk.choices[0].delta.content
+            except Exception as e2:
+                yield f"\n[Error during synthesis: {str(e2)}]"
 
     return StreamingResponse(stream_synthesis(), media_type="text/plain")
