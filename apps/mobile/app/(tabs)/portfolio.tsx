@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   FlatList,
@@ -17,7 +17,6 @@ import {
   usePortfolioStore,
   PortfolioHolding,
   HoldingPeriod,
-  HoldingStatus,
 } from '@/src/store/portfolioStore';
 import { searchStocks } from '@/src/api/stockService';
 
@@ -32,7 +31,7 @@ export default function PortfolioScreen() {
     sellHolding,
   } = usePortfolioStore();
 
-  const [activeTab, setActiveTab] = useState<HoldingStatus>('held');
+  const [filterTab, setFilterTab] = useState<'all' | 'held' | 'sold'>('all');
   const [refreshing, setRefreshing] = useState(false);
 
   // Add Stock Modal State
@@ -42,8 +41,11 @@ export default function PortfolioScreen() {
   const [isSearchingSymbol, setIsSearchingSymbol] = useState(false);
   const [addQty, setAddQty] = useState('');
   const [addAvgPrice, setAddAvgPrice] = useState('');
-  const [addDate, setAddDate] = useState(new Date().toISOString().split('T')[0]);
+  const [addDate, setAddDate] = useState('');
   const [addPeriod, setAddPeriod] = useState<HoldingPeriod>('medium');
+  const [addIsSold, setAddIsSold] = useState(false);
+  const [addSoldPrice, setAddSoldPrice] = useState('');
+  const [addSoldDate, setAddSoldDate] = useState('');
   const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
@@ -68,13 +70,23 @@ export default function PortfolioScreen() {
 
   const loadData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    await fetchHoldings(activeTab);
+    await fetchHoldings();
     setRefreshing(false);
-  }, [activeTab, fetchHoldings]);
+  }, [fetchHoldings]);
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, []);
+
+  // Filtered Holdings
+  const displayedHoldings = useMemo(() => {
+    if (filterTab === 'held') return holdings.filter((h) => h.status === 'held');
+    if (filterTab === 'sold') return holdings.filter((h) => h.status === 'sold');
+    return holdings;
+  }, [holdings, filterTab]);
+
+  const heldCount = useMemo(() => holdings.filter((h) => h.status === 'held').length, [holdings]);
+  const soldCount = useMemo(() => holdings.filter((h) => h.status === 'sold').length, [holdings]);
 
   // Symbol Autocomplete Search
   const handleSymbolSearch = async (text: string) => {
@@ -94,6 +106,22 @@ export default function PortfolioScreen() {
     }
   };
 
+  // Helper for quick date chips
+  const setQuickDate = (type: 'today' | '1w' | '1m' | '3m' | '6m' | '1y', target: 'purchase' | 'sold' | 'sellModal' | 'edit') => {
+    const d = new Date();
+    if (type === '1w') d.setDate(d.getDate() - 7);
+    else if (type === '1m') d.setMonth(d.getMonth() - 1);
+    else if (type === '3m') d.setMonth(d.getMonth() - 3);
+    else if (type === '6m') d.setMonth(d.getMonth() - 6);
+    else if (type === '1y') d.setFullYear(d.getFullYear() - 1);
+    
+    const formatted = d.toISOString().split('T')[0];
+    if (target === 'purchase') setAddDate(formatted);
+    else if (target === 'sold') setAddSoldDate(formatted);
+    else if (target === 'sellModal') setSellDate(formatted);
+    else if (target === 'edit') setEditDate(formatted);
+  };
+
   // Open Add Modal
   const handleOpenAddModal = () => {
     setAddSymbol('');
@@ -102,6 +130,9 @@ export default function PortfolioScreen() {
     setAddAvgPrice('');
     setAddDate(new Date().toISOString().split('T')[0]);
     setAddPeriod('medium');
+    setAddIsSold(false);
+    setAddSoldPrice('');
+    setAddSoldDate(new Date().toISOString().split('T')[0]);
     setAddError(null);
     setAddModalVisible(true);
   };
@@ -122,9 +153,14 @@ export default function PortfolioScreen() {
       setAddError('Average buy price must be greater than 0.');
       return;
     }
-    if (!addDate.trim()) {
-      setAddError('Purchase date is required (YYYY-MM-DD).');
-      return;
+
+    let soldPriceNum: number | undefined;
+    if (addIsSold) {
+      soldPriceNum = parseFloat(addSoldPrice);
+      if (!soldPriceNum || soldPriceNum < 0) {
+        setAddError('Please enter a valid selling price.');
+        return;
+      }
     }
 
     setAddError(null);
@@ -134,8 +170,12 @@ export default function PortfolioScreen() {
         stock_symbol: addSymbol.trim().toUpperCase(),
         quantity: qtyNum,
         avg_price: priceNum,
-        purchase_date: addDate.trim(),
+        purchase_date: addDate.trim() || new Date().toISOString().split('T')[0],
         intended_holding_period: addPeriod,
+        status: addIsSold ? 'sold' : 'held',
+        sold_quantity: addIsSold ? qtyNum : null,
+        sold_price: addIsSold ? soldPriceNum : null,
+        sold_date: addIsSold ? (addSoldDate.trim() || new Date().toISOString().split('T')[0]) : null,
       });
       setAddModalVisible(false);
     } catch (e: any) {
@@ -180,7 +220,7 @@ export default function PortfolioScreen() {
       await sellHolding(selectedHoldingForSell.id, {
         sold_quantity: qtyNum,
         sold_price: priceNum,
-        sold_date: sellDate.trim(),
+        sold_date: sellDate.trim() || new Date().toISOString().split('T')[0],
       });
       setSellModalVisible(false);
     } catch (e: any) {
@@ -195,7 +235,7 @@ export default function PortfolioScreen() {
     setSelectedHoldingForEdit(item);
     setEditQty(item.quantity.toString());
     setEditAvgPrice(item.avg_price.toString());
-    setEditDate(item.purchase_date);
+    setEditDate(item.purchase_date || '');
     setEditPeriod(item.intended_holding_period);
     setEditError(null);
     setEditModalVisible(true);
@@ -222,7 +262,7 @@ export default function PortfolioScreen() {
       await updateHolding(selectedHoldingForEdit.id, {
         quantity: qtyNum,
         avg_price: priceNum,
-        purchase_date: editDate.trim(),
+        purchase_date: editDate.trim() || selectedHoldingForEdit.purchase_date,
         intended_holding_period: editPeriod,
       });
       setEditModalVisible(false);
@@ -259,9 +299,10 @@ export default function PortfolioScreen() {
     const isHeld = item.status === 'held';
     const totalInvested = item.quantity * item.avg_price;
     const isSold = item.status === 'sold';
-    const soldTotal = isSold && item.sold_quantity && item.sold_price ? item.sold_quantity * item.sold_price : null;
-    const pnl = isSold && soldTotal ? soldTotal - (item.sold_quantity! * item.avg_price) : null;
-    const pnlPct = isSold && pnl && item.sold_quantity ? (pnl / (item.sold_quantity * item.avg_price)) * 100 : null;
+    const soldQty = item.sold_quantity || item.quantity;
+    const soldTotal = isSold && item.sold_price ? soldQty * item.sold_price : null;
+    const pnl = isSold && soldTotal ? soldTotal - (soldQty * item.avg_price) : null;
+    const pnlPct = isSold && pnl && soldQty ? (pnl / (soldQty * item.avg_price)) * 100 : null;
 
     return (
       <View style={styles.holdingCard}>
@@ -275,7 +316,7 @@ export default function PortfolioScreen() {
         <View style={styles.cardGrid}>
           <View style={styles.metricCol}>
             <Text style={styles.metricLabel}>{isHeld ? 'Quantity' : 'Sold Qty'}</Text>
-            <Text style={styles.metricVal}>{isHeld ? item.quantity : item.sold_quantity || item.quantity}</Text>
+            <Text style={styles.metricVal}>{isHeld ? item.quantity : soldQty}</Text>
           </View>
 
           <View style={styles.metricCol}>
@@ -291,14 +332,14 @@ export default function PortfolioScreen() {
           </View>
 
           <View style={styles.metricCol}>
-            <Text style={styles.metricLabel}>{isHeld ? 'Holding Period' : 'Realized P&L'}</Text>
+            <Text style={styles.metricLabel}>{isHeld ? 'Holding Horizon' : 'Realized P&L'}</Text>
             {isHeld ? (
               <Text style={styles.metricVal}>
                 {item.intended_holding_period ? item.intended_holding_period.toUpperCase() : 'MEDIUM'}
               </Text>
             ) : pnl !== null ? (
               <Text style={[styles.metricVal, { color: pnl >= 0 ? '#10B981' : '#EF4444' }]}>
-                {pnl >= 0 ? '+' : ''}₹{Math.round(pnl).toLocaleString('en-IN')} ({pnlPct?.toFixed(1)}%)
+                {pnl >= 0 ? '+' : ''}₹{Math.round(pnl).toLocaleString('en-IN')} ({pnlPct ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '0%'})
               </Text>
             ) : (
               <Text style={styles.metricVal}>—</Text>
@@ -308,14 +349,14 @@ export default function PortfolioScreen() {
 
         <View style={styles.dateRow}>
           <Text style={styles.dateText}>
-            Bought on: {item.purchase_date} {isSold && item.sold_date ? ` • Sold on: ${item.sold_date}` : ''}
+            Bought: {item.purchase_date || 'Today'} {isSold && item.sold_date ? ` • Sold: ${item.sold_date}` : ''}
           </Text>
         </View>
 
         <View style={styles.cardActions}>
           {isHeld && (
             <TouchableOpacity style={[styles.actionBtn, styles.sellBtn]} onPress={() => handleOpenSellModal(item)}>
-              <Text style={styles.sellBtnText}>Sell</Text>
+              <Text style={styles.sellBtnText}>Mark as Sold</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.actionBtn} onPress={() => handleOpenEditModal(item)}>
@@ -331,22 +372,36 @@ export default function PortfolioScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Tab Switcher */}
-      <View style={styles.tabToggle}>
+      {/* Title Header */}
+      <View style={styles.topHeader}>
+        <Text style={styles.pageTitle}>Portfolio</Text>
+        <Text style={styles.pageSubtitle}>{holdings.length} {holdings.length === 1 ? 'Position' : 'Positions'}</Text>
+      </View>
+
+      {/* Filter Chips Bar */}
+      <View style={styles.filterBar}>
         <TouchableOpacity
-          style={[styles.toggleBtn, activeTab === 'held' && styles.activeToggle]}
-          onPress={() => setActiveTab('held')}
+          style={[styles.filterChip, filterTab === 'all' && styles.filterChipActive]}
+          onPress={() => setFilterTab('all')}
         >
-          <Text style={[styles.toggleText, activeTab === 'held' && styles.activeToggleText]}>
-            Currently Held
+          <Text style={[styles.filterChipText, filterTab === 'all' && styles.filterChipTextActive]}>
+            All ({holdings.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.toggleBtn, activeTab === 'sold' && styles.activeToggle]}
-          onPress={() => setActiveTab('sold')}
+          style={[styles.filterChip, filterTab === 'held' && styles.filterChipActive]}
+          onPress={() => setFilterTab('held')}
         >
-          <Text style={[styles.toggleText, activeTab === 'sold' && styles.activeToggleText]}>
-            Sold Positions
+          <Text style={[styles.filterChipText, filterTab === 'held' && styles.filterChipTextActive]}>
+            Held ({heldCount})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, filterTab === 'sold' && styles.filterChipActive]}
+          onPress={() => setFilterTab('sold')}
+        >
+          <Text style={[styles.filterChipText, filterTab === 'sold' && styles.filterChipTextActive]}>
+            Sold ({soldCount})
           </Text>
         </TouchableOpacity>
       </View>
@@ -357,17 +412,23 @@ export default function PortfolioScreen() {
           <ActivityIndicator size="large" color="#B7FF00" />
           <Text style={styles.loadingText}>Loading positions...</Text>
         </View>
-      ) : holdings.length === 0 ? (
+      ) : displayedHoldings.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor="#B7FF00" />}
         >
-          <Text style={styles.emptyTitle}>No positions found.</Text>
-          <Text style={styles.emptySubtitle}>Add your first stock to unlock Portfolio Health.</Text>
+          <Text style={styles.emptyTitle}>
+            {filterTab === 'sold' ? 'No sold positions yet.' : 'No portfolio positions yet.'}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            {filterTab === 'sold'
+              ? 'When you sell positions, they will appear here with realized P&L tracking.'
+              : 'Add your stocks to unlock real-time Portfolio Health analysis.'}
+          </Text>
         </ScrollView>
       ) : (
         <FlatList
-          data={holdings}
+          data={displayedHoldings}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
@@ -391,14 +452,14 @@ export default function PortfolioScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
               {addError ? <Text style={styles.modalError}>{addError}</Text> : null}
 
               {/* Stock Symbol Autocomplete */}
-              <Text style={styles.inputLabel}>Stock Symbol / Company</Text>
+              <Text style={styles.inputLabel}>Stock Symbol / Company *</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="e.g. RELIANCE, TCS, INFY"
+                placeholder="e.g. RELIANCE, TCS, INFY, AYMSYNTEX"
                 placeholderTextColor="#666"
                 value={addSymbol}
                 onChangeText={handleSymbolSearch}
@@ -426,10 +487,10 @@ export default function PortfolioScreen() {
               )}
 
               {/* Quantity */}
-              <Text style={styles.inputLabel}>Quantity</Text>
+              <Text style={styles.inputLabel}>Quantity *</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="e.g. 50"
+                placeholder="e.g. 10"
                 placeholderTextColor="#666"
                 keyboardType="numeric"
                 value={addQty}
@@ -437,28 +498,42 @@ export default function PortfolioScreen() {
               />
 
               {/* Avg Price */}
-              <Text style={styles.inputLabel}>Average Buy Price (₹)</Text>
+              <Text style={styles.inputLabel}>Average Buy Price (₹) *</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="e.g. 2450.50"
+                placeholder="e.g. 254.00"
                 placeholderTextColor="#666"
                 keyboardType="decimal-pad"
                 value={addAvgPrice}
                 onChangeText={setAddAvgPrice}
               />
 
-              {/* Purchase Date */}
-              <Text style={styles.inputLabel}>Purchase Date (YYYY-MM-DD)</Text>
+              {/* Purchase Date (Optional) */}
+              <Text style={styles.inputLabel}>Purchase Date (Optional)</Text>
+              <View style={styles.quickDateRow}>
+                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('today', 'purchase')}>
+                  <Text style={styles.quickDateText}>Today</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('1m', 'purchase')}>
+                  <Text style={styles.quickDateText}>1M Ago</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('6m', 'purchase')}>
+                  <Text style={styles.quickDateText}>6M Ago</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('1y', 'purchase')}>
+                  <Text style={styles.quickDateText}>1Y Ago</Text>
+                </TouchableOpacity>
+              </View>
               <TextInput
                 style={styles.modalInput}
-                placeholder="YYYY-MM-DD"
+                placeholder="YYYY-MM-DD (defaults to Today)"
                 placeholderTextColor="#666"
                 value={addDate}
                 onChangeText={setAddDate}
               />
 
               {/* Holding Period */}
-              <Text style={styles.inputLabel}>Intended Holding Period</Text>
+              <Text style={styles.inputLabel}>Intended Holding Horizon</Text>
               <View style={styles.periodPillRow}>
                 {(['short', 'medium', 'long'] as HoldingPeriod[]).map((period) => (
                   <TouchableOpacity
@@ -472,6 +547,41 @@ export default function PortfolioScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* Toggle Already Sold */}
+              <TouchableOpacity
+                style={styles.soldToggleCard}
+                onPress={() => setAddIsSold(!addIsSold)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.soldToggleTitle}>Is this a closed / already sold trade?</Text>
+                <View style={[styles.toggleCheckbox, addIsSold && styles.toggleCheckboxChecked]}>
+                  {addIsSold && <Text style={styles.checkmarkText}>✓</Text>}
+                </View>
+              </TouchableOpacity>
+
+              {addIsSold && (
+                <View style={styles.soldFieldsBlock}>
+                  <Text style={styles.inputLabel}>Selling Price (₹) *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="e.g. 290.00"
+                    placeholderTextColor="#666"
+                    keyboardType="decimal-pad"
+                    value={addSoldPrice}
+                    onChangeText={setAddSoldPrice}
+                  />
+
+                  <Text style={styles.inputLabel}>Sale Date (Optional)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="YYYY-MM-DD (defaults to Today)"
+                    placeholderTextColor="#666"
+                    value={addSoldDate}
+                    onChangeText={setAddSoldDate}
+                  />
+                </View>
+              )}
 
               {/* Submit Button */}
               <TouchableOpacity
@@ -495,13 +605,13 @@ export default function PortfolioScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Record Sale - {selectedHoldingForSell?.stock_symbol}</Text>
+              <Text style={styles.modalTitle}>Record Sale — {selectedHoldingForSell?.stock_symbol}</Text>
               <TouchableOpacity onPress={() => setSellModalVisible(false)}>
                 <Text style={styles.closeBtn}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
               {sellError ? <Text style={styles.modalError}>{sellError}</Text> : null}
 
               <View style={styles.infoBanner}>
@@ -509,12 +619,28 @@ export default function PortfolioScreen() {
                   Held Quantity: <Text style={{ fontWeight: 'bold', color: '#fff' }}>{selectedHoldingForSell?.quantity}</Text>
                 </Text>
                 <Text style={styles.infoBannerText}>
-                  Buy Price: <Text style={{ fontWeight: 'bold', color: '#fff' }}>₹{selectedHoldingForSell?.avg_price}</Text>
+                  Avg Buy: <Text style={{ fontWeight: 'bold', color: '#fff' }}>₹{selectedHoldingForSell?.avg_price}</Text>
                 </Text>
               </View>
 
-              {/* Sold Quantity */}
-              <Text style={styles.inputLabel}>Sold Quantity</Text>
+              {/* Quick Qty Presets */}
+              <Text style={styles.inputLabel}>Quantity to Sell *</Text>
+              <View style={styles.quickDateRow}>
+                <TouchableOpacity
+                  style={styles.quickDateChip}
+                  onPress={() => setSellQty(selectedHoldingForSell?.quantity.toString() || '')}
+                >
+                  <Text style={styles.quickDateText}>All ({selectedHoldingForSell?.quantity})</Text>
+                </TouchableOpacity>
+                {selectedHoldingForSell && selectedHoldingForSell.quantity > 1 && (
+                  <TouchableOpacity
+                    style={styles.quickDateChip}
+                    onPress={() => setSellQty(Math.floor(selectedHoldingForSell.quantity / 2).toString())}
+                  >
+                    <Text style={styles.quickDateText}>50% ({Math.floor(selectedHoldingForSell.quantity / 2)})</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               <TextInput
                 style={styles.modalInput}
                 placeholder={`Max ${selectedHoldingForSell?.quantity}`}
@@ -525,10 +651,10 @@ export default function PortfolioScreen() {
               />
 
               {/* Sold Price */}
-              <Text style={styles.inputLabel}>Selling Price per share (₹)</Text>
+              <Text style={styles.inputLabel}>Selling Price per share (₹) *</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="e.g. 2600.00"
+                placeholder="e.g. 290.00"
                 placeholderTextColor="#666"
                 keyboardType="decimal-pad"
                 value={sellPrice}
@@ -536,10 +662,18 @@ export default function PortfolioScreen() {
               />
 
               {/* Sold Date */}
-              <Text style={styles.inputLabel}>Sale Date (YYYY-MM-DD)</Text>
+              <Text style={styles.inputLabel}>Sale Date (Optional)</Text>
+              <View style={styles.quickDateRow}>
+                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('today', 'sellModal')}>
+                  <Text style={styles.quickDateText}>Today</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('1w', 'sellModal')}>
+                  <Text style={styles.quickDateText}>1W Ago</Text>
+                </TouchableOpacity>
+              </View>
               <TextInput
                 style={styles.modalInput}
-                placeholder="YYYY-MM-DD"
+                placeholder="YYYY-MM-DD (defaults to Today)"
                 placeholderTextColor="#666"
                 value={sellDate}
                 onChangeText={setSellDate}
@@ -567,17 +701,17 @@ export default function PortfolioScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Position - {selectedHoldingForEdit?.stock_symbol}</Text>
+              <Text style={styles.modalTitle}>Edit Position — {selectedHoldingForEdit?.stock_symbol}</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                 <Text style={styles.closeBtn}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
               {editError ? <Text style={styles.modalError}>{editError}</Text> : null}
 
               {/* Quantity */}
-              <Text style={styles.inputLabel}>Quantity</Text>
+              <Text style={styles.inputLabel}>Quantity *</Text>
               <TextInput
                 style={styles.modalInput}
                 placeholder="Quantity"
@@ -588,7 +722,7 @@ export default function PortfolioScreen() {
               />
 
               {/* Avg Price */}
-              <Text style={styles.inputLabel}>Average Price (₹)</Text>
+              <Text style={styles.inputLabel}>Average Buy Price (₹) *</Text>
               <TextInput
                 style={styles.modalInput}
                 placeholder="Average Price"
@@ -599,7 +733,7 @@ export default function PortfolioScreen() {
               />
 
               {/* Purchase Date */}
-              <Text style={styles.inputLabel}>Purchase Date (YYYY-MM-DD)</Text>
+              <Text style={styles.inputLabel}>Purchase Date (Optional)</Text>
               <TextInput
                 style={styles.modalInput}
                 placeholder="YYYY-MM-DD"
@@ -609,7 +743,7 @@ export default function PortfolioScreen() {
               />
 
               {/* Holding Period */}
-              <Text style={styles.inputLabel}>Intended Holding Period</Text>
+              <Text style={styles.inputLabel}>Intended Holding Horizon</Text>
               <View style={styles.periodPillRow}>
                 {(['short', 'medium', 'long'] as HoldingPeriod[]).map((period) => (
                   <TouchableOpacity
@@ -657,35 +791,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#0D0D0D',
   },
+  topHeader: {
+    marginBottom: 14,
+    backgroundColor: 'transparent',
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.5,
+  },
+  pageSubtitle: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 2,
+  },
   loadingText: {
     color: '#888',
     marginTop: 12,
     fontSize: 14,
   },
-  tabToggle: {
+  filterBar: {
     flexDirection: 'row',
+    gap: 8,
     marginBottom: 16,
-    borderRadius: 12,
+    backgroundColor: 'transparent',
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
     backgroundColor: '#1A1A1A',
-    padding: 4,
     borderWidth: 1,
     borderColor: '#2A2A2A',
   },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  activeToggle: {
+  filterChipActive: {
     backgroundColor: '#2A2A2A',
+    borderColor: '#B7FF00',
   },
-  toggleText: {
+  filterChipText: {
     color: '#888',
+    fontSize: 13,
     fontWeight: '600',
-    fontSize: 14,
   },
-  activeToggleText: {
+  filterChipTextActive: {
     color: '#FFF',
     fontWeight: '700',
   },
@@ -696,7 +845,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFF',
     marginBottom: 8,
@@ -894,6 +1043,25 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
   },
+  quickDateRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+    backgroundColor: 'transparent',
+  },
+  quickDateChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#222',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  quickDateText: {
+    color: '#AAA',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   suggestionBox: {
     backgroundColor: '#1E1E1E',
     borderRadius: 10,
@@ -948,6 +1116,49 @@ const styles = StyleSheet.create({
   periodPillTextActive: {
     color: '#10B981',
     fontWeight: '700',
+  },
+  soldToggleCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    padding: 14,
+    borderRadius: 10,
+    marginTop: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  soldToggleTitle: {
+    color: '#DDD',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  toggleCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#555',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleCheckboxChecked: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  checkmarkText: {
+    color: '#0D0D0D',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  soldFieldsBlock: {
+    backgroundColor: '#131313',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#262626',
+    marginBottom: 10,
   },
   modalSubmitBtn: {
     backgroundColor: '#B7FF00',

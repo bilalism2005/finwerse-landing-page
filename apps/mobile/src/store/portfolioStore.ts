@@ -25,14 +25,18 @@ export interface PortfolioHoldingCreate {
   stock_symbol: string;
   quantity: number;
   avg_price: number;
-  purchase_date: string;
+  purchase_date?: string | null;
   intended_holding_period: HoldingPeriod;
+  status?: HoldingStatus;
+  sold_quantity?: number | null;
+  sold_price?: number | null;
+  sold_date?: string | null;
 }
 
 export interface PortfolioHoldingUpdate {
   quantity?: number;
   avg_price?: number;
-  purchase_date?: string;
+  purchase_date?: string | null;
   intended_holding_period?: HoldingPeriod;
 }
 
@@ -106,15 +110,21 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session?.user?.id) {
-        const row = {
+        const row: any = {
           user_id: session.user.id,
           stock_symbol: payload.stock_symbol.toUpperCase(),
           quantity: payload.quantity,
           avg_price: payload.avg_price,
-          purchase_date: payload.purchase_date,
-          intended_holding_period: payload.intended_holding_period,
-          status: 'held',
+          purchase_date: payload.purchase_date || new Date().toISOString().split('T')[0],
+          intended_holding_period: payload.intended_holding_period || 'medium',
+          status: payload.status || 'held',
         };
+
+        if (payload.status === 'sold') {
+          row.sold_quantity = payload.sold_quantity || payload.quantity;
+          row.sold_price = payload.sold_price || payload.avg_price;
+          row.sold_date = payload.sold_date || new Date().toISOString().split('T')[0];
+        }
 
         const { data, error } = await supabase
           .from('portfolio_holdings')
@@ -128,6 +138,8 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
             loading: false,
           }));
           return;
+        } else if (error) {
+          console.warn('Direct Supabase insert error:', error.message);
         }
       }
     } catch (supabaseErr) {
@@ -138,6 +150,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     try {
       const { data } = await apiClient.post<PortfolioHolding>('/portfolio/holdings', {
         ...payload,
+        purchase_date: payload.purchase_date || new Date().toISOString().split('T')[0],
         stock_symbol: payload.stock_symbol.toUpperCase(),
       });
       set((state) => ({

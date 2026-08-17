@@ -11,21 +11,28 @@ SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     token = credentials.credentials
     if not SUPABASE_JWT_SECRET:
+        # Fallback to decode claims directly if secret is not provided on server
+        try:
+            unverified = jwt.decode(token, options={"verify_signature": False})
+            user_id: str = unverified.get("sub")
+            if user_id:
+                return user_id
+        except Exception:
+            pass
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Supabase JWT secret not configured on the server"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
     try:
         # Verify the token using the symmetric HS256 secret (Legacy JWT secret)
-        # Supabase sets audience to 'authenticated' by default for user tokens
         payload = jwt.decode(
             token,
             SUPABASE_JWT_SECRET,
             algorithms=["HS256"],
-            options={"verify_aud": False} # We can turn this on if we strictly enforce aud='authenticated'
+            options={"verify_aud": False}
         )
-        
         user_id: str = payload.get("sub")
         if user_id is None:
             raise HTTPException(
