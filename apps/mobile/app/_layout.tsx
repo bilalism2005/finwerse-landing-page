@@ -118,10 +118,29 @@ function AuthGate() {
   return null;
 }
 
+import * as Updates from 'expo-updates';
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  useEffect(() => {
+    async function checkUpdates() {
+      try {
+        if (!__DEV__) {
+          const update = await Updates.checkForUpdateAsync();
+          if (update.isAvailable) {
+            await Updates.fetchUpdateAsync();
+            await Updates.reloadAsync();
+          }
+        }
+      } catch (e) {
+        console.log('Update check error:', e);
+      }
+    }
+    checkUpdates();
+  }, []);
 
   useEffect(() => {
     if (error) throw error;
