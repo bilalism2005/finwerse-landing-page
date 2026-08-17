@@ -1,10 +1,8 @@
+from contextlib import asynccontextmanager
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import stocks, portfolio, health
 from dotenv import load_dotenv
-import models
-from database import engine
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -12,9 +10,19 @@ logger = logging.getLogger(__name__)
 
 from routers import stocks, portfolio, health, chatbot, alerts, analyzer, sentiment
 
-models.Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Non-blocking schema validation on startup
+    try:
+        import models
+        from database import engine
+        models.Base.metadata.create_all(bind=engine)
+        logger.info("Database schema validated successfully.")
+    except Exception as e:
+        logger.warning(f"Database schema initialization warning: {e}")
+    yield
 
-app = FastAPI(title="Finwerse API", version="1.0.0")
+app = FastAPI(title="Finwerse API", version="1.0.0", lifespan=lifespan)
 
 # Enable CORS for web/mobile apps
 app.add_middleware(
