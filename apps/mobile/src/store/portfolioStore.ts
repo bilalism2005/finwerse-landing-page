@@ -8,7 +8,7 @@ export interface PortfolioHolding {
   id: string;
   user_id: string;
   stock_symbol: string;
-  quantity: int;
+  quantity: number;
   avg_price: number;
   purchase_date: string;
   intended_holding_period: HoldingPeriod;

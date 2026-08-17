@@ -2,10 +2,10 @@ import { StyleSheet, Text, View, ScrollView, ActivityIndicator } from 'react-nat
 import { useLocalSearchParams } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../../src/store';
-import { apiClient } from '../../src/api/client';
+import { getStockDetailScore } from '../../src/api/stockService';
 
 export default function StockDetailScreen() {
-  const { symbol } = useLocalSearchParams();
+  const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const { selectedTimeframe } = useAppStore();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -13,19 +13,20 @@ export default function StockDetailScreen() {
 
   useEffect(() => {
     const fetchScore = async () => {
+      if (!symbol) return;
       setLoading(true);
       setError(null);
       try {
-        const res = await apiClient.get(`/stocks/${symbol}/score?timeframe=${selectedTimeframe}`);
-        setData(res.data);
-      } catch (e) {
-        console.error(e);
-        setError('Failed to load stock data.');
+        const scoreData = await getStockDetailScore(symbol, selectedTimeframe);
+        setData(scoreData);
+      } catch (e: any) {
+        console.error('Failed to load stock details:', e);
+        setError('Failed to load stock data. Please try again.');
       } finally {
         setLoading(false);
       }
     };
-    if (symbol) fetchScore();
+    fetchScore();
   }, [symbol, selectedTimeframe]);
 
   if (loading) {
