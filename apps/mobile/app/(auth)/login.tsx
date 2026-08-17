@@ -50,7 +50,7 @@ export default function LoginScreen() {
       // Build the redirect URL that Supabase will call after Google auth completes.
       // On native this is the deep link scheme registered in app.config.js.
       const redirectTo = AuthSession.makeRedirectUri({
-        scheme: 'mobile',
+        scheme: 'finwersestaging',
         path: 'auth-callback',
       });
 
@@ -72,14 +72,8 @@ export default function LoginScreen() {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
         if (result.type === 'success' && result.url) {
-          // Exchange the OAuth code for a Supabase session
-          const url = new URL(result.url);
-          const code = url.searchParams.get('code');
-          if (code) {
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(result.url);
-            if (exchangeError) setError(exchangeError.message);
-            // AuthGate handles the redirect on success
-          }
+          // The deep link is caught by Expo Router and routed to /auth-callback
+          // which now handles the code exchange seamlessly and persists the session.
         }
       }
     } catch (e: any) {
