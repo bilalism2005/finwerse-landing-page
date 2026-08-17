@@ -10,12 +10,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { useState } from 'react';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
-import { useAuth, getSupabase } from '@finwerse/shared';
+import { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
+import { useAuth } from '@finwerse/shared';
 
-// Required for the OAuth flow to complete on native
-WebBrowser.maybeCompleteAuthSession();
+// Configure Google Sign-In with your Web Client ID
+GoogleSignin.configure({
+  webClientId: '1088172410518-k9rrcaml6k3qfdoebtac96ljtn4cdrsh.apps.googleusercontent.com',
+  scopes: ['profile', 'email'],
+});
 
 export default function LoginScreen() {
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
@@ -25,7 +27,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithGoogleNative } = useAuth();
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -45,39 +47,34 @@ export default function LoginScreen() {
     setError(null);
     setGoogleLoading(true);
     try {
-      const supabase = getSupabase();
-
-      // Build the redirect URL that Supabase will call after Google auth completes.
-      // On native this is the deep link scheme registered in app.config.js.
-      const redirectTo = AuthSession.makeRedirectUri({
-        scheme: 'com.finwerse.mobile.staging',
-        path: 'auth-callback',
-      });
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) {
-        setError(error.message);
-        setGoogleLoading(false);
-        return;
-      }
-
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-
-        if (result.type === 'success' && result.url) {
-          // The deep link is caught by Expo Router and routed to /auth-callback
-          // which now handles the code exchange seamlessly and persists the session.
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      
+      if (isSuccessResponse(response)) {
+        if (!response.data.idToken) {
+          throw new Error('No ID token present!');
         }
+        const { error } = await signInWithGoogleNative(response.data.idToken);
+        if (error) {
+          setError(error);
+        }
+      } else {
+        setError('Sign in was cancelled');
       }
-    } catch (e: any) {
-      setError(e?.message ?? 'Google sign-in failed.');
+    } catch (error: any) {
+      if (isErrorWithCode(error)) {
+        switch (error.code) {
+          case statusCodes.IN_PROGRESS:
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            setError('Android play services not available or outdated.');
+            break;
+          default:
+            setError(error.message ?? 'Some other error happened');
+        }
+      } else {
+        setError(error?.message ?? 'Google sign-in failed.');
+      }
     } finally {
       setGoogleLoading(false);
     }

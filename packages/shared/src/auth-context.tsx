@@ -9,6 +9,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: (redirectTo: string) => Promise<{ error: string | null }>;
+  signInWithGoogleNative: (idToken: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -50,12 +51,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return { error: error?.message ?? null };
   };
 
+  const signInWithGoogleNative = async (idToken: string) => {
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: "google",
+      token: idToken,
+    });
+    return { error: error?.message ?? null };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signUp, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ session, loading, signIn, signUp, signInWithGoogle, signInWithGoogleNative, signOut }}>
       {children}
     </AuthContext.Provider>
   );
