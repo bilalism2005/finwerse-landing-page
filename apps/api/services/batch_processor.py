@@ -688,8 +688,8 @@ class BatchProcessor:
                     existing_score = self.db.query(models.StockScore.computed_at).filter(
                         models.StockScore.stock_symbol == mapping.stock_symbol
                     ).first()
-                    if existing_score and existing_score[0] and existing_score[0].date() == datetime.utcnow().date():
-                        logger.info(f"[{idx}/{len(mappings)}] Skipping {mapping.stock_symbol} (already computed today).")
+                    if existing_score and existing_score[0] and existing_score[0] >= (datetime.utcnow() - timedelta(hours=20)):
+                        logger.info(f"[{idx}/{len(mappings)}] Skipping {mapping.stock_symbol} (already computed in this batch).")
                         continue
 
                 logger.info(f"[{idx}/{len(mappings)}] Processing {mapping.stock_symbol}...")
