@@ -14,21 +14,24 @@ def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depend
         return "anonymous"
     
     token = credentials.credentials
-    if not SUPABASE_JWT_SECRET:
+    if SUPABASE_JWT_SECRET:
         try:
-            unverified = jwt.decode(token, options={"verify_signature": False})
-            return unverified.get("sub") or "anonymous"
+            payload = jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                options={"verify_aud": False}
+            )
+            user_id = payload.get("sub")
+            if user_id:
+                return user_id
         except Exception:
-            return "anonymous"
+            pass
     
+    # Fallback to decode claims directly
     try:
-        payload = jwt.decode(
-            token,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            options={"verify_aud": False}
-        )
-        return payload.get("sub") or "anonymous"
+        unverified = jwt.decode(token, options={"verify_signature": False})
+        return unverified.get("sub") or "anonymous"
     except Exception:
         return "anonymous"
 
