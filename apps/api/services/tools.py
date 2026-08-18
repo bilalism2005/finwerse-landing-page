@@ -7,14 +7,6 @@ import models
 
 logger = logging.getLogger(__name__)
 
-_embedding_model = None
-def get_embedding_model():
-    global _embedding_model
-    if _embedding_model is None:
-        from sentence_transformers import SentenceTransformer
-        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _embedding_model
-
 SYMBOL_ALIASES = {
     "ZOMATO": "ETERNAL",
     "M&M": "MM",
@@ -383,56 +375,26 @@ async def tool_news_sentiment(db: Session, stock_symbol: str):
 
 async def tool_nse_filings_rag(db: Session, stock_symbol: str, query: str = "corporate announcements"):
     """
-    Memory-safe semantic vector search over official NSE filings (earnings, board meetings, disclosures).
+    Retrieves recent official NSE corporate filings, disclosures, and announcements.
     Use for: quarterly results, board decisions, dividends, regulatory announcements.
     """
     queried_as = stock_symbol
     symbol = resolve_symbol(db, stock_symbol)
 
-    # First check if filings exist in DB before loading heavy model
-    has_filings = db.query(models.CorporateFiling.id).filter(
+    filings = db.query(models.CorporateFiling).filter(
         models.CorporateFiling.stock_symbol == symbol
-    ).first()
+    ).order_by(desc(models.CorporateFiling.filing_date)).limit(3).all()
 
-    if not has_filings:
+    if not filings:
         return {
             "queried_as": queried_as,
             "resolved_to": symbol,
             "result": f"No official corporate filings recorded for {queried_as} ({symbol}) in the database yet. Filings are synced during daily market runs."
         }
 
-    try:
-        model = get_embedding_model()
-        query_vector = model.encode(query).tolist()
-        results = db.query(models.CorporateFiling).filter(
-            models.CorporateFiling.stock_symbol == symbol
-        ).order_by(models.CorporateFiling.embedding_vector.cosine_distance(query_vector)).limit(3).all()
-
-        if not results:
-            return {
-                "queried_as": queried_as,
-                "resolved_to": symbol,
-                "result": f"No filings found for {queried_as} ({symbol}) matching '{query}'."
-            }
-
-        excerpts = [{"type": r.filing_type, "date": str(r.filing_date)[:10], "text": r.chunk_text, "url": r.source_url} for r in results]
-        return {
-            "queried_as": queried_as,
-            "resolved_to": symbol,
-            "filings_context": excerpts
-        }
-    except Exception as e:
-        logger.warning(f"Filings RAG search failed: {e}")
-        # Fallback to simple recent filings query without embeddings
-        recent_filings = db.query(models.CorporateFiling).filter(
-            models.CorporateFiling.stock_symbol == symbol
-        ).order_by(desc(models.CorporateFiling.filing_date)).limit(3).all()
-        
-        if recent_filings:
-            excerpts = [{"type": r.filing_type, "date": str(r.filing_date)[:10], "text": r.chunk_text, "url": r.source_url} for r in recent_filings]
-            return {"queried_as": queried_as, "resolved_to": symbol, "filings_context": excerpts}
-        return {
-            "queried_as": queried_as,
-            "resolved_to": symbol,
-            "result": f"Could not retrieve filings for {queried_as} ({symbol}) at this time."
-        }
+    excerpts = [{"type": r.filing_type, "date": str(r.filing_date)[:10], "text": r.chunk_text[:500], "url": r.source_url} for r in filings]
+    return {
+        "queried_as": queried_as,
+        "resolved_to": symbol,
+        "filings_context": excerpts
+    }
