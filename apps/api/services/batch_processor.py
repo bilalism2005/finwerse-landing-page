@@ -684,13 +684,17 @@ class BatchProcessor:
         for idx, mapping in enumerate(mappings, 1):
             try:
                 if skip_computed_today:
-                    # Check if already computed today
+                    cutoff = datetime.now(timezone.utc) - timedelta(hours=20)
                     existing_score = self.db.query(models.StockScore.computed_at).filter(
                         models.StockScore.stock_symbol == mapping.stock_symbol
                     ).first()
-                    if existing_score and existing_score[0] and existing_score[0] >= (datetime.utcnow() - timedelta(hours=20)):
-                        logger.info(f"[{idx}/{len(mappings)}] Skipping {mapping.stock_symbol} (already computed in this batch).")
-                        continue
+                    if existing_score and existing_score[0]:
+                        score_time = existing_score[0]
+                        if score_time.tzinfo is None:
+                            score_time = score_time.replace(tzinfo=timezone.utc)
+                        if score_time >= cutoff:
+                            logger.info(f"[{idx}/{len(mappings)}] Skipping {mapping.stock_symbol} (already computed in this batch).")
+                            continue
 
                 logger.info(f"[{idx}/{len(mappings)}] Processing {mapping.stock_symbol}...")
                 self.process_stock(mapping)
