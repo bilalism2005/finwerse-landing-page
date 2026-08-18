@@ -311,11 +311,11 @@ async def tool_twitter_sentiment(stock_symbol: str):
     Fetches real-time investor tweets and community discussion from Twitter/X.
     Use for: social sentiment, retail chatter, trending narratives around a stock.
     """
-    clean_sym = stock_symbol.strip().upper()
-    api_key = os.getenv("TWITTER_API_KEY")
+    api_key = os.getenv("TWITTER_API_KEY") or "new1_b43898c1acb6453f9ffe8946722ab2f8"
     if not api_key:
         return {"error": "Twitter API key not configured on server. Please set TWITTER_API_KEY in environment."}
 
+    clean_sym = stock_symbol.strip().upper()
     url = "https://api.twitterapi.io/twitter/tweet/advanced_search"
     headers = {"x-api-key": api_key}
     params = {"query": f"${clean_sym} OR {clean_sym} stock", "queryType": "Latest"}

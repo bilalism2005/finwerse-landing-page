@@ -16,9 +16,9 @@ def get_headers():
 class AngelOneClient:
     def __init__(self):
         self.client_id = os.getenv("ANGEL_ONE_CLIENT_ID")
-        self.pin = os.getenv("ANGEL_ONE_PIN")
+        self.pin = os.getenv("ANGEL_ONE_PIN") or os.getenv("ANGEL_ONE_PASSWORD")
         self.api_key = os.getenv("ANGEL_ONE_API_KEY")
-        self.totp_secret = os.getenv("ANGEL_ONE_TOTP_SECRET")
+        self.totp_secret = os.getenv("ANGEL_ONE_TOTP_SECRET") or os.getenv("ANGEL_ONE_TOTP_KEY")
         self.base_url = "https://apiconnect.angelbroking.com"
         self.jwt_token = None
         self.feed_token = None

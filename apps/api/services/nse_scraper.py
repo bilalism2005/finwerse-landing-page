@@ -92,7 +92,7 @@ class NSEFilingsScraper:
             if not symbol or symbol not in valid_symbols:
                 continue
                 
-            attachment_url = item.get("attachment")
+            attachment_url = item.get("attchmntFile") or item.get("attachment")
             if not attachment_url:
                 continue
                 
@@ -101,35 +101,39 @@ class NSEFilingsScraper:
                 attachment_url = f"https://www.nseindia.com{attachment_url}"
                 
             # Deduplication: Check if we already processed this filing URL
-            existing = self.db.query(models.CorporateFiling).filter(
+            existing = self.db.query(models.CorporateFiling.id).filter(
                 models.CorporateFiling.source_url == attachment_url
             ).first()
             
             if existing:
                 continue
                 
-            # Parse filing date
-            date_str = item.get("anndate") # e.g. "16-Aug-2026 15:30:00"
-            try:
-                # NSE format varies slightly, try standard
-                filing_date = datetime.strptime(date_str, "%d-%b-%Y %H:%M:%S")
-            except Exception:
-                filing_date = datetime.now()
+            # Parse filing date from an_dt (e.g. "18-Aug-2026 19:05:30") or anndate
+            date_str = item.get("an_dt") or item.get("anndate") or item.get("sort_date") or ""
+            filing_date = datetime.now()
+            if date_str:
+                for fmt in ["%d-%b-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%d-%b-%Y"]:
+                    try:
+                        filing_date = datetime.strptime(date_str, fmt)
+                        break
+                    except Exception:
+                        pass
                 
-            desc = item.get("desc", "General")
+            desc = item.get("desc") or item.get("smIndustry") or "General Announcement"
+            attch_summary = item.get("attchmntText", "").strip()
 
-            # Download PDF
-            logger.info(f"Downloading PDF for {symbol}: {attachment_url}")
+            # Attempt PDF download for in-depth text
+            raw_text = attch_summary
+            logger.info(f"Processing announcement for {symbol}: {desc}")
             try:
-                pdf_response = self.client.get(attachment_url)
-                pdf_response.raise_for_status()
-                pdf_bytes = pdf_response.content
+                pdf_response = self.client.get(attachment_url, timeout=15.0)
+                if pdf_response.status_code == 200:
+                    extracted = self.extract_text_from_pdf(pdf_response.content)
+                    if extracted and len(extracted.strip()) > 50:
+                        raw_text = f"{attch_summary}\n\n{extracted}".strip()
             except Exception as e:
-                logger.error(f"Failed to download PDF {attachment_url}: {e}")
-                continue
-                
-            # Extract Text
-            raw_text = self.extract_text_from_pdf(pdf_bytes)
+                logger.warning(f"PDF download skipped for {attachment_url}: {e}")
+
             if not raw_text.strip():
                 continue
                 
@@ -138,20 +142,17 @@ class NSEFilingsScraper:
             chunks = [c for c in raw_chunks if c.strip()]
             
             if not chunks:
-                continue
+                chunks = [raw_text[:1000]]
             
-            # Embed in batches (10x-50x faster than sequentially in a loop)
-            embeddings = self.embedding_model.encode(chunks)
-            
+            # Save filings to database
             db_objects = []
-            for chunk_text, embedding in zip(chunks, embeddings):
+            for chunk_text in chunks[:5]:  # Limit top 5 chunks per filing
                 db_filing = models.CorporateFiling(
                     stock_symbol=symbol,
-                    filing_type=desc[:50], # Truncate if too long
+                    filing_type=desc[:50],
                     filing_date=filing_date,
                     source_url=attachment_url,
-                    chunk_text=chunk_text,
-                    embedding_vector=embedding.tolist()
+                    chunk_text=chunk_text
                 )
                 db_objects.append(db_filing)
                 
@@ -159,6 +160,6 @@ class NSEFilingsScraper:
             self.db.commit()
             
             processed_count += 1
-            logger.info(f"Successfully processed {symbol} filing. Stored {len(chunks)} chunks.")
+            logger.info(f"Successfully processed {symbol} filing. Stored {len(db_objects)} chunks.")
             
         logger.info(f"NSE Scraper complete. Processed {processed_count} new filings.")
