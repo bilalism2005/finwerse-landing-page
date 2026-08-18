@@ -146,6 +146,24 @@ async def tool_stock_data(db: Session, stock_symbol: str, limit_days: int = 10):
             "technical_score_long": round(h.technical_score_long, 2) if h.technical_score_long else None,
         })
 
+    # Latest D/W/M technical indicators for score-to-meaning grounding
+    indicators = {}
+    for tf in ['D', 'W', 'M']:
+        ind = db.query(models.StockIndicatorValue).filter(
+            models.StockIndicatorValue.stock_symbol == symbol,
+            models.StockIndicatorValue.timeframe == tf
+        ).order_by(desc(models.StockIndicatorValue.date)).first()
+        if ind:
+            indicators[tf] = {
+                "rsi_value": round(ind.rsi_value, 1) if ind.rsi_value else None,
+                "rsi_crossover_days": round(ind.rsi_crossover, 1) if ind.rsi_crossover else None,
+                "cci_value": round(ind.cci_value, 1) if ind.cci_value else None,
+                "cci_crossover_days": round(ind.cci_crossover, 1) if ind.cci_crossover else None,
+                "macd_line": round(ind.macd_line, 2) if ind.macd_line else None,
+                "macd_signal": round(ind.macd_signal, 2) if ind.macd_signal else None,
+                "macd_crossover_days": round(ind.macd_crossover, 1) if ind.macd_crossover else None,
+            }
+
     # FIX 2: queried_as + resolved_to in every response
     return {
         "queried_as": queried_as,
@@ -173,6 +191,7 @@ async def tool_stock_data(db: Session, stock_symbol: str, limit_days: int = 10):
                 "long": score_record.sentiment_score_long,
             }
         },
+        "indicators": indicators,
         "historical_scores_last_10_days": history,
         "data_status": score_record.data_status,
         "computed_at": str(score_record.computed_at)[:19]
@@ -303,7 +322,7 @@ async def tool_twitter_sentiment(stock_symbol: str):
     clean_sym = stock_symbol.strip().upper()
     api_key = os.getenv("TWITTER_API_KEY")
     if not api_key:
-        return {"error": "Twitter API key not configured on server."}
+        return {"error": "Twitter API key not configured on server. Please set TWITTER_API_KEY in environment."}
 
     url = "https://api.twitterapi.io/twitter/tweet/advanced_search"
     headers = {"x-api-key": api_key}
@@ -332,7 +351,7 @@ async def tool_twitter_sentiment(stock_symbol: str):
 
 async def tool_news_sentiment(db: Session, stock_symbol: str):
     """
-    Retrieves recent news headlines and sentiment polarity scores.
+    Retrieves recent news headlines and sentiment polarity scores with article URLs.
     Use for: recent media coverage, headline sentiment, news-driven price moves.
     """
     queried_as = stock_symbol
@@ -345,40 +364,75 @@ async def tool_news_sentiment(db: Session, stock_symbol: str):
         return {
             "queried_as": queried_as,
             "resolved_to": symbol,
-            "result": f"No recent news found for {queried_as} ({symbol})."
+            "result": f"No recent news articles found for {queried_as} ({symbol})."
         }
 
-    articles = [{"date": str(n.article_date)[:10], "polarity": n.polarity, "url": n.source_url} for n in news]
+    articles = []
+    for n in news:
+        polarity_label = "Positive" if n.polarity and n.polarity > 0.15 else ("Negative" if n.polarity and n.polarity < -0.15 else "Neutral")
+        articles.append({
+            "date": str(n.article_date)[:10],
+            "sentiment": polarity_label,
+            "url": n.source_url
+        })
     return {
         "queried_as": queried_as,
         "resolved_to": symbol,
-        "recent_news": articles
+        "recent_news_articles": articles
     }
 
 async def tool_nse_filings_rag(db: Session, stock_symbol: str, query: str = "corporate announcements"):
     """
-    Semantic vector search over official NSE filings (earnings, board meetings, disclosures).
+    Memory-safe semantic vector search over official NSE filings (earnings, board meetings, disclosures).
     Use for: quarterly results, board decisions, dividends, regulatory announcements.
     """
     queried_as = stock_symbol
     symbol = resolve_symbol(db, stock_symbol)
-    model = get_embedding_model()
 
-    query_vector = model.encode(query).tolist()
-    results = db.query(models.CorporateFiling).filter(
+    # First check if filings exist in DB before loading heavy model
+    has_filings = db.query(models.CorporateFiling.id).filter(
         models.CorporateFiling.stock_symbol == symbol
-    ).order_by(models.CorporateFiling.embedding_vector.cosine_distance(query_vector)).limit(3).all()
+    ).first()
 
-    if not results:
+    if not has_filings:
         return {
             "queried_as": queried_as,
             "resolved_to": symbol,
-            "result": f"No filings found for {queried_as} ({symbol}) matching '{query}'."
+            "result": f"No official corporate filings recorded for {queried_as} ({symbol}) in the database yet. Filings are synced during daily market runs."
         }
 
-    excerpts = [{"type": r.filing_type, "date": str(r.filing_date)[:10], "text": r.chunk_text, "url": r.source_url} for r in results]
-    return {
-        "queried_as": queried_as,
-        "resolved_to": symbol,
-        "filings_context": excerpts
-    }
+    try:
+        model = get_embedding_model()
+        query_vector = model.encode(query).tolist()
+        results = db.query(models.CorporateFiling).filter(
+            models.CorporateFiling.stock_symbol == symbol
+        ).order_by(models.CorporateFiling.embedding_vector.cosine_distance(query_vector)).limit(3).all()
+
+        if not results:
+            return {
+                "queried_as": queried_as,
+                "resolved_to": symbol,
+                "result": f"No filings found for {queried_as} ({symbol}) matching '{query}'."
+            }
+
+        excerpts = [{"type": r.filing_type, "date": str(r.filing_date)[:10], "text": r.chunk_text, "url": r.source_url} for r in results]
+        return {
+            "queried_as": queried_as,
+            "resolved_to": symbol,
+            "filings_context": excerpts
+        }
+    except Exception as e:
+        logger.warning(f"Filings RAG search failed: {e}")
+        # Fallback to simple recent filings query without embeddings
+        recent_filings = db.query(models.CorporateFiling).filter(
+            models.CorporateFiling.stock_symbol == symbol
+        ).order_by(desc(models.CorporateFiling.filing_date)).limit(3).all()
+        
+        if recent_filings:
+            excerpts = [{"type": r.filing_type, "date": str(r.filing_date)[:10], "text": r.chunk_text, "url": r.source_url} for r in recent_filings]
+            return {"queried_as": queried_as, "resolved_to": symbol, "filings_context": excerpts}
+        return {
+            "queried_as": queried_as,
+            "resolved_to": symbol,
+            "result": f"Could not retrieve filings for {queried_as} ({symbol}) at this time."
+        }

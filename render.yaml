@@ -23,6 +23,12 @@ services:
         sync: false
       - key: ANGEL_ONE_API_KEY
         sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TWITTER_API_KEY
+        sync: false
 
   - type: web
     name: finwerse-api-staging
@@ -48,6 +54,12 @@ services:
       - key: ANGEL_ONE_TOTP_SECRET
         sync: false
       - key: ANGEL_ONE_API_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TWITTER_API_KEY
         sync: false
 
   - type: cron
