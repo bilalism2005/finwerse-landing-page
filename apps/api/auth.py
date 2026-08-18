@@ -5,8 +5,32 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
 
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+
+def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security_optional)) -> str:
+    if not credentials or not credentials.credentials:
+        return "anonymous"
+    
+    token = credentials.credentials
+    if not SUPABASE_JWT_SECRET:
+        try:
+            unverified = jwt.decode(token, options={"verify_signature": False})
+            return unverified.get("sub") or "anonymous"
+        except Exception:
+            return "anonymous"
+    
+    try:
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False}
+        )
+        return payload.get("sub") or "anonymous"
+    except Exception:
+        return "anonymous"
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     token = credentials.credentials

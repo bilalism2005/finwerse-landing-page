@@ -270,6 +270,9 @@ async def tool_user_portfolio(db: Session, user_id: str):
     Retrieves the user's personal active holdings, buy prices, current prices, and scores.
     Use for: portfolio-scoped queries, P&L, position review.
     """
+    if not user_id or user_id == "anonymous":
+        return {"status": "unauthenticated", "message": "User is not signed in. Please sign in to your Finwerse account to view your personal portfolio holdings and scores."}
+
     holdings = db.query(models.PortfolioHolding).filter(
         models.PortfolioHolding.user_id == user_id,
         models.PortfolioHolding.status == 'held'

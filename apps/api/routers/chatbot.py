@@ -188,7 +188,7 @@ NODE_2_FALLBACK = "openai/gpt-oss-20b"
 @router.post("/ask")
 async def ask_chatbot(
     request: ChatRequest,
-    current_user_id: str = Depends(auth.get_current_user),
+    current_user_id: str = Depends(auth.get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     client = get_groq_client()

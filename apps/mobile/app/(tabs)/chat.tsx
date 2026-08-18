@@ -70,13 +70,14 @@ export default function ChatScreen() {
     );
   };
 
+  const ContainerComponent = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+  const containerProps = Platform.OS === 'ios' 
+    ? { behavior: 'padding' as const, keyboardVerticalOffset: 90, style: styles.keyboardContainer }
+    : { style: styles.keyboardContainer };
+
   return (
-    <KeyboardAvoidingView
-      style={styles.keyboardContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <ContainerComponent {...containerProps}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -140,6 +141,7 @@ export default function ChatScreen() {
             multiline
             maxLength={500}
             editable={!isStreaming}
+            keyboardAppearance="dark"
           />
           <TouchableOpacity
             style={[
@@ -162,7 +164,7 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    </KeyboardAvoidingView>
+    </ContainerComponent>
   );
 }
 
