@@ -23,16 +23,13 @@ class ChatRequest(BaseModel):
     query: str
     history: list[ChatMessage] = []
 
-# Load the indicator reference text once
-try:
-    with open("../../prds/Finwerse_Indicator_Meaning_Reference.md", "r", encoding="utf-8") as f:
-        INDICATOR_REFERENCE = f.read()
-except:
-    try:
-        with open("../prds/Finwerse_Indicator_Meaning_Reference.md", "r", encoding="utf-8") as f:
-            INDICATOR_REFERENCE = f.read()
-    except:
-        INDICATOR_REFERENCE = "Indicator reference not found on server."
+INDICATOR_REFERENCE = """
+- RSI(14): >50 Bullish, <50 Bearish, >70 Overbought, <30 Oversold. Crossing SMA9 signals early momentum shift.
+- CCI(30/60): >100 Strong Bullish, <-100 Strong Bearish. Crossing SMA9 confirms breakout.
+- MACD(12,26,9): Line > Signal is Bullish, Line < Signal is Bearish. Line above 0 confirms positive regime. Histogram direction shows momentum acceleration/deceleration.
+- Crossover Freshness (Days/Candles): 1-2 = Very Fresh (Active Trigger), 3-4 = Fresh, 5-7 = Cooling, 8-10 = Aging, 11+ = Old/Established.
+- Multi-Timeframe: D=Short-term momentum (days), W=Medium-term swing (weeks), M=Long-term trend (months). Higher timeframe alignment dominates lower timeframe noise.
+"""
 
 NODE_1_SYSTEM_PROMPT = """You are the Finwerse AI routing agent (Node 1).
 Your ONLY job is to select the appropriate tools to fulfill the user's query about stocks or their portfolio.
