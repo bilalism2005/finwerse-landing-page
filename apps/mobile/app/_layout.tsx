@@ -3,7 +3,6 @@ import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initSupabase, AuthProvider, useAuth } from '@finwerse/shared';
@@ -157,33 +156,19 @@ export default function RootLayout() {
     return null;
   }
 
-  const customDarkTheme = {
-    ...DarkTheme,
-    colors: {
-      ...DarkTheme.colors,
-      background: '#0D0D0D',
-      card: '#0D0D0D',
-      text: '#FFFFFF',
-      border: '#1A1A1A',
-      primary: '#B7FF00',
-    },
-  };
-
   return (
-    <ThemeProvider value={customDarkTheme}>
+    <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
       <StatusBar style="light" backgroundColor="#0D0D0D" />
-      <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
-        <AuthProvider>
-          <AuthGate />
-          <Stack screenOptions={{ contentStyle: { backgroundColor: '#0D0D0D' } }}>
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="stock/[symbol]" options={{ headerTitle: 'Stock Detail', headerBackTitle: 'Back' }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-        </AuthProvider>
-      </View>
-    </ThemeProvider>
+      <AuthProvider>
+        <AuthGate />
+        <Stack screenOptions={{ contentStyle: { backgroundColor: '#0D0D0D' } }}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="stock/[symbol]" options={{ headerTitle: 'Stock Detail', headerBackTitle: 'Back' }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </AuthProvider>
+    </View>
   );
 }
