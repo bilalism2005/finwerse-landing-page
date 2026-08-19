@@ -1,4 +1,5 @@
 import os
+import difflib
 import httpx
 import logging
 from sqlalchemy.orm import Session
@@ -44,6 +45,7 @@ SYMBOL_ALIASES = {
 def resolve_symbol_with_candidates(db: Session, query_term: str) -> dict:
     """
     Disambiguation Gate: resolves a search term to EXACT, MULTIPLE candidates, NOT_FOUND, or NONE.
+    Supports exact matching, alias lookup, substring search, and fuzzy typo resolution.
     """
     if not query_term or not query_term.strip():
         return {"status": "NONE"}
@@ -69,7 +71,13 @@ def resolve_symbol_with_candidates(db: Session, query_term: str) -> dict:
     if exact_map:
         return {"status": "EXACT", "symbol": exact_map[0], "queried_as": query_term}
 
-    # 4. Fuzzy substring search
+    # 4. Fuzzy alias match for typos (e.g. "INFORSYS" -> "INFOSYS" -> "INFY")
+    alias_matches = difflib.get_close_matches(term, list(SYMBOL_ALIASES.keys()), n=1, cutoff=0.72)
+    if alias_matches:
+        matched_alias = alias_matches[0]
+        return {"status": "EXACT", "symbol": SYMBOL_ALIASES[matched_alias], "queried_as": query_term}
+
+    # 5. Fuzzy substring search
     candidates = db.query(models.SymbolMapping.stock_symbol).filter(
         models.SymbolMapping.stock_symbol.ilike(f"%{term}%")
     ).limit(6).all()
@@ -78,6 +86,14 @@ def resolve_symbol_with_candidates(db: Session, query_term: str) -> dict:
         return {"status": "EXACT", "symbol": candidates[0][0], "queried_as": query_term}
     elif len(candidates) > 1:
         return {"status": "MULTIPLE", "candidates": [c[0] for c in candidates], "queried_as": query_term}
+
+    # 6. Fuzzy symbol match in symbol_mapping table
+    all_symbols = [s[0] for s in db.query(models.SymbolMapping.stock_symbol).all()]
+    symbol_matches = difflib.get_close_matches(term, all_symbols, n=3, cutoff=0.70)
+    if len(symbol_matches) == 1:
+        return {"status": "EXACT", "symbol": symbol_matches[0], "queried_as": query_term}
+    elif len(symbol_matches) > 1:
+        return {"status": "MULTIPLE", "candidates": symbol_matches, "queried_as": query_term}
 
     return {"status": "NOT_FOUND", "searched": query_term}
 

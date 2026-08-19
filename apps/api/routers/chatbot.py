@@ -73,17 +73,19 @@ CORE WRITING RULES:
      - Crossover freshness → Explain if a shift just started 1-2 days ago or is an aging move from 10 days ago.
    - NEVER print raw indicator formulas or parenthetical numbers like '(52.5)', '(-94)', or 'score of 14'. Focus strictly on what the momentum means for the stock.
 
-3. CLEAN FORMATTING — STRICTLY NO ASTERISK HEADINGS:
+3. SUBSTANTIVE TAKEAWAYS FOR NEWS & TWITTER (NO VAGUE ONE-LINERS):
+   - For Twitter/X chatter, do NOT just say "chatter is upbeat" or "retail mood is positive". Detail what retail traders and investors are actually discussing (e.g. quarterly margins, capacity additions, valuation debates, volume growth, or management guidance).
+   - For news and media articles, use clean bullets: • [Read Article](url) — What happened and how it impacts the business.
+   - For official filings, highlight any key corporate actions (earnings, dividends, board decisions, capacity expansion).
+
+4. CLEAN FORMATTING — STRICTLY NO ASTERISK HEADINGS:
    - DO NOT use markdown headers with double asterisks like "**Bottom line:**", "**What this means for an investor**", "**Why it matters**", or "**Twitter Sentiment**".
    - Structure your response using 2-3 clean, well-spaced paragraphs separated by blank lines.
-   - For news and media articles, use simple bullets: • [Read Article](url) — What happened and how it impacts the business.
-   - For Twitter chatter, mention the community mood in a natural conversational sentence.
-   - For official filings, highlight any key corporate actions (earnings, dividends, board decisions).
 
-4. MULTI-TIMEFRAME PERSPECTIVE (SHORT, MEDIUM, LONG TERM):
+5. MULTI-TIMEFRAME PERSPECTIVE (SHORT, MEDIUM, LONG TERM):
    - Contrast short-term momentum (days) with medium-term trend (weeks) and long-term health (months) so the investor understands the full picture.
 
-5. OBJECTIVITY & NAMING:
+6. OBJECTIVITY & NAMING:
    - Keep guidance balanced and objective (never say "buy" or "sell").
    - Always refer to the stock by what the user called it ("queried_as").
 
@@ -192,7 +194,7 @@ groq_tools = [
     }
 ]
 
-NODE_1_MODEL = "qwen/qwen3.6-27b"
+NODE_1_MODEL = "openai/gpt-oss-120b"
 NODE_2_CANDIDATES = [
     "openai/gpt-oss-120b",
     "qwen/qwen3.6-27b",
@@ -214,7 +216,7 @@ async def ask_chatbot(
 
     # NODE 1: Tool Routing with automatic model failover
     node1_response = None
-    node1_candidates = [NODE_1_MODEL, "llama-3.3-70b-versatile", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+    node1_candidates = [NODE_1_MODEL, "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
     
     for candidate_model in node1_candidates:
         try:
@@ -360,7 +362,7 @@ async def ask_chatbot(
                     model=model_id,
                     messages=synthesis_messages,
                     temperature=0.3,
-                    max_tokens=600,
+                    max_tokens=1500,
                     stream=True
                 )
                 for chunk in stream:
