@@ -3,16 +3,28 @@ import { StyleSheet, FlatList, TouchableOpacity, ScrollView, ActivityIndicator }
 import { Text, View } from '@/components/Themed';
 import { useHealthStore, StockHealthInfo, SectorInfo } from '@/src/store/healthStore';
 import { HoldingPeriod } from '@/src/store/portfolioStore';
+import { useChatStore } from '@/src/store/chatStore';
 import { SymbolView } from 'expo-symbols';
+import { useRouter } from 'expo-router';
 
 export default function HealthScreen() {
-  const { healthData, fetchHealth, loading, error, generateBottleneckReport, bottleneckReport, bottleneckLoading, clearBottleneckReport } = useHealthStore();
+  const router = useRouter();
+  const { sendMessage } = useChatStore();
+  const { healthData, fetchHealth, loading, error, clearBottleneckReport } = useHealthStore();
   const [timeframe, setTimeframe] = useState<HoldingPeriod>('medium');
 
   useEffect(() => {
     fetchHealth(timeframe);
     clearBottleneckReport();
   }, [timeframe]);
+
+  const handleBottleneckNav = (prompt: string) => {
+    router.push('/(tabs)/chat');
+    // small delay to let the tab transition before streaming message
+    setTimeout(() => {
+      sendMessage(prompt);
+    }, 300);
+  };
 
   const getScoreColor = (score: number | null) => {
     if (score === null) return '#888';
@@ -149,26 +161,18 @@ export default function HealthScreen() {
         {/* AI Bottleneck Report */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>AI Bottleneck Report</Text>
-          {!bottleneckReport ? (
-            <TouchableOpacity 
-              style={styles.bottleneckBtn} 
-              onPress={() => generateBottleneckReport(timeframe)}
-              disabled={bottleneckLoading}
-            >
-              {bottleneckLoading ? (
-                <ActivityIndicator color="#0a0a0f" />
-              ) : (
-                <>
-                  <SymbolView name={{ ios: 'sparkles', android: 'star', web: 'star' }} size={20} tintColor="#0a0a0f" />
-                  <Text style={styles.bottleneckBtnText}>See what's holding your portfolio back</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.reportBox}>
-              <Text style={styles.reportText}>{bottleneckReport}</Text>
-            </View>
-          )}
+          <TouchableOpacity 
+            style={styles.bottleneckBtn} 
+            onPress={() => {
+              const prompt = `Analyze my portfolio health data and identify the top bottlenecks holding back my overall score for the ${timeframe} timeframe. What should I do to improve diversification, safety, and technical scores?`;
+              // We could navigate using router.push('/chat') and then set the prompt.
+              // We'll import useRouter and useChatStore above.
+              handleBottleneckNav(prompt);
+            }}
+          >
+            <SymbolView name={{ ios: 'sparkles', android: 'star', web: 'star' }} size={20} tintColor="#0a0a0f" />
+            <Text style={styles.bottleneckBtnText}>See what's holding your portfolio back</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Holdings */}
