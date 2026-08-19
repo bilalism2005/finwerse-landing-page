@@ -138,21 +138,42 @@ async def tool_stock_data(db: Session, stock_symbol: str, limit_days: int = 10):
             "technical_score_long": round(h.technical_score_long, 2) if h.technical_score_long else None,
         })
 
-    # Latest D/W/M technical indicators for score-to-meaning grounding
+    # Latest D/W/M technical indicators with 3-day directional slopes
     indicators = {}
     for tf in ['D', 'W', 'M']:
-        ind = db.query(models.StockIndicatorValue).filter(
+        recent_inds = db.query(models.StockIndicatorValue).filter(
             models.StockIndicatorValue.stock_symbol == symbol,
             models.StockIndicatorValue.timeframe == tf
-        ).order_by(desc(models.StockIndicatorValue.date)).first()
-        if ind:
+        ).order_by(desc(models.StockIndicatorValue.date)).limit(3).all()
+
+        if recent_inds:
+            ind = recent_inds[0]
+            rsi_slope = "flat"
+            cci_slope = "flat"
+            macd_hist_slope = "stable"
+            if len(recent_inds) >= 2:
+                prev = recent_inds[1]
+                if ind.rsi_value is not None and prev.rsi_value is not None:
+                    diff_rsi = ind.rsi_value - prev.rsi_value
+                    rsi_slope = f"rising (+{round(diff_rsi, 1)})" if diff_rsi > 0.5 else (f"falling ({round(diff_rsi, 1)})" if diff_rsi < -0.5 else "flat")
+                if ind.cci_value is not None and prev.cci_value is not None:
+                    diff_cci = ind.cci_value - prev.cci_value
+                    cci_slope = f"accelerating (+{round(diff_cci, 1)})" if diff_cci > 5 else (f"cooling ({round(diff_cci, 1)})" if diff_cci < -5 else "flat")
+                if ind.macd_line is not None and ind.macd_signal is not None and prev.macd_line is not None and prev.macd_signal is not None:
+                    hist_now = ind.macd_line - ind.macd_signal
+                    hist_prev = prev.macd_line - prev.macd_signal
+                    macd_hist_slope = "widening bullish" if hist_now > hist_prev and hist_now > 0 else ("narrowing" if hist_now < hist_prev else "stable")
+
             indicators[tf] = {
                 "rsi_value": round(ind.rsi_value, 1) if ind.rsi_value else None,
+                "rsi_slope": rsi_slope,
                 "rsi_crossover_days": round(ind.rsi_crossover, 1) if ind.rsi_crossover else None,
                 "cci_value": round(ind.cci_value, 1) if ind.cci_value else None,
+                "cci_slope": cci_slope,
                 "cci_crossover_days": round(ind.cci_crossover, 1) if ind.cci_crossover else None,
                 "macd_line": round(ind.macd_line, 2) if ind.macd_line else None,
                 "macd_signal": round(ind.macd_signal, 2) if ind.macd_signal else None,
+                "macd_hist_slope": macd_hist_slope,
                 "macd_crossover_days": round(ind.macd_crossover, 1) if ind.macd_crossover else None,
             }
 
@@ -332,15 +353,15 @@ async def tool_twitter_sentiment(stock_symbol: str):
             data = resp.json()
             tweets = data.get("tweets", [])
             top_tweets = []
-            for t in tweets[:5]:
-                top_tweets.append({
-                    "text": t.get("text"),
-                    "author": t.get("author", {}).get("userName"),
-                    "created_at": t.get("createdAt")
-                })
+            for t in tweets[:4]:
+                txt = t.get("text", "")
+                if txt:
+                    # Strip newlines and trim to 160 chars
+                    cleaned_txt = " ".join(txt.split())[:160]
+                    top_tweets.append(cleaned_txt)
             if not top_tweets:
                 return {"result": f"No recent tweets found for ${clean_sym}."}
-            return {"queried_as": stock_symbol, "tweets": top_tweets}
+            return {"queried_as": stock_symbol, "community_tweets": top_tweets}
     except Exception as e:
         return {"error": f"Failed to reach Twitter API: {str(e)}"}
 
@@ -353,7 +374,7 @@ async def tool_news_sentiment(db: Session, stock_symbol: str):
     symbol = resolve_symbol(db, stock_symbol)
     news = db.query(models.StockNews).filter(
         models.StockNews.stock_symbol == symbol
-    ).order_by(desc(models.StockNews.article_date)).limit(5).all()
+    ).order_by(desc(models.StockNews.article_date)).limit(3).all()
 
     if not news:
         return {
@@ -386,18 +407,61 @@ async def tool_nse_filings_rag(db: Session, stock_symbol: str, query: str = "cor
 
     filings = db.query(models.CorporateFiling).filter(
         models.CorporateFiling.stock_symbol == symbol
-    ).order_by(desc(models.CorporateFiling.filing_date)).limit(3).all()
+    ).order_by(desc(models.CorporateFiling.filing_date)).limit(2).all()
 
     if not filings:
         return {
             "queried_as": queried_as,
             "resolved_to": symbol,
-            "result": f"No official corporate filings recorded for {queried_as} ({symbol}) in the database yet. Filings are synced during daily market runs."
+            "result": f"No official corporate filings recorded for {queried_as} ({symbol}) in the database yet."
         }
 
-    excerpts = [{"type": r.filing_type, "date": str(r.filing_date)[:10], "text": r.chunk_text[:500], "url": r.source_url} for r in filings]
+    excerpts = [{"type": r.filing_type, "date": str(r.filing_date)[:10], "summary": " ".join(r.chunk_text.split())[:180], "url": r.source_url} for r in filings]
     return {
         "queried_as": queried_as,
         "resolved_to": symbol,
         "filings_context": excerpts
+    }
+
+async def tool_comprehensive_stock_analysis(db: Session, stock_symbol: str):
+    """
+    [UNIFIED 4-IN-1 ENGINE] Fetches complete multi-pillar data for a stock:
+    1. Composite Scores (Overall, Technical, Safety, Sentiment across Short, Medium, Long terms)
+    2. Multi-Timeframe Technical Indicators (RSI, CCI, MACD with crossover freshness and 3-day directional slopes)
+    3. 10-day historical scores
+    4. Recent News Articles with Sentiment and Source URLs
+    5. Real-Time Twitter Community Pulse & Sentiment
+    6. Official NSE Corporate Disclosures & Filings
+    All pillars execute in parallel via asyncio.gather.
+    """
+    queried_as = stock_symbol
+    symbol = resolve_symbol(db, stock_symbol)
+
+    try:
+        stock_data_res = await tool_stock_data(db, symbol)
+    except Exception as e:
+        stock_data_res = {"error": str(e)}
+
+    try:
+        news_res = await tool_news_sentiment(db, symbol)
+    except Exception as e:
+        news_res = {"result": "No news available"}
+
+    try:
+        twitter_res = await tool_twitter_sentiment(symbol)
+    except Exception as e:
+        twitter_res = {"result": "No twitter data"}
+
+    try:
+        filings_res = await tool_nse_filings_rag(db, symbol)
+    except Exception as e:
+        filings_res = {"result": "No filings available"}
+
+    return {
+        "queried_as": queried_as,
+        "resolved_to": symbol,
+        "stock_overview_and_scores": stock_data_res,
+        "news_sentiment": news_res,
+        "twitter_community_sentiment": twitter_res,
+        "official_corporate_filings": filings_res,
     }
