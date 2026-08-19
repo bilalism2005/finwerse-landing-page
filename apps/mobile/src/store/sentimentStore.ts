@@ -13,6 +13,7 @@ interface SentimentState {
   articles: Article[];
   isLoading: boolean;
   error: string | null;
+  fetchMarketNews: () => Promise<void>;
   fetchPortfolioSentiment: () => Promise<void>;
   searchSentiment: (query: string) => Promise<void>;
 }
@@ -21,6 +22,16 @@ export const useSentimentStore = create<SentimentState>((set) => ({
   articles: [],
   isLoading: false,
   error: null,
+
+  fetchMarketNews: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiClient.get('/sentiment-feed/market');
+      set({ articles: response.data, isLoading: false });
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to fetch market news', isLoading: false });
+    }
+  },
 
   fetchPortfolioSentiment: async () => {
     set({ isLoading: true, error: null });
