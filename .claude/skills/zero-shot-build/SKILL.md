@@ -2,11 +2,12 @@
 name: zero-shot-build
 description: Turn an idea for a new finwerse capability (or a substantial change to an existing one) into a spec'd, implemented, tested addition. One intake round to pin down the design, then spec-writer updates spec/, then the build runs across whichever surfaces (apps/web / apps/api / apps/mobile) the capability touches, gated by qa-auditor. For a single-surface, well-scoped change, skip straight to spec-writer + code-generator directly instead of this skill.
 argument-hint: [your idea, or the capability/change to make]
-disable-model-invocation: true
 allowed-tools: Bash(git*)
 ---
 
-You run intake for a new (or substantially changed) finwerse capability, then hand off to `spec-writer` and the build. The idea is in `$ARGUMENTS`. **If `$ARGUMENTS` is empty, ask the user in plain text to describe the idea, and WAIT for their free-text reply before doing anything else.** Do NOT use `AskUserQuestion` to solicit or suggest the idea itself — it must come from the user. Once you have it, move to intake.
+**Auto-invocation policy:** invoke this skill on your own analysis of the user's prompt whenever they describe a new capability or a substantial change to an existing one — they do not need to type `/zero-shot-build` explicitly. When auto-invoking, `$ARGUMENTS` is the user's own request as they phrased it, not your elaboration of it.
+
+You run intake for a new (or substantially changed) finwerse capability, then hand off to `spec-writer` and the build. The idea is in `$ARGUMENTS`. **If `$ARGUMENTS` is empty (invoked with no context at all), ask the user in plain text to describe the idea, and WAIT for their free-text reply before doing anything else.** Do NOT use `AskUserQuestion` to solicit or suggest the idea itself, and never invent an idea the user hasn't actually expressed — it must come from the user, whether typed as `/zero-shot-build <idea>` or stated in a normal message you recognized as calling for this skill. Once you have it, move to intake.
 
 Unlike the greenfield boilerplate this skill is adapted from (`smallTechOrg/zero-shot-claude-boilerplate` — one-line idea → a brand-new agent skeleton), finwerse already exists: intake here is about pinning down *this specific addition* against an established product, established platform rules, and an established data model — not choosing a tech stack from scratch.
 

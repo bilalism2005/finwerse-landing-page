@@ -55,7 +55,7 @@ See `spec/roadmap.md` → Build Status for the full list, including: the Ask AI 
 | `/zero-shot-fix [target]` | Diagnose + fix a bug, error, failing test, or spec/code drift, then verify. |
 | `/zero-shot-sync [scope]` | Reconcile `spec/` ↔ code so they match (spec wins, except where spec itself is wrong — surfaced, never silently rewritten). |
 
-All three are manual (`disable-model-invocation: true`) and work both as a skill and as the matching `/slash-command`.
+**Auto-invocation is the default.** Analyze every prompt for whether it calls for one of these — a described feature/change → `/zero-shot-build`; a reported bug/error/failing test → `/zero-shot-fix`; a request for an audit, drift check, or "does spec match code" (or your own uncertainty after a change) → `/zero-shot-sync`. Invoke the matching skill yourself; the user does not need to type the slash command. Each skill still only acts on the user's own words for what the idea/problem actually is — you supply `$ARGUMENTS` from what they said, you don't invent the idea or the diagnosis yourself. All three also work as an explicit `/slash-command` when the user does type one.
 
 ## Sub-agents (the team)
 

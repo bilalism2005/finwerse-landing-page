@@ -2,9 +2,10 @@
 name: zero-shot-sync
 description: Reconcile finwerse's spec/ and code so they match — spec wins, except where a divergence reveals the spec itself is wrong (surfaced, never silently auto-corrected). Audits the whole tree for drift, routes fixes to the responsible surface's code-generator (or spec-writer), verifies, repeats to a CLEAN audit.
 argument-hint: [optional path, capability name, or surface to scope to]
-disable-model-invocation: true
 allowed-tools: Bash(git*)
 ---
+
+**Auto-invocation policy:** invoke this skill on your own analysis whenever the user asks for an audit, a drift check, "does spec match code," or before something ships to `main` — they do not need to type `/zero-shot-sync` explicitly. Also reasonable to invoke proactively after a change you're not fully confident stayed spec-aligned, without waiting to be asked.
 
 You orchestrate a spec↔code sync for finwerse by calling worker agents directly. **Spec is the source of truth — when spec and code disagree, fix the code** (`harness/patterns/spec-driven.md`), unless the divergence reveals the *spec* is wrong, in which case surface it for a human decision rather than silently rewriting the spec to match code. Optional scope in `$ARGUMENTS` (a capability name, a surface like `apps/api`, or a path); otherwise the whole project. Run autonomously to a CLEAN audit; pause only on a hard blocker or a spec-is-wrong finding.
 
