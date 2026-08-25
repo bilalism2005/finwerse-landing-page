@@ -1,0 +1,31 @@
+name: Publish staging OTA update
+
+# Publishes an over-the-air update to the existing "preview" EAS Update
+# channel whenever apps/mobile changes land on the staging branch.
+#
+# Deliberately targets the "preview" channel, not a new "staging" one:
+# the real installed test builds (see `eas.json`'s "preview" build
+# profile) were all built against "preview", so that's what actually
+# has devices listening. See spec/architecture.md's Deployment Model
+# section for the full reasoning.
+#
+# Requires this Expo project to have a linked GitHub repository
+# (EAS dashboard > Project Settings > GitHub) for the push trigger to
+# fire — that one-time connection has no CLI/API equivalent and was
+# not confirmed as part of adding this file.
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - apps/mobile/**
+
+jobs:
+  publish_staging_update:
+    name: Publish to preview channel
+    type: update
+    environment: preview
+    params:
+      channel: preview
+      message: ${{ github.commit_message || 'Update from staging' }}
