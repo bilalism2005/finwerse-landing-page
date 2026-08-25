@@ -39,3 +39,10 @@ Answers "which stock should I hold vs. sell" and "am I diversified" for a user's
 - [x] Diversification score matches the documented HHI formula (verified against `compute_portfolio_health` in `routers/health.py`)
 - [x] Empty portfolio returns an all-zero response, not a 4xx/5xx
 - [x] Bottleneck Report is the only endpoint in the product whose system prompt explicitly permits hold/sell language
+
+## Known Gaps / Future Work (mobile Health redesign, 2026-08-25)
+
+`apps/mobile`'s Portfolio Health screen (`spec/ui.md` → "Screen: Portfolio Health") was redesigned presentation-only against the existing `GET /portfolio/health` response above. Two design elements had no backing data:
+
+- **"Health over time" trend line chart** — no historical portfolio-health-score time series exists anywhere in `spec/data.md`; nothing computes or stores a dated, portfolio-level health score (only per-stock `StockHistoricalScore` exists, and only for the technical score). Would need a new dated, append-only "portfolio health snapshot" table plus daily-batch computation before this could be real. Removed entirely from the redesign rather than stubbed.
+- **Ranked "Diagnostics" list** (numbered issues with severity + suggested action per item) — the API returns only the single `sector_summary_sentence` string, not discrete, severity-ranked diagnostic items. Simplified to displaying that one real sentence prominently (existing behavior, restyled only) rather than fabricating a multi-item list. A real ranked-diagnostics feature would need the backend to compute and return discrete issue objects (e.g. `{severity, description}[]`), not a client-side reformatting of the existing sentence.

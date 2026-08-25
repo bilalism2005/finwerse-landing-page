@@ -29,3 +29,10 @@ A browsable news feed with sentiment scores — not just a chatbot input. Defaul
 - [x] `GET /sentiment-feed/market` returns the latest 50 articles regardless of auth state
 - [x] `GET /sentiment-feed/portfolio` falls back to market feed for anonymous users or users with no held stocks — never returns an empty list when market data exists
 - [x] `GET /sentiment-feed/search` resolves aliased/fuzzy stock names via `resolve_symbol` before falling back to raw ILIKE matching
+
+## Known Gaps / Future Work (mobile Market News redesign, 2026-08-25)
+
+`apps/mobile`'s Market News screen (`spec/ui.md` → "Screen: Market News") was redesigned presentation-only against the three endpoints above. Two design elements had no backing data and were removed rather than fabricated or stubbed:
+
+- **Market-context strip** (NIFTY 50 / SENSEX / BANK NIFTY live index values) — no market-index entity or endpoint exists anywhere in `spec/data.md`/`spec/api.md`. Would need a new index-price data source (a market data provider) plus a batch or on-demand ingestion decision before this could be real. Not scoped as part of this redesign pass.
+- **News Detail expanded view** ("Why this matters" / "Market impact" / "Related stocks" / "Explain this news" AI action) — `StockNews` (`spec/data.md`) stores only `stock_symbol, article_date, polarity, source_url`; none of those four sub-sections has a backing data source. Removed entirely; tapping an article keeps the existing direct-open-URL behavior (`Linking.openURL`) instead, which the redesign kept as the correct, honest behavior given the data actually available.

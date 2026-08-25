@@ -34,6 +34,10 @@ Quantifies the rupee cost of a user's emotionally-driven ("impulse") trades by c
 ## Known Gap (found during this spec migration)
 `/analyzer/custom-impulse` is **unauthenticated** — unlike every other portfolio-adjacent endpoint in the product, it accepts arbitrary trade data from any caller with no `auth.get_current_user` dependency. This endpoint does not appear in the original PRD at all. Confirm whether public/anonymous access is intentional (e.g. a "try it without an account" demo path) before treating this as correct.
 
+## Known Gap found during the mobile Impulse Analyzer redesign pass (2026-08-25)
+
+`evaluate_single_trade` (`apps/api/routers/analyzer.py`) returns an `is_impulse` boolean on every trade result. For the buy-right+sell-right-but-still-losing case, it returns `{id, stock_symbol, quantity, is_impulse: false, rupee_cost: 0.0}` — **without** the `actual`/`counterfactual` keys every other returned shape includes. `apps/mobile`'s Impulse Analyzer screen (`impulse.tsx`) unconditionally reads `trade.actual.buy_date` when rendering the results list; a real `/analyzer/custom-impulse` submission that hits this exact case would crash the results render. Not fixed by the 2026-08-25 visual redesign pass (presentation-only scope) — flagged here for a future fix pass. This gap is also why that redesign's spec (`spec/ui.md` → "Screen: Impulse Analyzer") does not build a "Behavioral insight" aggregate sentence from `is_impulse` counts: the field's shape isn't reliable enough across both endpoints to build a trustworthy cross-trade classification without fixing this first.
+
 ## Success Criteria
 - [x] A losing trade with buy-right+sell-right is classified Not Impulse with no counterfactual computed
 - [x] Counterfactual profit is computed at the same capital deployed as the actual trade, not the same share quantity

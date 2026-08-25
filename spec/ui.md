@@ -95,17 +95,17 @@ The score color bands are **unchanged by this redesign** and still apply everywh
 
 ## Views / Screens (mobile — `apps/mobile/app`)
 
-**Nav shell restructuring, in progress (started 2026-08-25):** the tab bar is moving from 7 direct tabs to a **5-tab structure** — Home, Portfolio, Health, Ask AI, More — as part of the visual redesign above. This is a navigation-shell change, not a redesign of every screen behind it: **Home and Stock Detail are the only screens redesigned in this pass so far.** Portfolio, Health, Alerts, Impulse Analyzer, and Sentiment Feed keep their EXISTING implementation unchanged for now (they get their own screen-by-screen design passes later) even though three of them (Alerts, Impulse Analyzer, Sentiment Feed) move from being direct tabs to being reached via the new More screen.
+**Nav shell restructuring, started 2026-08-25, now complete for all 8 screens (spec'd 2026-08-25):** the tab bar moved from 7 direct tabs to a **5-tab structure** — Home, Portfolio, Health, Ask AI, More — as part of the visual redesign above. Home and Stock Detail shipped first (built and running); this second batch spec's the remaining 6 screens (Portfolio, Health, Ask AI, Alerts, Impulse Analyzer, Market News) against the same Design System tokens — **spec'd below, not yet built.** All 8 screens share one rule for this whole redesign: **presentation-only** — no screen in this initiative rewires its data layer; where the approved design calls for something with no real backing data (a chart, a metric, a detail view), that specific element is removed or simplified to what the app actually has, never stubbed as fabricated data or built as a "coming soon" placeholder (the one deliberate exception being Stock Detail's three sections, spec'd as honest stubs before this rule was made explicit for the rest of the redesign — see that screen's own entry for why).
 
 | Tab (file) | Screen | Status | Store / notes |
 |---|---|---|---|
-| Home (`index.tsx`) | Home (formerly "Discover") | **Redesigned this pass** — full spec below | `useAppStore`; data unchanged — still `GET /stocks/top` + `GET /stocks/search` (`spec/api.md`) |
-| Portfolio (`portfolio.tsx`) | Portfolio | Unchanged implementation; reachable via new tab bar | `usePortfolioStore` |
-| Health (`health.tsx`) | Portfolio Health | Unchanged implementation; reachable via new tab bar | `useHealthStore`, incl. Bottleneck Report handoff that navigates to the Ask AI tab and auto-sends the report as a chat prompt |
-| Ask AI (`chat.tsx`) | Ask AI Chatbot | Content unchanged; tab position/icon updated to match the new design system | `useChatStore`, real streaming — see `spec/agent.md` |
-| More (`more.tsx`, new) | More menu | **New screen, this pass** — full spec below | No store; static navigation menu |
+| Home (`index.tsx`) | Home (formerly "Discover") | **Redesigned, shipped** — full spec below | `useAppStore`; data unchanged — still `GET /stocks/top` + `GET /stocks/search` (`spec/api.md`) |
+| Portfolio (`portfolio.tsx`) | Portfolio | **Redesigned, spec'd — not yet built** — full spec below | `usePortfolioStore` |
+| Health (`health.tsx`) | Portfolio Health | **Redesigned, spec'd — not yet built** — full spec below | `useHealthStore`, incl. Bottleneck Report handoff that navigates to the Ask AI tab and auto-sends the report as a chat prompt |
+| Ask AI (`chat.tsx`) | Ask AI Chatbot | **Redesigned, spec'd — not yet built** — full spec below | `useChatStore`, real streaming — see `spec/agent.md` |
+| More (`more.tsx`, new) | More menu | **New screen, shipped with Home/Stock Detail's batch** — full spec below | No store; static navigation menu |
 
-Reached via More (not tabs) — same screen, same store, same content as before, only the entry point moves out of the tab bar, using the same `href: null`-from-tab-bar pattern already used for `two.tsx`:
+Reached via More (not tabs) — same store, same underlying data as before, only the entry point moved out of the tab bar (using the same `href: null`-from-tab-bar pattern already used for `two.tsx`); visual content **redesigned, spec'd — not yet built**, full spec below for each:
 - Alerts (`alerts.tsx`, `useAlertsStore`)
 - Impulse Analyzer (`impulse.tsx`, `useAnalyzerStore`)
 - Market News / Sentiment Feed (`news.tsx`, `useSentimentStore`)
@@ -114,7 +114,7 @@ Auth group (`(auth)/login`). Standalone: `stock/[symbol]` (Stock Detail — **re
 
 **`two.tsx` is confirmed dead code** — unmodified Expo template scaffold ("Tab Two" placeholder, `EditScreenInfo`), explicitly hidden from the tab bar in `_layout.tsx` (`href: null`) and unreachable by any user action. Candidate for removal, unaffected by the nav restructuring above.
 
-**Known gap — no markdown rendering in `chat.tsx`:** the chatbot's response renders through a plain `<Text>` node (`item.content`), not a markdown parser. Groq's synthesis prompt uses `• [Read Article](url)`-style links for news citations (`spec/agent.md`) — these will show as literal bracket/paren text on-device rather than a tappable link. Violates `harness/patterns/ui-ux.md`'s markdown-rendering rule for chat surfaces. Unaffected by the redesign — still applies to the unchanged `chat.tsx` screen.
+**Known gap — no markdown rendering in `chat.tsx`:** the chatbot's response renders through a plain `<Text>` node (`item.content`), not a markdown parser. Groq's synthesis prompt uses `• [Read Article](url)`-style links for news citations (`spec/agent.md`) — these will show as literal bracket/paren text on-device rather than a tappable link. Violates `harness/patterns/ui-ux.md`'s markdown-rendering rule for chat surfaces. Not resolved by the Ask AI screen's 2026-08-25 redesign spec below (presentation-only — see that screen's own "Response layout" note for why no parsing was added this pass) — still an open gap once that redesign is built.
 
 ### Screen: Home (`index.tsx`) — REDESIGNED 2026-08-25
 
@@ -215,6 +215,218 @@ Auth group (`(auth)/login`). Standalone: `stock/[symbol]` (Stock Detail — **re
 - [ ] The favorite toggle changes visual state on tap (star outline ↔ filled lime), does not error or crash, and does not persist across an app restart (no backend call, by design this pass).
 - [ ] The price/chart, signal drivers, and more-on-this-stock sections all render in their stub treatment with no invented numbers, prices, chart data, driver statuses, or disclosure content anywhere — a user cannot mistake any stub for real data or for a broken screen (per `harness/patterns/ui-ux.md`'s honesty rule).
 - [ ] All 3 states (loading, error/retry, populated) render distinctly and are reachable via a real interaction (a failed/slow request, a valid symbol).
+
+### Screen: Portfolio (`portfolio.tsx`) — REDESIGNED 2026-08-25 (spec'd, not yet built)
+
+**Purpose:** Let a user see and manage their manually-tracked equity portfolio — add, edit, sell (fully or partially), and delete positions, and understand invested capital and realized standing at a glance. Same underlying feature (Feature 2, Portfolio Connect, `spec/roadmap.md` Build Status row 2) as the existing screen; see `spec/capabilities/portfolio-connect.md`. Full CRUD already works today — this is a presentation-only redesign, not a data-plumbing rebuild.
+
+**Data source — unchanged, no new wiring:** `GET/POST/PATCH/DELETE /portfolio/holdings`, `POST /portfolio/holdings/{id}/sell` (`spec/api.md`), all already wired via `usePortfolioStore`. Symbol autocomplete unchanged (`searchStocks`, same as Home's search).
+
+**Structure (top to bottom):**
+1. **Header row.** "Portfolio" title, screen-title token (30px/650, Text primary `#F5F7F2`); directly below, "{N} position(s)" subtitle, 13px, Text secondary `#A4AAA3` — same copy pattern as today, restyled.
+2. **Portfolio summary, via typography, not cards.** Total invested amount across Held holdings (`Σ quantity × avg_price`) as a large numeral — Major-numeral size (44-56pt, same size class as a Major score, but Text primary color, never score-colored, since this is a rupee amount not a score). Directly below: total realized P&L across Sold holdings (`Σ (sold_price − avg_price) × sold_quantity`, existing per-card math, newly aggregated here) in a calm semantic color — Positive `#B8F35A` if ≥0, Negative `#FF6B67` if <0 — never rendering the whole screen in an alarming color, per the Design System's calm philosophy.
+3. **"View portfolio health →" link row** (judgment call, documented — see Simplified section below): a single text row, Body token, Text secondary `#A4AAA3` + trailing chevron, tapping it navigates to the Health tab. No new fetch — purely a navigation affordance.
+4. **Filter row** (All / Held / Sold), restyled to the segmented-control token language: track `#131613`; selected segment lime `#C7FF3D` background + `#090B0A` text; unselected transparent + `#A4AAA3` text. Same counts in each label as today ("All (N)", "Held (N)", "Sold (N)").
+5. **Holdings list**, each row restyled to a premium list-item card (elevated surface `#131613`, 14-18px corner radius):
+   - Ticker (16px/600, Text primary) + status pill — HELD (lime-tinted) / SOLD (secondary-surface `#191D19`, Text tertiary).
+   - Held rows: quantity · avg buy price · total invested, inline (Text secondary labels, Text primary values) — tightened from today's 2-column grid into a single inline row per the design's list-item language.
+   - Sold rows: sold qty · sold price · realized P&L (with %, colored Positive/Negative), inline.
+   - Holding-period tag (SHORT/MEDIUM/LONG), small secondary-surface pill, Text tertiary.
+   - Purchase/sold date line, 12px, Text tertiary — unchanged content, restyled.
+   - Row divider `#1A1E1A`.
+6. **Row actions** — existing tap-based Edit / Mark as Sold / Delete buttons, kept exactly as-is functionally (see Simplified section below re: swipe gesture), restyled to token colors: Sell → Positive `#B8F35A`-tinted, Delete → Negative `#FF6B67`-tinted, Edit → neutral secondary-surface.
+7. **"+ Add Stock" FAB**, restyled to the accent token (lime `#C7FF3D` background, `#090B0A` text), same position/behavior. The existing Add/Sell/Edit modals are unchanged functionally — their surfaces/inputs restyle to the token system (elevated-surface `#131613` inputs, `#1A1E1A` borders) without rearchitecting the modal flows or fields.
+
+**Removed from design (no fabricated data):**
+- **Portfolio-value sparkline/trend chart** — no portfolio-value-history data exists anywhere (no table or endpoint in `spec/data.md`/`spec/api.md` tracks a portfolio's total value over time; `StockHistoricalScore` is per-stock technical score history, not a portfolio value series). Removed entirely, not stubbed.
+- **"Today's change" stat** — no live/daily price-change data exists anywhere in the API (no price-feed endpoint at all — consistent with Stock Detail's own price/chart stub finding, `spec/capabilities/stock-analytics-dashboard.md`). Removed; the summary shows only real aggregates computed from actual holdings data (invested amount, realized P&L).
+
+**Simplified from design (documented, not silent):**
+- **Mini health-gauge / technical-safety-diversification bars borrowed from Health** — simplified to the single "View portfolio health →" link-out row (item 3 above) rather than wiring a second `GET /portfolio/health` fetch into this screen. Judgment call: a second fetch of the same data Health's own tab already owns would be new data-plumbing, not a restyle, and would risk the two screens drifting out of sync with each other.
+- **Per-holding score badge** — simplified out entirely (not shown). Showing a real score per holding would require a new per-symbol `GET /stocks/{symbol}/score` fetch per row (N+1 calls) — new wiring beyond this pass's presentation-only scope, not a restyle. If a per-holding score becomes a real requirement, it should be scoped as its own small capability change (e.g. a portfolio-holdings-with-scores endpoint), not bolted on here.
+- **Swipe-to-reveal Edit/Sell gesture** — simplified to the existing tap-based action buttons. Confirmed: no gesture-handling library (`react-native-gesture-handler`, `Swipeable`, `reanimated` gesture APIs) exists in `apps/mobile/package.json` today, and this pass does not add one.
+
+**States** (per `harness/patterns/ui-ux.md`'s bar):
+- **Loading (initial):** header, summary, and filter row render immediately once holdings begin fetching; the list area shows a skeleton (matching the row shape) while `GET /portfolio/holdings` resolves — same treatment as Home's skeleton rows.
+- **Populated:** real holdings render per the structure above.
+- **Filtered-empty:** the selected filter (Held/Sold) has zero matching holdings while others don't — existing copy kept, restyled ("No sold positions yet." / "No portfolio positions yet.").
+- **Empty (no holdings at all):** existing copy kept, restyled ("Add your stocks to unlock real-time Portfolio Health analysis.").
+- **Error/retry:** `usePortfolioStore`'s `error` is set — human copy ("Couldn't load your positions. Please try again.") plus tap-to-retry, scoped to the list area only (header, summary, filter row, and FAB still render). **New this pass** — the existing screen does not render an error state today; adding one is required to meet the states bar, not a data or scope change.
+
+**Success Criteria**
+- [ ] Header, summary, filter row, and holdings list all render using only Design System tokens — no ad hoc colors/sizes.
+- [ ] The summary's invested amount and realized P&L are computed from real holdings data only — no fabricated "today's change" or chart anywhere on the screen.
+- [ ] Tapping "View portfolio health →" navigates to the Health tab with no new network call fired from this screen.
+- [ ] Add / Edit / Sell / Delete all function exactly as today (same modals, same validation, same store calls) — only their visual presentation changes.
+- [ ] No per-holding score badge, sparkline, or "today's change" value renders anywhere — confirms the two Removed items above are actually absent, not silently present in a different form.
+- [ ] All 5 states (loading, populated, filtered-empty, empty, error/retry) render distinctly and are reachable via a real interaction.
+
+### Screen: Portfolio Health (`health.tsx`) — REDESIGNED 2026-08-25 (spec'd, not yet built)
+
+**Purpose:** Give a portfolio-health snapshot — an overall weighted score, technical/safety/sentiment evidence, sector diversification vs. an ideal reference, and (on demand) an AI-generated narrative naming the worst holdings. Same underlying feature (Feature 3, Portfolio Health, `spec/roadmap.md` Build Status row 3); see `spec/capabilities/portfolio-health.md`.
+
+**Data source — unchanged, no new wiring:** `GET /portfolio/health?timeframe=...` (`spec/api.md`) via `useHealthStore.fetchHealth`. Presentation-only redesign.
+
+**Structure (top to bottom):**
+1. **Header row** (new this pass — the existing screen has no title at all): "Portfolio Health" title, screen-title token, Text primary. Added for consistency with every other redesigned screen in this initiative, not a data change.
+2. **Timeframe control** — 3-way segmented control (Short/Medium/Long), restyled to Home's segmented-control token, replacing the current ad hoc `#333`-bordered toggle. Drives the `timeframe` query param, unchanged behavior.
+3. **Score hero.** Overall score rendered as a semi-circle gauge, arc fill proportional to `(score + 100) / 2` (same -100..100-to-0-100% normalization as Home's signal-strength bar and Stock Detail's pillar bars), arc color per the standing score bands (Red <40, Amber 41-65, Green 66-100). Score numeral centered at Major-score size (44-56pt), tabular-nums, colored per band, with "/ 100" decorative suffix (real -100..100 value displayed un-rescaled, same pattern as Stock Detail's hero). Below the gauge: Green Score / Red Score (existing `healthData.green_score`/`red_score`, real data), Green in Positive `#B8F35A`, Red in Negative `#FF6B67`.
+4. **Evidence rows** (not repeated identical cards) — Technical, Safety, Sentiment, in that order: label (left) + numeric value or "Not Available" (right, colored per band; `sentiment_score` is the only nullable field per `healthData`'s shape, matching Stock Detail's pillar "Not Available" handling) + thin progress bar below (same `(score+100)/2` normalization), present only when numeric.
+5. **Diversification section.** Section header + diversification score numeral inline, colored per band. Sector allocation — actual vs. ideal — via the existing two horizontal stacked bars ("Your Allocation" from real `healthData.sectors`; "Ideal Reference" from the existing 10-equal-sectors reference), restyled: bar track `#1A1E1A`, segment colors keep the existing categorical palette (sector-identity colors are exempt from the single-accent-color rule — they encode category, not status/selection state).
+6. **Sector summary sentence** — the one real `sector_summary_sentence` string (Body token, Text secondary), directly below the bars. See Simplified section below re: the design's ranked "Diagnostics" list.
+7. **AI Bottleneck Report button** — restyled to a lime `#C7FF3D` filled button with a sparkle icon and `#090B0A` text, functionally unchanged: navigates to the Ask AI tab and auto-sends the existing prompt template via `sendMessage` (same 300ms transition delay). **This button's downstream output is the platform's one deliberate buy/sell-language exception** (Standing Platform Rule 1, `spec/capabilities/portfolio-health.md`) — carried unchanged by this restyle, not modified or extended.
+8. **Holdings Impact list** — per-holding rows (ticker, weight %, overall/technical/safety scores), restyled to the same list-item language as Portfolio's holdings cards (elevated surface, row dividers) for visual consistency between the two screens. Content and server-side worst-to-best sort unchanged.
+
+**Removed from design (no fabricated data):**
+- **"Health over time" trend line chart** — no historical portfolio-health-score time series exists anywhere (`StockHistoricalScore` is per-stock technical score history, not a portfolio-level health score, and nothing computes or stores a dated portfolio health score). Removed entirely — not stubbed, per this batch's explicit remove-over-stub instruction.
+
+**Simplified from design:**
+- **Ranked "Diagnostics" list** (numbered issues with severity + action links) — simplified to displaying the one real `sector_summary_sentence` string prominently (item 6 above), existing behavior restyled only. No per-issue severity or action links — none of that is backend-computed or stored anywhere.
+
+**States** (per `harness/patterns/ui-ux.md`'s bar):
+- **Loading:** existing `loading && !healthData` check — restyle to a skeleton matching the gauge + evidence-row shape, replacing the current spinner-only treatment.
+- **Error:** `useHealthStore`'s `error` is set — **fixed this pass:** the current implementation renders the raw `error` string directly in red text, which violates `harness/patterns/ui-ux.md`'s "never a raw error body" rule; replace with human copy ("Couldn't load your portfolio health. Please try again.") plus tap-to-retry.
+- **Empty portfolio:** per `spec/capabilities/portfolio-health.md`, `GET /portfolio/health` returns an all-zero response for an empty portfolio, not an error — **new this pass:** add a distinct "You haven't added any holdings yet" explanatory state instead of rendering a confusing all-zero gauge (0/100, empty evidence rows), since the existing implementation doesn't special-case this today.
+- **Populated:** real data renders per the structure above.
+
+**Success Criteria**
+- [ ] Header, timeframe control, score hero, evidence rows, and diversification section all render using only Design System tokens — no ad hoc colors/sizes.
+- [ ] Switching the timeframe control re-fetches `GET /portfolio/health` and updates every section; behavior unchanged from today, only presentation changes.
+- [ ] No "Health over time" chart or per-issue ranked diagnostics list renders anywhere — confirms the Removed/Simplified items above.
+- [ ] The Bottleneck Report button's chat-tab handoff behavior (navigation + auto-sent prompt) is unchanged and still the only place in the redesigned screens where buy/sell-adjacent language can appear (via the resulting chat response).
+- [ ] The error state shows human copy and a retry action, never the raw error string (fixes the identified gap).
+- [ ] An empty portfolio shows the new explanatory empty state, not a confusing all-zero gauge.
+- [ ] All 4 states (loading, error/retry, empty-portfolio, populated) render distinctly and are reachable via a real interaction.
+
+### Screen: Ask AI (`chat.tsx`) — REDESIGNED 2026-08-25 (spec'd, not yet built)
+
+**Purpose:** Let the user ask free-text questions about a stock, their portfolio, technical indicators, fundamentals, news/Twitter sentiment, or NSE filings, and get a streamed plain-English answer — also the landing point for Portfolio Health's Bottleneck Report handoff. Same underlying feature (Feature 4, Ask AI Chatbot; full agent design in `spec/agent.md`); see `spec/capabilities/ask-ai-chatbot.md`.
+
+**Data source — unchanged, no new wiring:** `POST /chatbot/ask` (`spec/api.md`) via `useChatStore.sendMessage`. Presentation-only redesign — does not touch the request/response contract and does not resolve the already-tracked "no markdown rendering" known gap (`spec/ui.md`'s mobile screens table, above) — that gap is unaffected by this restyle.
+
+**Structure (top to bottom):**
+1. **Header row**, restyled to tokens: "Ask AI" title at the Design System's section-title size (18-20px/650, Text primary) rather than the current larger ad hoc 22px/800 — deliberately more modest than Home/Portfolio's screen-title size, since this is a tab-level header, not a full landing-screen moment. Subtitle unchanged copy ("Finwerse Intelligence & Analysis", 12px, Text tertiary). Clear-history button — small secondary-surface `#191D19` pill, only rendered when `messages.length > 0` (unchanged behavior).
+2. **Empty state.** Existing copy kept as-is ("What would you like to analyze?" headline + subtitle) — **decision:** the design brief's own example wording ("What would you like to understand?") is not substituted in; the shipped app's copy is already on-brand and this pass restyles, it doesn't rewrite product copy without being asked. Sparkle icon circle restyled to tokens. The existing 4 suggestion chips keep their exact copy, restyled to the list-row language (elevated surface `#131613`, trailing arrow icon) replacing the current bordered-pill look.
+3. **Message list.** User and assistant bubbles both restyled to neutral token surfaces — user: elevated surface `#131613`, Text primary; assistant: secondary surface `#191D19`, Text primary/secondary — **decision:** lime accent is deliberately NOT used for the user bubble, since the Design System's token table reserves lime for "selected / actionable / primary-interaction / positive-momentum," not decorative bubble backgrounds. Bot avatar (small circular icon, secondary-surface background, lime sparkle icon) kept, restyled to tokens.
+4. **Typing/loading indicator**, restyled: a three-dot pulse animation (replacing the current spinner + "Analyzing data..." text) using the Design System's micro-interaction motion token (120-250ms per-dot stagger), dots in Text tertiary pulsing toward Text secondary. This is a fresh application of the redesign's existing motion tokens for this screen, not a reused pre-built component from Home/Stock Detail (neither of those screens has a dot-pulse pattern in the shipped code today — both use static skeleton blocks for their loading states).
+5. **Composer**, restyled to a premium floating-input treatment: input field on elevated surface `#131613`, no heavy border, 12px radius; send button as a circular lime `#C7FF3D` accent button — **not** the current WhatsApp-style rounded-pill/green-circle look. Same disabled-while-streaming behavior, same 500-char limit, unchanged.
+6. **Response layout.** **Decision, documented:** no structural title/score-line parsing is added to the streamed response. The backend returns a single plain-text string (`spec/agent.md`) with no structural markers (no JSON, no delimiter convention); building client-side ticker-detection/regex parsing to fake structure risks misrepresenting the AI's actual answer for a benefit that doesn't exist today. The response renders as restyled plain-text (Body token, 15-17px) inside the assistant bubble — same rendering approach as today, tokens only.
+7. **In-thread error handling** — unchanged: a failed request still renders as a normal assistant-bubble message ("Sorry, I encountered an error. Please try again.") rather than a separate screen-level error state; restyled with a subtle Negative `#FF6B67`-tinted bubble border to visually distinguish it as an error response, without inventing new error-state machinery.
+
+**Removed from design:** none — this screen's design brief maps cleanly onto real, already-wired data (the chat request/response itself); nothing here required fabricating data.
+
+**States** (per `harness/patterns/ui-ux.md`'s bar):
+- **Empty:** `messages.length === 0` — empty-state headline + 4 suggestion chips.
+- **Populated:** message thread renders, auto-scrolls to the latest message (unchanged).
+- **Streaming:** the pending assistant message renders the dot-pulse typing indicator in place of content.
+- **In-thread error:** the apology message renders in an assistant bubble with the Negative-tinted border (item 7 above) — not a separate screen state.
+
+**Success Criteria**
+- [ ] Header, empty state, message bubbles, and composer all render using only Design System tokens — no ad hoc colors/sizes.
+- [ ] Sending a message (typed or via a suggestion chip) still calls `POST /chatbot/ask` unchanged and streams into the same assistant-message bubble.
+- [ ] The typing indicator is a dot-pulse animation, not the previous spinner+text treatment.
+- [ ] No structural parsing of the response is added — the response renders as plain restyled text, confirming the documented decision above.
+- [ ] The Bottleneck Report handoff from the Health tab (auto-sent prompt via `sendMessage`) still lands correctly in this screen's message thread.
+- [ ] All 4 states (empty, populated, streaming, in-thread error) render distinctly and are reachable via a real interaction.
+
+### Screen: Alerts (`alerts.tsx`) — REDESIGNED 2026-08-25 (spec'd, not yet built)
+
+**Purpose:** Let a user create, view, and delete score-threshold alerts (universe-wide, specific-stock, or portfolio-only) and see recently-triggered alert history. Same underlying feature (Feature 5, Alerts, `spec/roadmap.md` Build Status row 5); see `spec/capabilities/alerts.md`.
+
+**Data source — unchanged, no new wiring:** `GET/POST/DELETE /alerts` (`spec/api.md`) via `useAlertsStore`. Presentation-only redesign — the entire current implementation is styled in an unrelated light/iOS theme (`#F2F2F7` background, white cards, iOS blue `#007AFF`) that predates the Design System; this pass is a full token migration, not a partial touch-up.
+
+**Structure (top to bottom):**
+1. **Header row.** "Alerts" title (screen-title token, Text primary). "+" action restyled to the 38x38 `#131613` rounded-icon-button pattern established by Home/Stock Detail's header icons, replacing the current bare iOS-blue plus glyph.
+2. **Empty state** (no alerts at all — neither triggered nor active): see Removed section below — a simple `IconSymbol` icon (e.g. a bell) in Text tertiary, with the design's exact copy: "Nothing needs your attention." (section-title-adjacent size, Text primary) / "Create an alert and Finwerse will watch it for you." (Body token, Text secondary), centered.
+3. **New-alert form** (existing single-screen form kept — see Simplified section below), restyled to token surfaces (elevated surface `#131613` card, `#1A1E1A` dividers), reorganized into two labeled sections matching the design's information hierarchy:
+   - **"What are you watching?"** — scope chips (Portfolio / Specific stock / Universe-wide) + conditional stock-symbol input, restyled choice-chip treatment (selected: lime `#C7FF3D` background + `#090B0A` text; unselected: secondary-surface `#191D19` + Text secondary) replacing the current light-blue `#E5F1FF` selection style.
+   - **"What should trigger it?"** — score-type chips (overall/technical/safety — same set as today, unchanged) + timeframe chips (short/medium/long) + direction chips (Drops above/below) + threshold numeric input, same restyled chip treatment.
+   - Save/Cancel actions restyled (Save = lime filled button; Cancel = plain-text Negative-tinted action).
+4. **Triggered alerts section**, shown first (existing behavior kept). Each card restyled to an elevated-surface card with a Warning `#FFB84D` accent, replacing the current light-yellow `#FFF9E6` card — **decision:** the 🚨 emoji is dropped in favor of a Warning-colored status dot (same dot+label pattern used for Stock Detail's momentum pill), since an emoji siren reads as decorative "fake urgency," which the Design System's philosophy explicitly avoids. Copy otherwise unchanged ("Fired on {date}" / "{symbol} crossed {direction} {threshold} on {timeframe} {score_type}.").
+5. **Active alerts**, grouped by target (existing grouping logic kept — by stock symbol / "My Portfolio" / "Universe-wide"). Group headers restyled to the 12px letter-spaced section-label token (matches Stock Detail's "MORE ON THIS STOCK" label). Each alert row restyled to the list-item language (elevated surface, `#1A1E1A` row divider, trailing delete icon in Negative `#FF6B67`) replacing the current white iOS-card look.
+
+**Removed from design:**
+- **Custom "thin line crossing a threshold" SVG empty-state graphic** — simplified to a simple `IconSymbol` icon (item 2 above) rather than hand-building bespoke SVG/animation, per the user's explicit instruction for this batch. The copy and calm tone carry the empty state, not a bespoke graphic.
+
+**Simplified from design:**
+- **3-step progressive bottom-sheet new-alert flow** — kept as the existing single-screen form (no new bottom-sheet infrastructure this pass), reorganized into 2 section-header groups ("What are you watching?" / "What should trigger it?", item 3 above) to approximate the design's information hierarchy without new UI infrastructure.
+
+**States** (per `harness/patterns/ui-ux.md`'s bar):
+- **Loading:** skeleton list matching the alert-card shape while `GET /alerts` resolves — new this pass, replacing the lack of any loading treatment today.
+- **Empty (no alerts at all):** the empty-state graphic + copy (item 2 above).
+- **Active-only:** alerts exist but none triggered — Triggered section omitted entirely (existing behavior, unchanged).
+- **Triggered-and-active:** both sections render, Triggered first (existing behavior, unchanged).
+- **Error/retry:** `useAlertsStore`'s `error` is set — human copy ("Couldn't load your alerts. Please try again.") plus tap-to-retry — **new this pass**, the existing screen has an `error` field in the store but never renders it.
+
+**Success Criteria**
+- [ ] Every element on this screen renders using only Design System tokens — no remaining light/iOS-theme colors anywhere (full token migration, not partial).
+- [ ] The empty state uses a simple `IconSymbol` icon, not a custom SVG graphic, with the exact specified copy.
+- [ ] The new-alert form's fields, validation, and submission behavior are unchanged from today (same `createAlert` call, same required-field checks) — only its visual organization into two labeled sections changes.
+- [ ] Triggered alerts render before Active alerts whenever both exist (unchanged ordering).
+- [ ] All 5 states (loading, empty, active-only, triggered-and-active, error/retry) render distinctly and are reachable via a real interaction.
+
+### Screen: Impulse Analyzer (`impulse.tsx`) — REDESIGNED 2026-08-25 (spec'd, not yet built)
+
+**Purpose:** Quantify the avoidable rupee cost of a user's impulse-timed trades by comparing actual buy/sell timing against data-backed counterfactual timing, for either the user's own sold portfolio trades or arbitrary hypothetical trades. Same underlying feature (Feature 6, Impulse Analyzer, `spec/roadmap.md` Build Status row 6); see `spec/capabilities/impulse-analyzer.md`.
+
+**Data source — unchanged, no new wiring:** `GET /analyzer/impulse`, `POST /analyzer/custom-impulse` (`spec/api.md`) via `useAnalyzerStore`. Presentation-only redesign.
+
+**Structure (top to bottom):**
+1. **Header row**, restyled: "Impulse Analyzer" title + subtitle "Identify avoidable losses from trading against market data" (unchanged copy).
+2. **Mode switcher** (Custom / Portfolio Sold Trades), restyled to the segmented-control token, replacing the current ad hoc pill-tab styling.
+3. **Trade entry form** (custom mode only), restyled to the design's cleaner large-input look: each trade-input card on elevated surface `#131613`, labeled inputs restyled (Text tertiary micro-labels, `#1A1E1A` borders replacing the current ad hoc `#202020`/`#303030` grays), Add/Remove-row controls restyled to lime/Negative tokens respectively, "Scan & Analyze Impulse" primary action restyled to a lime filled button.
+4. **Results summary card.** "Total Avoidable Impulse Cost" plus a real, computable trade count — "{N} trade(s) analyzed" (`impulseTrades.length`, existing real data, no new fetch) shown alongside it. **Fixed this pass:** the current implementation renders this card in an alarming Negative-tinted red treatment (`#220D0D` background) unconditionally, even when the total cost is ₹0 — this violates the Design System's calm philosophy ("never make the whole screen red"). Redesign: the Negative-tinted treatment only applies when `totalCost > 0`; a ₹0 result renders the same card on a neutral elevated surface with Text primary numerals.
+5. **Per-trade results list** — side-by-side "Your Execution" vs. "Data-Backed Timing" (actual vs. counterfactual) comparison, restyled to tokens; structure and content unchanged (dates, prices, and profit/loss figures are all real fields already returned by `evaluate_single_trade`, `apps/api/routers/analyzer.py`).
+
+**Removed from design (no fabricated data):**
+- **"What happened?" per-trade factors list** (e.g. "Timing — Early exit," "Technical signal — Neutral") — the API returns only actual/counterfactual dates, prices, and profit numbers per trade (`ImpulseTrade` type, `apps/mobile/src/store/analyzerStore.ts`); no discrete named factor/reason field exists anywhere in `spec/data.md` or the `/analyzer/*` response shape. Removed entirely rather than inventing factor labels.
+- **Aggregate "Behavioral insight" cross-trade sentence** (e.g. "3 trades, 2 early exits, 1 profitable exit") — **judgment call, documented:** not built. Two reasons: (1) every trade returned by `/analyzer/impulse` is, by construction, already an impulse trade (the endpoint filters to `is_impulse: true` before returning), so an "N early exits out of M trades" count would be uninformative there (always M of M); (2) the underlying `is_impulse` field has an inconsistent response shape for one case (see Known Gap below) that makes building a reliable cross-trade classification risky without also fixing that gap first, which is out of scope for a visual-only pass. The only aggregate added is the real, trivially-computable "{N} trade(s) analyzed" count (item 4 above) — a count, not an invented behavioral-psychology sentence.
+
+**Known Gap found during this pass (flagged in `spec/capabilities/impulse-analyzer.md`):** `evaluate_single_trade` (`apps/api/routers/analyzer.py`) returns an `is_impulse` boolean per trade; for the "already well-timed but still a losing trade" case (`is_buy_right and is_sell_right`, still possible since the function only screens for `actual_profit < 0` up front), it returns a dict with `id`/`stock_symbol`/`quantity`/`is_impulse: false`/`rupee_cost: 0.0` but **no `actual`/`counterfactual` keys**, while every other returned shape includes both. The current mobile UI (`impulse.tsx`) unconditionally accesses `trade.actual.buy_date` when rendering — a real trade submission that hits this case via `/analyzer/custom-impulse` would crash the results list. Not fixed in this visual-only pass; flagged as a known gap, not silently worked around.
+
+**States** (per `harness/patterns/ui-ux.md`'s bar):
+- **Loading (custom scan):** existing `isLoading` spinner on the "Scan & Analyze Impulse" button, restyled.
+- **Loading (portfolio fetch):** existing full-area loading treatment when switching to Portfolio mode, restyled to match the redesign's loading language.
+- **Empty results:** "No Impulse Losses Flagged" — existing copy kept, restyled with a calm Positive-tinted icon (not alarming), tab-specific subtext unchanged.
+- **Populated:** trade list renders per the structure above.
+- **Error/retry:** `useAnalyzerStore`'s `error` is set — human copy plus tap-to-retry — **new this pass**, the existing screen has an `error` field in the store but never renders it.
+
+**Success Criteria**
+- [ ] Header, mode switcher, trade entry form, and results all render using only Design System tokens — no ad hoc colors/sizes.
+- [ ] The summary card only uses the Negative-tinted treatment when `totalCost > 0`; a ₹0 result renders neutrally (fixes the identified calm-philosophy violation).
+- [ ] No per-trade "What happened?" factors list or aggregate behavioral-insight sentence renders anywhere — confirms the Removed items above; only the real `{N} trade(s) analyzed` count is shown.
+- [ ] Submitting custom trades and switching to Portfolio mode both function exactly as today (same store calls, same validation) — only visual presentation changes.
+- [ ] All 4 states (loading×2, empty, populated) plus the new error/retry state render distinctly and are reachable via a real interaction.
+
+### Screen: Market News (`news.tsx`) — REDESIGNED 2026-08-25 (spec'd, not yet built)
+
+**Purpose:** Let a user browse a sentiment-scored news feed — market-wide or scoped to their portfolio's held stocks — and search across it. A browsable feed in its own right, not just chatbot input. Same underlying feature (Feature 7, Sentiment Feed, `spec/roadmap.md` Build Status row 7); see `spec/capabilities/sentiment-feed.md`.
+
+**Data source — unchanged, no new wiring:** `GET /sentiment-feed/market`, `/portfolio`, `/search` (`spec/api.md`) via `useSentimentStore`. Presentation-only redesign.
+
+**Structure (top to bottom):**
+1. **Header row**, restyled: "Market News" title + subtitle (unchanged copy).
+2. **Mode switcher** (All Market News / My Portfolio News), restyled to the segmented-control token, replacing the current ad hoc pill-tab styling.
+3. **Search field**, restyled to Home's search-field token treatment (elevated surface `#131613`, 12px radius, leading search icon, Text tertiary placeholder). Same real search behavior (`searchSentiment`), unchanged.
+4. **Article feed**, each card restyled: symbol badge (elevated-surface pill, Text primary), sentiment badge (Bullish/Bearish/Neutral, restyled to Positive `#B8F35A` / Negative `#FF6B67` / Warning `#FFB84D` tokens respectively, replacing the current ad hoc RGBA greens/reds/oranges), extracted headline (Body token — `extractHeadline`'s URL-derived heuristic kept exactly as-is; it remains the pragmatic real solution since `StockNews` has no headline field, `spec/data.md`), source domain + date footer (Metadata token, Text tertiary), `#1A1E1A` row divider between cards. Tapping a card still opens the source URL directly via `Linking.openURL` — unchanged, honest behavior.
+5. **Loading treatment**, restyled from a full-screen spinner to skeleton article cards matching the populated card shape, consistent with Home/Stock Detail's preference for skeletons over spinners for list-shaped content.
+
+**Removed from design (no fabricated data):**
+- **Market-context strip** (NIFTY 50 / SENSEX / BANK NIFTY live index values) — no market index data exists anywhere (no index-price entity in `spec/data.md`, no index endpoint in `spec/api.md`). Removed entirely — no placeholder row, no "coming soon" stub.
+- **News Detail expanded view** ("Why this matters" / "Market impact" / "Related stocks" / "Explain this news" AI action) — no per-article enrichment data exists anywhere in the schema (`StockNews` has only `stock_symbol, article_date, polarity, source_url`, `spec/data.md`); each of those four sub-sections would require fabricated analysis. Removed entirely; tapping an article keeps the existing direct-open-URL behavior instead of opening any detail view.
+
+**States** (per `harness/patterns/ui-ux.md`'s bar):
+- **Loading:** skeleton article cards (item 5 above) while a fetch is in flight and not a pull-to-refresh.
+- **Populated:** real article feed renders per the structure above.
+- **Empty (no results):** existing copy kept, restyled — branches on whether a search query is active ("No news recorded matching '{query}'." vs. "Pull down to refresh latest market news.").
+- **Error/retry:** `useSentimentStore`'s `error` is set — human copy plus tap-to-retry — **new this pass**, the existing screen has an `error` field in the store but never renders it.
+
+**Success Criteria**
+- [ ] Header, mode switcher, search field, and article feed all render using only Design System tokens — no ad hoc colors/sizes.
+- [ ] No market-index strip or News Detail expanded view renders anywhere — confirms the Removed items above; tapping an article opens its source URL directly, exactly as today.
+- [ ] Switching between All Market News / My Portfolio News and searching both still call the same real endpoints (`fetchMarketNews`/`fetchPortfolioSentiment`/`searchSentiment`) unchanged.
+- [ ] `extractHeadline`'s URL-derived heuristic is unchanged — still the real, working solution for the missing headline field, not replaced or removed.
+- [ ] All 4 states (loading, populated, empty, error/retry) render distinctly and are reachable via a real interaction.
 
 ### Screen: More (`more.tsx`, new) — NEW 2026-08-25
 
