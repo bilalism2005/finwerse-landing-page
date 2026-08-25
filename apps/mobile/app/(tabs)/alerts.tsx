@@ -1,32 +1,80 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert as RNAlert, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useState } from 'react';
+import {
+  Alert as RNAlert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useAlertsStore, Alert } from '../../src/store/alertsStore';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 
+// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
+// Duplicated locally (same values as app/(tabs)/index.tsx and app/stock/[symbol].tsx) rather
+// than importing from those screens, to keep this a self-contained single-file redesign per
+// the build instructions.
+const COLOR_CANVAS = '#090B0A';
+const COLOR_SURFACE_ELEVATED = '#131613';
+const COLOR_SURFACE_SECONDARY = '#191D19';
+const COLOR_DIVIDER = '#1A1E1A';
+const COLOR_TEXT_PRIMARY = '#F5F7F2';
+const COLOR_TEXT_SECONDARY = '#A4AAA3';
+const COLOR_TEXT_TERTIARY = '#6F766F';
+const COLOR_ACCENT_LIME = '#C7FF3D';
+const COLOR_NEGATIVE = '#FF6B67';
+const COLOR_WARNING = '#FFB84D';
+
+const SKELETON_ROWS = [0, 1, 2];
+
+type AlertType = 'universe_wide' | 'specific_stock' | 'portfolio_only';
+type ScoreType = 'overall' | 'technical' | 'safety';
+type Timeframe = 'short' | 'medium' | 'long';
+type Direction = 'above' | 'below';
+
+const SCOPE_OPTIONS: { value: AlertType; label: string }[] = [
+  { value: 'portfolio_only', label: 'Portfolio' },
+  { value: 'specific_stock', label: 'Specific stock' },
+  { value: 'universe_wide', label: 'Universe-wide' },
+];
+
+const SCORE_TYPE_OPTIONS: ScoreType[] = ['overall', 'technical', 'safety'];
+const TIMEFRAME_OPTIONS: Timeframe[] = ['short', 'medium', 'long'];
+const DIRECTION_OPTIONS: Direction[] = ['above', 'below'];
+
+// Same grouping key logic as the previous implementation — by stock symbol / "My Portfolio" /
+// "Universe-wide" — restyled only, not changed.
+function groupKeyFor(alert: Alert): string {
+  if (alert.alert_type === 'specific_stock') return alert.stock_symbol ?? 'Stock';
+  if (alert.alert_type === 'portfolio_only') return 'My Portfolio';
+  return 'Universe-wide';
+}
+
 export default function AlertsScreen() {
-  const { alerts, fetchAlerts, createAlert, deleteAlert, isLoading } = useAlertsStore();
+  const { alerts, fetchAlerts, createAlert, deleteAlert, isLoading, error } = useAlertsStore();
   const [showForm, setShowForm] = useState(false);
-  
-  // Form State
-  const [alertType, setAlertType] = useState<'universe_wide'|'specific_stock'|'portfolio_only'>('portfolio_only');
+
+  // Form state — unchanged from the previous implementation, only the presentation changes.
+  const [alertType, setAlertType] = useState<AlertType>('portfolio_only');
   const [stockSymbol, setStockSymbol] = useState('');
-  const [scoreType, setScoreType] = useState<'overall'|'technical'|'safety'|'sentiment'>('overall');
-  const [timeframe, setTimeframe] = useState<'short'|'medium'|'long'>('short');
-  const [direction, setDirection] = useState<'above'|'below'>('below');
+  const [scoreType, setScoreType] = useState<ScoreType>('overall');
+  const [timeframe, setTimeframe] = useState<Timeframe>('short');
+  const [direction, setDirection] = useState<Direction>('below');
   const [threshold, setThreshold] = useState('');
 
   useEffect(() => {
     fetchAlerts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreate = async () => {
     if (!threshold || isNaN(Number(threshold))) {
-      RNAlert.alert("Invalid Threshold", "Please enter a valid number.");
+      RNAlert.alert('Invalid Threshold', 'Please enter a valid number.');
       return;
     }
     if (alertType === 'specific_stock' && !stockSymbol.trim()) {
-      RNAlert.alert("Missing Symbol", "Please enter a stock symbol.");
+      RNAlert.alert('Missing Symbol', 'Please enter a stock symbol.');
       return;
     }
 
@@ -37,78 +85,114 @@ export default function AlertsScreen() {
         score_type: scoreType,
         timeframe,
         direction,
-        threshold_value: Number(threshold)
+        threshold_value: Number(threshold),
       });
       setShowForm(false);
       setThreshold('');
       setStockSymbol('');
     } catch (e) {
-      RNAlert.alert("Error", "Could not create alert.");
+      RNAlert.alert('Error', 'Could not create alert.');
     }
   };
 
-  // Group alerts (Miller's Law)
-  const triggeredAlerts = alerts.filter(a => a.status === 'triggered');
-  const activeAlerts = alerts.filter(a => a.status === 'active');
+  // Triggered alerts render first (existing behavior, unchanged).
+  const triggeredAlerts = alerts.filter((a) => a.status === 'triggered');
+  const activeAlerts = alerts.filter((a) => a.status === 'active');
 
   const groupedActive = activeAlerts.reduce((acc, curr) => {
-    const key = curr.alert_type === 'specific_stock' ? curr.stock_symbol! : (curr.alert_type === 'portfolio_only' ? 'My Portfolio' : 'Universe-wide');
+    const key = groupKeyFor(curr);
     if (!acc[key]) acc[key] = [];
     acc[key].push(curr);
     return acc;
   }, {} as Record<string, Alert[]>);
 
+  const isInitialLoading = isLoading && alerts.length === 0 && !error;
+  const isInitialError = !!error && alerts.length === 0;
+  const isEmpty = !showForm && !isInitialLoading && !isInitialError && alerts.length === 0;
+
   const renderForm = () => (
     <View style={styles.formCard}>
       <Text style={styles.formTitle}>New Alert</Text>
-      
-      <Text style={styles.label}>Scope</Text>
-      <View style={styles.rowGroup}>
-        {(['portfolio_only', 'specific_stock', 'universe_wide'] as const).map(t => (
-          <TouchableOpacity key={t} style={[styles.choiceBtn, alertType === t && styles.choiceActive]} onPress={() => setAlertType(t)}>
-            <Text style={[styles.choiceText, alertType === t && styles.choiceTextActive]}>
-              {t.replace('_', ' ').toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-        ))}
+
+      <Text style={styles.formSectionTitle}>What are you watching?</Text>
+      <View style={styles.chipRow}>
+        {SCOPE_OPTIONS.map((option) => {
+          const isSelected = alertType === option.value;
+          return (
+            <Pressable
+              key={option.value}
+              onPress={() => setAlertType(option.value)}
+              style={[styles.chip, isSelected && styles.chipSelected]}
+            >
+              <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{option.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {alertType === 'specific_stock' && (
-        <TextInput 
-          style={styles.input} 
-          placeholder="Stock Symbol (e.g. RELIANCE)" 
+        <TextInput
+          style={styles.input}
+          placeholder="Stock symbol (e.g. RELIANCE)"
+          placeholderTextColor={COLOR_TEXT_TERTIARY}
           value={stockSymbol}
           onChangeText={setStockSymbol}
           autoCapitalize="characters"
         />
       )}
 
-      <Text style={styles.label}>Score & Timeframe</Text>
-      <View style={styles.rowGroup}>
-        {(['overall', 'technical', 'safety'] as const).map(t => (
-          <TouchableOpacity key={t} style={[styles.choiceBtn, scoreType === t && styles.choiceActive]} onPress={() => setScoreType(t)}>
-            <Text style={[styles.choiceText, scoreType === t && styles.choiceTextActive]}>{t}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <View style={[styles.rowGroup, { marginTop: 8 }]}>
-        {(['short', 'medium', 'long'] as const).map(t => (
-          <TouchableOpacity key={t} style={[styles.choiceBtn, timeframe === t && styles.choiceActive]} onPress={() => setTimeframe(t)}>
-            <Text style={[styles.choiceText, timeframe === t && styles.choiceTextActive]}>{t}</Text>
-          </TouchableOpacity>
-        ))}
+      <Text style={[styles.formSectionTitle, styles.formSectionTitleSpaced]}>What should trigger it?</Text>
+
+      <Text style={styles.fieldLabel}>Score type</Text>
+      <View style={styles.chipRow}>
+        {SCORE_TYPE_OPTIONS.map((option) => {
+          const isSelected = scoreType === option;
+          return (
+            <Pressable
+              key={option}
+              onPress={() => setScoreType(option)}
+              style={[styles.chip, isSelected && styles.chipSelected]}
+            >
+              <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{option}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      <Text style={styles.label}>Condition</Text>
-      <View style={styles.rowGroup}>
-        {(['above', 'below'] as const).map(t => (
-          <TouchableOpacity key={t} style={[styles.choiceBtn, direction === t && styles.choiceActive]} onPress={() => setDirection(t)}>
-            <Text style={[styles.choiceText, direction === t && styles.choiceTextActive]}>Drops {t}</Text>
-          </TouchableOpacity>
-        ))}
-        <TextInput 
-          style={[styles.input, { flex: 1, marginLeft: 8, marginTop: 0 }]} 
-          placeholder="Value" 
+      <Text style={styles.fieldLabel}>Timeframe</Text>
+      <View style={styles.chipRow}>
+        {TIMEFRAME_OPTIONS.map((option) => {
+          const isSelected = timeframe === option;
+          return (
+            <Pressable
+              key={option}
+              onPress={() => setTimeframe(option)}
+              style={[styles.chip, isSelected && styles.chipSelected]}
+            >
+              <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{option}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Text style={styles.fieldLabel}>Direction &amp; threshold</Text>
+      <View style={styles.chipRow}>
+        {DIRECTION_OPTIONS.map((option) => {
+          const isSelected = direction === option;
+          return (
+            <Pressable
+              key={option}
+              onPress={() => setDirection(option)}
+              style={[styles.chip, isSelected && styles.chipSelected]}
+            >
+              <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>Drops {option}</Text>
+            </Pressable>
+          );
+        })}
+        <TextInput
+          style={[styles.input, styles.thresholdInput]}
+          placeholder="Value"
+          placeholderTextColor={COLOR_TEXT_TERTIARY}
           keyboardType="numeric"
           value={threshold}
           onChangeText={setThreshold}
@@ -116,105 +200,393 @@ export default function AlertsScreen() {
       </View>
 
       <View style={styles.formActions}>
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowForm(false)}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setShowForm(false)}
+          style={({ pressed }) => [styles.cancelBtn, pressed && styles.pressedOpacity]}
+        >
           <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.saveBtn} onPress={handleCreate}>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleCreate}
+          style={({ pressed }) => [styles.saveBtn, pressed && styles.pressedOpacity]}
+        >
           <Text style={styles.saveText}>Set Alert</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Alerts</Text>
-        {!showForm && (
-          <TouchableOpacity onPress={() => setShowForm(true)}>
-            <IconSymbol name="plus.circle.fill" size={28} color="#007AFF" />
-          </TouchableOpacity>
-        )}
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Header row */}
+      <View style={styles.headerRow}>
+        <Text style={styles.screenTitle}>Alerts</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={showForm ? 'Close new alert form' : 'New alert'}
+          onPress={() => setShowForm((prev) => !prev)}
+          style={({ pressed }) => [styles.headerIconButton, pressed && styles.headerIconButtonPressed]}
+        >
+          <IconSymbol
+            name={showForm ? 'xmark.circle.fill' : 'plus.circle.fill'}
+            size={22}
+            color={COLOR_ACCENT_LIME}
+          />
+        </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {showForm && renderForm()}
-
-        {/* Peak-End Rule: Highlight triggered alerts at the top */}
-        {triggeredAlerts.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recently Triggered</Text>
-            {triggeredAlerts.map(alert => (
-              <View key={alert.id} style={[styles.alertCard, styles.triggeredCard]}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.triggeredTitle}>🚨 Fired on {alert.triggered_date}</Text>
-                  <TouchableOpacity onPress={() => deleteAlert(alert.id)}>
-                    <IconSymbol name="xmark.circle.fill" size={20} color="#8E8E93" />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.alertDesc}>
-                  {alert.triggered_symbol} crossed {alert.direction} {alert.threshold_value} on {alert.timeframe} {alert.score_type}.
-                </Text>
-              </View>
-            ))}
+      {isInitialLoading ? (
+        SKELETON_ROWS.map((i) => (
+          <View key={i} style={styles.skeletonCard}>
+            <View style={styles.skeletonLineWide} />
+            <View style={styles.skeletonLineNarrow} />
           </View>
-        )}
+        ))
+      ) : isInitialError ? (
+        <Pressable style={styles.errorBox} onPress={() => fetchAlerts()}>
+          <Text style={styles.errorText}>Couldn&apos;t load your alerts. Please try again.</Text>
+          <Text style={styles.retryText}>Tap to Retry</Text>
+        </Pressable>
+      ) : (
+        <>
+          {showForm && renderForm()}
 
-        {/* Miller's Law: Group active alerts by target */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Active Alerts</Text>
-          {Object.keys(groupedActive).length === 0 ? (
-            <Text style={styles.emptyText}>No active alerts.</Text>
-          ) : (
-            Object.entries(groupedActive).map(([groupKey, groupAlerts]) => (
-              <View key={groupKey} style={styles.groupContainer}>
-                <Text style={styles.groupTitle}>{groupKey}</Text>
-                {groupAlerts.map(alert => (
-                  <View key={alert.id} style={styles.alertCard}>
-                    <Text style={styles.alertDesc}>
-                      {alert.timeframe} {alert.score_type} is {alert.direction} {alert.threshold_value}
-                    </Text>
-                    <TouchableOpacity onPress={() => deleteAlert(alert.id)}>
-                      <IconSymbol name="trash" size={20} color="#FF3B30" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            ))
+          {isEmpty && (
+            <View style={styles.emptyState}>
+              <IconSymbol name="bell.fill" size={40} color={COLOR_TEXT_TERTIARY} />
+              <Text style={styles.emptyTitle}>Nothing needs your attention.</Text>
+              <Text style={styles.emptySubtitle}>Create an alert and Finwerse will watch it for you.</Text>
+            </View>
           )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+          {triggeredAlerts.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Recently Triggered</Text>
+              {triggeredAlerts.map((alert) => (
+                <View key={alert.id} style={styles.triggeredCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <View style={styles.statusRow}>
+                      <View style={[styles.statusDot, { backgroundColor: COLOR_WARNING }]} />
+                      <Text style={styles.triggeredLabel}>Fired on {alert.triggered_date}</Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete alert"
+                      onPress={() => deleteAlert(alert.id)}
+                      hitSlop={8}
+                    >
+                      <IconSymbol name="trash" size={18} color={COLOR_NEGATIVE} />
+                    </Pressable>
+                  </View>
+                  <Text style={styles.alertDesc}>
+                    {alert.triggered_symbol} crossed {alert.direction} {alert.threshold_value} on{' '}
+                    {alert.timeframe} {alert.score_type}.
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {activeAlerts.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Active Alerts</Text>
+              {Object.entries(groupedActive).map(([groupKey, groupAlerts]) => (
+                <View key={groupKey} style={styles.groupContainer}>
+                  <Text style={styles.groupLabel}>{groupKey.toUpperCase()}</Text>
+                  <View style={styles.groupCard}>
+                    {groupAlerts.map((alert, index) => (
+                      <View
+                        key={alert.id}
+                        style={[styles.alertRow, index !== groupAlerts.length - 1 && styles.alertRowDivider]}
+                      >
+                        <Text style={styles.alertDesc}>
+                          {alert.timeframe} {alert.score_type} is {alert.direction} {alert.threshold_value}
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Delete alert"
+                          onPress={() => deleteAlert(alert.id)}
+                          hitSlop={8}
+                        >
+                          <IconSymbol name="trash" size={18} color={COLOR_NEGATIVE} />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  headerTitle: { fontSize: 24, fontWeight: 'bold' },
-  scrollContent: { padding: 16 },
-  formCard: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, marginBottom: 24 },
-  formTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
-  label: { fontSize: 14, color: '#666', marginTop: 12, marginBottom: 8, fontWeight: '600' },
-  rowGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  choiceBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: '#F2F2F7', borderWidth: 1, borderColor: 'transparent' },
-  choiceActive: { backgroundColor: '#E5F1FF', borderColor: '#007AFF' },
-  choiceText: { color: '#333', fontSize: 14 },
-  choiceTextActive: { color: '#007AFF', fontWeight: 'bold' },
-  input: { backgroundColor: '#F2F2F7', borderRadius: 8, padding: 12, marginTop: 8, fontSize: 16 },
-  formActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 24, gap: 12 },
-  cancelBtn: { padding: 12 },
-  cancelText: { color: '#FF3B30', fontSize: 16, fontWeight: '600' },
-  saveBtn: { backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8 },
-  saveText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#333' },
-  emptyText: { color: '#8E8E93', fontStyle: 'italic' },
-  groupContainer: { marginBottom: 16 },
-  groupTitle: { fontSize: 16, fontWeight: '600', color: '#666', marginBottom: 8 },
-  alertCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', padding: 16, borderRadius: 12, marginBottom: 8 },
-  triggeredCard: { backgroundColor: '#FFF9E6', borderColor: '#FFCC00', borderWidth: 1 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  triggeredTitle: { fontWeight: 'bold', color: '#D48806', fontSize: 14 },
-  alertDesc: { fontSize: 15, color: '#333', flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: COLOR_CANVAS,
+  },
+  content: {
+    padding: 20,
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  screenTitle: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
+  },
+  headerIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIconButtonPressed: {
+    opacity: 0.7,
+  },
+  pressedOpacity: {
+    opacity: 0.7,
+  },
+  // Loading state — skeleton cards matching the alert-card shape
+  skeletonCard: {
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    gap: 8,
+  },
+  skeletonLineWide: {
+    width: '70%',
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_SECONDARY,
+  },
+  skeletonLineNarrow: {
+    width: '45%',
+    height: 12,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_SECONDARY,
+  },
+  // Error/retry state
+  errorBox: {
+    padding: 20,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  errorText: {
+    color: COLOR_NEGATIVE,
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  retryText: {
+    color: COLOR_ACCENT_LIME,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Empty state
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 64,
+    gap: 10,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: COLOR_TEXT_SECONDARY,
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+  // New-alert form
+  formCard: {
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+  },
+  formTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
+    marginBottom: 16,
+  },
+  formSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
+    marginBottom: 10,
+  },
+  formSectionTitleSpaced: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLOR_DIVIDER,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLOR_TEXT_TERTIARY,
+    marginTop: 12,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  chip: {
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: COLOR_SURFACE_SECONDARY,
+  },
+  chipSelected: {
+    backgroundColor: COLOR_ACCENT_LIME,
+  },
+  chipText: {
+    color: COLOR_TEXT_SECONDARY,
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  chipTextSelected: {
+    color: COLOR_CANVAS,
+  },
+  input: {
+    backgroundColor: COLOR_SURFACE_SECONDARY,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    fontSize: 15,
+    color: COLOR_TEXT_PRIMARY,
+  },
+  thresholdInput: {
+    flex: 1,
+    minWidth: 90,
+    marginTop: 0,
+  },
+  formActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 24,
+    gap: 20,
+  },
+  cancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  cancelText: {
+    color: COLOR_NEGATIVE,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  saveBtn: {
+    backgroundColor: COLOR_ACCENT_LIME,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  saveText: {
+    color: COLOR_CANVAS,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  // Sections
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
+    marginBottom: 12,
+  },
+  // Triggered alerts
+  triggeredCard: {
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: COLOR_WARNING,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  triggeredLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLOR_WARNING,
+  },
+  alertDesc: {
+    fontSize: 14.5,
+    color: COLOR_TEXT_SECONDARY,
+    flex: 1,
+  },
+  // Active alerts, grouped by target
+  groupContainer: {
+    marginBottom: 16,
+  },
+  groupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: COLOR_TEXT_TERTIARY,
+    marginBottom: 8,
+  },
+  groupCard: {
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  alertRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  alertRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLOR_DIVIDER,
+  },
 });
