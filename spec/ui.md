@@ -95,24 +95,24 @@ The score color bands are **unchanged by this redesign** and still apply everywh
 
 ## Views / Screens (mobile — `apps/mobile/app`)
 
-**Nav shell restructuring, started 2026-08-25, now complete for all 8 screens (spec'd 2026-08-25):** the tab bar moved from 7 direct tabs to a **5-tab structure** — Home, Portfolio, Health, Ask AI, More — as part of the visual redesign above. Home and Stock Detail shipped first (built and running); this second batch spec's the remaining 6 screens (Portfolio, Health, Ask AI, Alerts, Impulse Analyzer, Market News) against the same Design System tokens — **spec'd below, not yet built.** All 8 screens share one rule for this whole redesign: **presentation-only** — no screen in this initiative rewires its data layer; where the approved design calls for something with no real backing data (a chart, a metric, a detail view), that specific element is removed or simplified to what the app actually has, never stubbed as fabricated data or built as a "coming soon" placeholder (the one deliberate exception being Stock Detail's three sections, spec'd as honest stubs before this rule was made explicit for the rest of the redesign — see that screen's own entry for why).
+**Nav shell restructuring, started 2026-08-25, complete and shipped for all 9 screens:** the tab bar moved from 7 direct tabs to a **5-tab structure** — Home, Portfolio, Health, Ask AI, More — as part of the visual redesign above. Home, Stock Detail, and More shipped first (built and running); a second batch built the remaining 6 screens (Portfolio, Health, Ask AI, Alerts, Impulse Analyzer, Market News) against the same Design System tokens — **all built, qa-auditor-verified, and shipped as of 2026-08-25.** All 9 screens share one rule for this whole redesign: **presentation-only** — no screen in this initiative rewires its data layer; where the approved design calls for something with no real backing data (a chart, a metric, a detail view), that specific element is removed or simplified to what the app actually has, never stubbed as fabricated data or built as a "coming soon" placeholder (the one deliberate exception being Stock Detail's three sections, spec'd as honest stubs before this rule was made explicit for the rest of the redesign — see that screen's own entry for why).
 
 | Tab (file) | Screen | Status | Store / notes |
 |---|---|---|---|
 | Home (`index.tsx`) | Home (formerly "Discover") | **Redesigned, shipped** — full spec below | `useAppStore`; data unchanged — still `GET /stocks/top` + `GET /stocks/search` (`spec/api.md`) |
-| Portfolio (`portfolio.tsx`) | Portfolio | **Redesigned, spec'd — not yet built** — full spec below | `usePortfolioStore` |
-| Health (`health.tsx`) | Portfolio Health | **Redesigned, spec'd — not yet built** — full spec below | `useHealthStore`, incl. Bottleneck Report handoff that navigates to the Ask AI tab and auto-sends the report as a chat prompt |
-| Ask AI (`chat.tsx`) | Ask AI Chatbot | **Redesigned, spec'd — not yet built** — full spec below | `useChatStore`, real streaming — see `spec/agent.md` |
+| Portfolio (`portfolio.tsx`) | Portfolio | **Redesigned, shipped** — full spec below | `usePortfolioStore` |
+| Health (`health.tsx`) | Portfolio Health | **Redesigned, shipped** — full spec below | `useHealthStore`, incl. Bottleneck Report handoff that navigates to the Ask AI tab and auto-sends the report as a chat prompt |
+| Ask AI (`chat.tsx`) | Ask AI Chatbot | **Redesigned, shipped** — full spec below | `useChatStore`, real streaming — see `spec/agent.md` |
 | More (`more.tsx`, new) | More menu | **New screen, shipped with Home/Stock Detail's batch** — full spec below | No store; static navigation menu |
 
-Reached via More (not tabs) — same store, same underlying data as before, only the entry point moved out of the tab bar (using the same `href: null`-from-tab-bar pattern already used for `two.tsx`); visual content **redesigned, spec'd — not yet built**, full spec below for each:
+Reached via More (not tabs) — same store, same underlying data as before, only the entry point moved out of the tab bar (using the same `href: null`-from-tab-bar pattern originally used for the now-deleted `two.tsx`); visual content **redesigned, shipped**, full spec below for each:
 - Alerts (`alerts.tsx`, `useAlertsStore`)
 - Impulse Analyzer (`impulse.tsx`, `useAnalyzerStore`)
 - Market News / Sentiment Feed (`news.tsx`, `useSentimentStore`)
 
 Auth group (`(auth)/login`). Standalone: `stock/[symbol]` (Stock Detail — **redesigned this pass**, full spec below; Home's ranked-row tap target navigates here), `modal`, `auth-callback`.
 
-**`two.tsx` is confirmed dead code** — unmodified Expo template scaffold ("Tab Two" placeholder, `EditScreenInfo`), explicitly hidden from the tab bar in `_layout.tsx` (`href: null`) and unreachable by any user action. Candidate for removal, unaffected by the nav restructuring above.
+**`two.tsx` (unmodified Expo template scaffold, "Tab Two" placeholder) has been deleted** — it was confirmed dead code (hidden from the tab bar via `href: null`, unreachable by any user action) and removed as part of the nav restructuring above.
 
 **Known gap — no markdown rendering in `chat.tsx`:** the chatbot's response renders through a plain `<Text>` node (`item.content`), not a markdown parser. Groq's synthesis prompt uses `• [Read Article](url)`-style links for news citations (`spec/agent.md`) — these will show as literal bracket/paren text on-device rather than a tappable link. Violates `harness/patterns/ui-ux.md`'s markdown-rendering rule for chat surfaces. Not resolved by the Ask AI screen's 2026-08-25 redesign spec below (presentation-only — see that screen's own "Response layout" note for why no parsing was added this pass) — still an open gap once that redesign is built.
 
