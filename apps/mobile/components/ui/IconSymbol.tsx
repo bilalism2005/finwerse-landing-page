@@ -22,6 +22,11 @@ const MAPPING: Record<string, React.ComponentProps<typeof MaterialIcons>['name']
   'paperplane.fill': 'send',
   'ellipsis': 'more-horiz',
   'chevron.right': 'chevron-right',
+  'chevron.left': 'chevron-left',
+  'chevron.down': 'expand-more',
+  'star.fill': 'star',
+  'star': 'star-border',
+  'chart.line.uptrend.xyaxis': 'show-chart',
 };
 
 export type IconSymbolName = keyof typeof MAPPING;

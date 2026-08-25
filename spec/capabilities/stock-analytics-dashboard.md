@@ -33,3 +33,12 @@ Lets a user search or browse any tracked NSE stock and see its four precomputed 
 - [x] `GET /stocks/search` returns matches for partial symbol queries (min 2 chars)
 - [x] `GET /stocks/{symbol}/score` returns all 4 scores for the requested timeframe or 404s cleanly
 - [ ] AI Summary icon on StockDetail correctly pre-loads chatbot context (not verified during this migration — confirm against `apps/web`/`apps/mobile` UI code)
+
+## Known Gaps / Future Work (mobile Stock Detail redesign, 2026-08-25)
+
+`apps/mobile`'s Stock Detail screen (`spec/ui.md` → "Screen: Stock Detail") was redesigned presentation-only against the existing `GET /stocks/{symbol}/score` response. Three sections are spec'd as honest visual stubs, not new features — each needs real data/wiring before it can leave stub state:
+
+- **Price + interactive chart** — no OHLCV/price-history endpoint exists anywhere in `spec/api.md`; would need a new data source (market data provider) and endpoint, plus a batch or on-demand ingestion decision, before this can render real data. Not scoped as part of this redesign pass.
+- **Signal drivers** (Momentum / Trend strength / Volume confirmation / Financial safety, per-driver evidence) — no per-driver breakdown is currently computed or stored anywhere in `spec/data.md`'s score tables; would need new batch-computed fields, not a live computation (per Standing Platform Rule 5), before this can show real values.
+- **"More on this stock" disclosure rows** (Fundamentals, Earnings & financials, News & sentiment, Peer comparison, Score history) — News & sentiment could plausibly reuse the existing Sentiment Feed data (`spec/api.md` `/sentiment-feed/search`); Score history could plausibly reuse `StockHistoricalScore` (`spec/data.md`); Fundamentals, Earnings & financials, and Peer comparison have no backing data source today. Each row needs its own scoping pass before being un-stubbed — do not assume they're all the same size of work.
+- **Favorite/watch toggle** — currently session-local component state only; no `Watchlist` table or endpoint exists in `spec/data.md`/`spec/api.md`. A persisted, cross-device watchlist would be a new capability (new table + endpoints), not a small addition to this one.

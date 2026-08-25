@@ -95,7 +95,7 @@ The score color bands are **unchanged by this redesign** and still apply everywh
 
 ## Views / Screens (mobile — `apps/mobile/app`)
 
-**Nav shell restructuring, in progress (started 2026-08-25):** the tab bar is moving from 7 direct tabs to a **5-tab structure** — Home, Portfolio, Health, Ask AI, More — as part of the visual redesign above. This is a navigation-shell change, not a redesign of every screen behind it: **only Home's own screen content is redesigned in this pass.** Portfolio, Health, Alerts, Impulse Analyzer, and Sentiment Feed keep their EXISTING implementation unchanged for now (they get their own screen-by-screen design passes later) even though three of them (Alerts, Impulse Analyzer, Sentiment Feed) move from being direct tabs to being reached via the new More screen.
+**Nav shell restructuring, in progress (started 2026-08-25):** the tab bar is moving from 7 direct tabs to a **5-tab structure** — Home, Portfolio, Health, Ask AI, More — as part of the visual redesign above. This is a navigation-shell change, not a redesign of every screen behind it: **Home and Stock Detail are the only screens redesigned in this pass so far.** Portfolio, Health, Alerts, Impulse Analyzer, and Sentiment Feed keep their EXISTING implementation unchanged for now (they get their own screen-by-screen design passes later) even though three of them (Alerts, Impulse Analyzer, Sentiment Feed) move from being direct tabs to being reached via the new More screen.
 
 | Tab (file) | Screen | Status | Store / notes |
 |---|---|---|---|
@@ -110,7 +110,7 @@ Reached via More (not tabs) — same screen, same store, same content as before,
 - Impulse Analyzer (`impulse.tsx`, `useAnalyzerStore`)
 - Market News / Sentiment Feed (`news.tsx`, `useSentimentStore`)
 
-Auth group (`(auth)/login`). Standalone: `stock/[symbol]` (Stock Detail — unchanged, not part of this redesign pass; Home's ranked-row tap target navigates here), `modal`, `auth-callback`.
+Auth group (`(auth)/login`). Standalone: `stock/[symbol]` (Stock Detail — **redesigned this pass**, full spec below; Home's ranked-row tap target navigates here), `modal`, `auth-callback`.
 
 **`two.tsx` is confirmed dead code** — unmodified Expo template scaffold ("Tab Two" placeholder, `EditScreenInfo`), explicitly hidden from the tab bar in `_layout.tsx` (`href: null`) and unreachable by any user action. Candidate for removal, unaffected by the nav restructuring above.
 
@@ -159,6 +159,62 @@ Auth group (`(auth)/login`). Standalone: `stock/[symbol]` (Stock Detail — unch
 - [ ] All 6 states (loading, search-active, search-results, no-results, empty-market-state, error/retry) render distinctly and are reachable via a real interaction (typing a query, an empty API response, a failed request).
 - [ ] Tapping a ranked row or a search result navigates to `stock/[symbol]` for that ticker.
 - [ ] The header's right-side icon-button is tappable with visible press feedback and does nothing else (no dead-looking static icon, no wired destination).
+
+### Screen: Stock Detail (`stock/[symbol].tsx`) — REDESIGNED 2026-08-25
+
+**Purpose:** Give the user the full picture on one specific stock — its score, why it scored that way, and (once built) its price action and supporting evidence — reached from Home's ranked-row tap target or a search result. Same underlying feature (Feature 1, Stock Analytics Dashboard, `spec/roadmap.md` Build Status row 1) as Home; this is the detail view Home links to. See also `spec/capabilities/stock-analytics-dashboard.md`.
+
+**Data source — real data, presentation-only redesign for the score sections:** `GET /stocks/{symbol}/score` (`timeframe` param — `spec/api.md`), already wired via `getStockDetailScore` (`src/api/stockService.ts`). Response: `{symbol, timeframe, overall, technical, safety, sentiment, last_updated}`. No new endpoint, no new wiring for the score hero or pillar breakdown. The price/chart, signal-drivers, and disclosure sections below have **no backing endpoint today** — spec'd here as honest visual stubs per `harness/patterns/ui-ux.md`'s honesty rule, not as newly-wired features.
+
+**Structure (top to bottom):**
+
+1. **Header row.** Back button — chevron-left, same 38x38 `#131613` rounded-icon pattern as Home's header icon, navigates back. Ticker, 28px/700 weight (RN `fontWeight` string, matching Home's established workaround), left-aligned; directly below it, company descriptor "· NSE" at 13.5px, `#A4AAA3`. Right-aligned: favorite/watch toggle button, same 38x38 rounded-icon pattern, star icon — outline `#A4AAA3` when unfavorited, filled lime `#C7FF3D` when favorited. **Functional, but session-local only:** tapping toggles local component state; there is no `Watchlist` table or endpoint in `spec/data.md`/`spec/api.md` today, so the favorited state does not persist across app restarts or sync across devices. This is a known, deliberate limitation for this pass, not a bug — flagged in `spec/capabilities/stock-analytics-dashboard.md` as future work.
+
+2. **Timeframe control.** Carried over from the existing screen (the short/medium/long pill switcher), restyled to Home's segmented-control token (track `#131613`; selected: lime `#C7FF3D` background, `#090B0A` text; unselected: transparent background, `#A4AAA3` text) instead of its current ad hoc emoji-pill styling. Still the same 3-way selector driving the `timeframe` query param on `GET /stocks/{symbol}/score` — no behavior change, presentation-only. **Assumed:** the source design brief for this screen doesn't explicitly re-spec this control (it starts from the score hero downward), but the screen cannot drop it — timeframe scoping is a Standing Platform Rule (three fixed buckets) and the score hero/pillar breakdown are timeframe-scoped data that has to come from somewhere. Confirm this restyle-in-place treatment is what's intended.
+
+3. **Score hero.** Large score, 50px/600 weight, tabular-nums, colored per the standing score bands (Red <40, Amber 41-65, Green 66-100), immediately followed by "/ 100" in `#6F766F` (fixed literal suffix text for this element — displays the real -100..100 `overall` value un-rescaled; the "/ 100" is decorative copy for this element only, not a claim the scale is 0-100. This intentionally differs from Home's own score-domain label wording — different UI elements with different appropriate phrasing, not a fact to reconcile between them). Below it, a status pill: dot + "{status} momentum" text.
+
+   **Status pill mapping (3-way, tied to the standing color bands — decided here since the design brief only gave one positive-band example):**
+
+   | Band | Score range | Status word | Pill text | Color (dot + text) |
+   |---|---|---|---|---|
+   | Green | 66-100 | Strong | "Strong momentum" | lime `#C7FF3D` — matches the design brief's own literal example and the Design System token table's "positive-momentum" allowed use of the accent color |
+   | Amber | 41-65 | Steady | "Steady momentum" | Warning `#FFB84D` |
+   | Red | <40 | Weak | "Weak momentum" | Negative `#FF6B67` |
+
+   "Steady" and "Weak" are chosen to fit the brief's own "{status} momentum" grammatical pattern while staying descriptive rather than a raw judgment (Design System philosophy: "Needs attention," not "Bad"); none of the three imply buy/sell/avoid/invest (Standing Platform Rule 1).
+
+4. **Price + chart section — STUB.** Occupies the same layout position the design calls for (current price, daily change, % change near the score; a line chart below with 1D/1W/1M/3M/1Y segments, minimal gridlines, scrub-to-see-tooltip) but renders a labelled placeholder instead: the price/change area shows "Price data coming soon" (or equivalent honest copy) where the numbers would sit; the chart area shows a static placeholder (e.g. a flat/faded line-chart glyph) plus the same "coming soon" copy where the interactive chart would render. If the 1D/1W/1M/3M/1Y segment control renders at all in this stub, it renders visibly disabled/non-interactive — never a live-looking control with no real behavior behind it. No invented price, daily change, percentage change, or chart series anywhere. No price-fetching code or endpoint exists anywhere in `apps/mobile` or `spec/api.md` today — this section adds zero new wiring.
+
+5. **"Why this score?" section.** Heading "Why this score?", 19px/650 weight. Three pillar rows — Technical, Safety, Sentiment, in that order — each: label (left) + numeric value (right-aligned, colored per the standing score bands) or "Not Available" text (existing behavior, restyled, not changed — per `spec/data.md`, `sentiment_score_*` is the only pillar field that can hold `"Not Available"`; `technical_score_*`/`safety_score_*` are always numeric) + a one-line explanatory note below the label + an optional thin progress bar (track `#1A1E1A`, filled lime `#C7FF3D`, present only when the pillar has a numeric value; absent — not zero-width — when "Not Available"). Progress bar width uses the same -100..100-to-0-100% normalization as Home's signal-strength bar: `(score + 100) / 2`.
+
+   **Explanatory note mapping (deterministic, band-derived — decided here since the backend returns no free-text explanation for any pillar):**
+
+   | Pillar | Green (66-100) | Amber (41-65) | Red (<40) | Not Available |
+   |---|---|---|---|---|
+   | Technical | "Strong price structure and momentum" | "Mixed price signals, no clear direction" | "Weak price structure, momentum under pressure" | n/a — always numeric |
+   | Safety | "Strong financial stability" | "Average financial stability" | "Financial stability concerns" | n/a — always numeric |
+   | Sentiment | "Strong positive sentiment" | "Mixed sentiment signals" | "Weak sentiment signals" | "No recent signal" |
+
+   The Technical-Green and Safety-Amber notes match the design brief's own given copy exactly ("Strong price structure and momentum," "Average financial stability"); the Not Available copy uses "No recent signal" per the brief's own explicit rule (not "N/A," not "Insufficient recent signal" — avoids false precision, matches the existing screen's already-correct N/A handling, which this redesign keeps and only restyles). None of these notes use buy/sell/avoid/invest framing (Standing Platform Rule 1) — they describe the stock's signal state, never an instruction to the user.
+
+6. **Signal drivers section — STUB.** Same tappable-evidence-row visual shape the design calls for: label (Momentum / Trend strength / Volume confirmation / Financial safety) + right-aligned status text + trailing chevron, `#1A1E1A` row dividers. Right-aligned status text reads "Coming soon" in `#6F766F` for every row instead of a real status value; rows render (so the section doesn't look broken or missing) but are not tappable — no destination exists yet — and the trailing chevron renders in a dimmed/disabled visual state rather than a live-looking dead control. No invented driver values or status words (e.g. never fabricate "Bullish"/"Confirmed" text for a row with no real data behind it).
+
+7. **"More on this stock" section — STUB.** Heading "MORE ON THIS STOCK", 12px, letter-spaced, `#6F766F`. Five expandable disclosure rows, in this order: Fundamentals, Earnings & financials, News & sentiment, Peer comparison, Score history. Each row: label + trailing chevron that rotates on expand (same interaction pattern as any other disclosure row in the app). Expanding any row reveals a "Coming soon — this section isn't available yet" (or equivalent honest copy) stub body instead of real content — no invented fundamentals, earnings, news, peer-comparison, or score-history data anywhere in the expanded body.
+
+**States** (per `harness/patterns/ui-ux.md`'s bar):
+- **Loading:** header (back button, ticker, favorite toggle) and the timeframe control render immediately; the score hero and "Why this score?" section show a skeleton (matching their final shape) while `GET /stocks/{symbol}/score` resolves. The stub sections (price/chart, signal drivers, more-on-this-stock) render their stub treatment immediately — they have no network call to wait on.
+- **Error/retry:** `GET /stocks/{symbol}/score` fails (including `404` — symbol not found) — human copy naming what failed ("Couldn't load {symbol}'s score. Please try again." or, for a 404 specifically, "We don't have data for {symbol}.") plus a tap-to-retry action, scoped to the score-hero/pillar area only (header, timeframe control, and stub sections still render — an error on the score fetch doesn't blank the whole screen). Never a raw error body or stack trace.
+- **Populated:** score hero + pillar breakdown render real data; stub sections render their stub treatment (the stub treatment is the designed-for state for those sections this pass, not an in-between state waiting to resolve into something else).
+
+**Success Criteria**
+- [ ] Header, timeframe control, score hero, and "Why this score?" section render using only Design System tokens — no ad hoc colors/sizes.
+- [ ] Switching the timeframe control re-fetches `GET /stocks/{symbol}/score` for the newly selected timeframe and updates the score hero + pillar breakdown; behavior is unchanged from the existing implementation, only presentation changes.
+- [ ] The status pill's text/color follows the 3-way mapping above exactly, matching the standing score-band thresholds (Red <40, Amber 41-65, Green 66-100) — no new threshold invented.
+- [ ] Each pillar row's explanatory note and progress-bar presence/absence follow the deterministic mapping above; "Not Available" never renders as `0` or with a filled progress bar.
+- [ ] The favorite toggle changes visual state on tap (star outline ↔ filled lime), does not error or crash, and does not persist across an app restart (no backend call, by design this pass).
+- [ ] The price/chart, signal drivers, and more-on-this-stock sections all render in their stub treatment with no invented numbers, prices, chart data, driver statuses, or disclosure content anywhere — a user cannot mistake any stub for real data or for a broken screen (per `harness/patterns/ui-ux.md`'s honesty rule).
+- [ ] All 3 states (loading, error/retry, populated) render distinctly and are reachable via a real interaction (a failed/slow request, a valid symbol).
 
 ### Screen: More (`more.tsx`, new) — NEW 2026-08-25
 
