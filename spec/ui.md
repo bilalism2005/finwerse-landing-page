@@ -51,6 +51,67 @@ The score color bands are **unchanged by this redesign** and still apply everywh
 
 **Philosophy:** calm, premium, precise — not a generic fintech dashboard. Avoid excessive cards, glassmorphism, neon-everywhere, dashboard grids, decorative gradients, fake urgency. Score/ranking language stays descriptive, never a raw judgment ("Needs attention," not "Bad") and never buy/sell framing (Standing Platform Rule 1) — ranking creates curiosity, it never says "BUY THIS."
 
+## Theming — Light Mode (spec'd 2026-08-25, not yet built)
+
+**What this is:** a second, fully-designed color theme for `apps/mobile`, user-selectable **alongside** the dark theme above — additive, not a replacement. Every one of the 10 redesigned screens keeps its current dark-theme look by default; light mode is an opt-in the user switches to and can switch back from at any time. Only the **color** tokens differ between themes — Type, Spacing scale, Corner radius, and Motion tokens above are shared, unchanged, and apply identically under both themes.
+
+### Source palette and background decision
+
+The user supplied a 4-band swatch: olive green (largest/top band, the dominant color), orange (middle band), tan/beige `#D8C9A7`, light gray `#EEEEEE`. Only the tan and light-gray bands came with exact hex; olive green and orange were named/visual only, no hex given.
+
+**Background: `#D8C9A7` (tan/beige), not `#EEEEEE`.** Reasoning:
+- Both work from a pure contrast standpoint — `#D8C9A7` gives ≈9.5:1 contrast against a near-black text color (comfortably exceeds WCAG AA's 4.5:1, close to AAA), so accessibility does not force the choice either way.
+- `#D8C9A7` is the more distinctive, on-brand choice: it's warm and earthy, cohering naturally with olive and orange as one palette family. `#EEEEEE` is a flat, generic light gray — indistinguishable from any default "light mode," which directly conflicts with the Design System's own stated philosophy above ("calm, premium, precise — not a generic fintech dashboard").
+- Choosing tan over light-gray also gives `#EEEEEE` a real job to do rather than going unused: it becomes the **Elevated surface** token (see table below), preserving all 4 supplied colors as recognizable anchors instead of discarding two of them.
+
+### Light theme token table
+
+Mirrors the dark theme's 12 color roles exactly — same role set, no roles added or dropped. Olive green and orange had no supplied hex, so their values below are **derived/approximated from the described swatch bands, not picked from an exact source hex** — flagged for confirmation against the actual source image before build.
+
+| Token | Value | Use |
+|---|---|---|
+| Canvas background | `#D8C9A7` | Screen background (supplied) |
+| Elevated surface | `#EEEEEE` | Cards, inputs, segmented-control track (supplied — reused here, see background decision above) |
+| Secondary surface | `#F7F4EC` | Nested/secondary surfaces — derived: a warm off-white, lighter than Elevated, mirroring the dark theme's own ordering where Secondary surface (`#191D19`) is lighter than Elevated (`#131613`) |
+| Divider (subtle) | `#E2D9C2` | Row dividers, subtle borders — derived: a desaturated tan sitting between Canvas and Elevated, deliberately low-contrast against Elevated/Secondary surfaces (≈1.2:1), matching the dark theme's own near-invisible subtle divider |
+| Divider (stronger) | `#C7B891` | Stronger separators — derived: a deeper tan-gray, modestly more visible (≈1.7:1 against Elevated) than the subtle divider, same relative jump the dark theme's two divider tokens make |
+| Text primary | `#211F17` | Headlines, primary values — derived: a warm near-black (not flat `#000000`) that keeps the same undertone family as the tan/olive palette; ≈9-13:1 contrast against Canvas/Elevated |
+| Text secondary | `#524C39` | Body/secondary copy — derived: a muted warm olive-gray; ≈5.2:1 against Canvas, ≈7.4:1 against Elevated (AA-safe on both) |
+| Text tertiary | `#655D46` | Metadata, placeholders, muted labels — derived: lighter/more muted than Text secondary; ≈3.5:1 against Canvas, ≈4.9:1 against Elevated — same intentionally-lower tier of contrast the dark theme's own tertiary token (`#6F766F`, ≈4.2:1 against its canvas) uses for this role |
+| Accent (olive) | `#5C6B2E` | **Selected / actionable / primary-interaction / positive-momentum only — never decorative** (same restriction as the dark theme's lime) |
+| Positive | `#3F7D4A` | Positive momentum indicators |
+| Negative | `#B3413A` | Negative momentum indicators |
+| Warning | `#BD722A` | Warning/caution indicators |
+
+**Accent — olive green, confirmed against contrast, documented:** olive is the obvious accent candidate since it's the dominant supplied color, and it holds up under a WCAG check on the chosen `#D8C9A7` background: as a **fill** (selected segment, filled CTA), `#5C6B2E` reads clearly distinct against both Canvas and Elevated surfaces (≥3:1 non-text contrast, the relevant threshold for a UI-component boundary); as **text** on a surface, it clears AA (≈5-5.8:1 against Elevated/Secondary). One documented difference from the dark theme: dark theme's accent (`#C7FF3D`) is a *light* color and pairs with dark **on-accent text** (reuses the Canvas token `#090B0A`). Olive is a comparatively *dark* accent, so it needs the inverse pairing — **on-accent text/icon color reuses the Elevated-surface token `#EEEEEE`** (a light neutral), not a newly invented "on-accent" role, keeping the "reuse an existing token" principle the dark theme itself follows. Positive was deliberately chosen as a distinct green hue (`#3F7D4A`, blue-leaning) rather than a closer olive-green, specifically so momentum-positive status text/badges don't visually read as "the accent color" — the same separation the dark theme maintains between its accent lime and its (slightly different) positive green.
+
+**Orange → mapped to the Warning role, not a new "secondary highlight":** the dark theme's own Warning token (`#FFB84D`) is already an orange-amber, so the supplied orange band maps directly onto the existing Warning role rather than inventing a role the mirrored token table doesn't have. The exact value (`#BD722A`) is deepened from a brighter/more literal orange specifically to clear a 3:1 contrast floor against the light Elevated surface (a brighter orange, checked, fell to ≈2.9:1 — insufficient even for large/bold text) — same warm hue family as the source swatch, adjusted only for legibility.
+
+**Assumed, flagged for confirmation:** the exact olive-green and orange hex values above (`#5C6B2E`, `#BD722A`) are this pass's best-judgment approximation of the swatch's described bands, since no hex was supplied for either. If the actual source image's olive/orange values differ meaningfully, update this table before `code-generator` builds against it — everything else in this table (background choice, accent-role assignment, warning-role mapping, derived neutrals) does not depend on getting that exact shade right.
+
+### Theme mechanism (architecture)
+
+**The problem this solves:** every one of the 10 redesigned screens currently defines its own local, hardcoded hex constants (e.g. `const COLOR_CANVAS = '#090B0A'`, copy-pasted per file — confirmed in `apps/mobile/app/(tabs)/more.tsx`, `index.tsx`, `chat.tsx`, and every other redesigned screen). There is no shared source for color today. Introducing a second theme requires a real shared mechanism — this is not just a spec addition, it's a genuine, sizeable follow-up **implementation** task across every screen (see "Follow-up build scope" below).
+
+**Design, following `apps/mobile`'s existing conventions** (`harness/patterns/code.md`: `apps/mobile` state lives in `src/store/`, one Zustand store per concern — `chatStore`, `healthStore`, `portfolioStore`, etc., plus the existing app-wide `useAppStore` for cross-screen UI state like the selected timeframe). Theme selection is exactly this kind of app-wide UI state, so it follows the same pattern rather than introducing a React Context (the Context pattern in this codebase, `packages/shared`'s `AuthProvider`/`useAuth`, is reserved for state shared across `apps/web` **and** `apps/mobile`; theme is mobile-only, so it belongs in mobile's own `store/` convention, not in `packages/shared`):
+
+- **`apps/mobile/src/theme/tokens.ts`** (new) — exports a `ThemeTokens` TypeScript interface with the 12 roles in the table above, plus two concrete objects, `darkTheme` (the existing Design System table, unchanged, moved here from being re-declared per screen) and `lightTheme` (the table above). Pure data, no React.
+- **`apps/mobile/src/store/themeStore.ts`** (new) — a Zustand store, `useThemeStore`, holding `{ mode: 'dark' | 'light', setMode: (mode) => void }`, wrapped in Zustand's `persist` middleware (`zustand/middleware`, bundled with the `zustand` dependency already in `apps/mobile/package.json` — no new package) backed by `AsyncStorage` (`@react-native-async-storage/async-storage`, already a dependency, already used for Supabase session persistence in `apps/mobile/app/_layout.tsx` — same storage mechanism, new key) via `createJSONStorage`. A companion selector hook, `useThemeTokens()`, returns `mode === 'light' ? lightTheme : darkTheme` — this is the call every screen migrates to.
+- **Default: `dark`.** Matches the just-completed Claude Design fidelity work — all 10 screens were visually tuned against the dark palette specifically; light is opt-in, not a forced switch for existing users.
+
+**Follow-up build scope, explicitly not part of this spec pass:** every one of the 10 redesigned screens must migrate from its local hardcoded `COLOR_*` consts to `useThemeTokens()`. This is a real, per-screen code change (replace each local constant with a destructure off the hook's return value) across all 10 files, not a side effect of adding the store — `code-generator` should treat it as its own tracked unit of work per screen (or a single batch pass across all 10, mirroring how the original redesign itself was delivered screen-by-screen then batched), not something assumed to fall out "for free" from creating `themeStore.ts`.
+
+### Toggle placement
+
+**More screen (`apps/mobile/app/(tabs)/more.tsx`)** — the existing menu screen. Add an "Appearance" row below the 3 existing navigation rows (Alerts / Impulse Analyzer / Market News): a label ("Appearance") plus an inline 2-way segmented control (Dark / Light), same segmented-control visual language used everywhere else in the redesign (Home's timeframe control, Portfolio/Alerts/Impulse/News mode switchers). Not a navigation row — no chevron, no nested settings screen; selecting a segment calls `useThemeStore`'s `setMode` directly and the whole app re-renders under the new theme immediately. No confirmation step needed — this is a reversible, low-stakes preference toggle, not a destructive action.
+
+### Success Criteria
+- [ ] `apps/mobile/src/theme/tokens.ts` exports `darkTheme`, `lightTheme`, and a `ThemeTokens` type covering all 12 roles for both themes.
+- [ ] `useThemeStore`'s `mode` persists across an app restart (survives a cold start after being changed) via `AsyncStorage`, defaulting to `'dark'` on first launch.
+- [ ] The More screen's Appearance toggle switches `mode` and the change is visible without restarting the app.
+- [ ] No screen renders a mix of light- and dark-theme tokens at once — switching modes updates every visible token-driven color on screen, not a partial subset.
+- [ ] All 12 light-theme token roles are used somewhere reachable in the UI (no orphaned token defined but never applied) once the follow-up migration (above) is complete.
+
 ## Views / Screens (web — `apps/web/src/pages`, routes per `App.tsx`)
 
 ### Screen: Index (`/`)
