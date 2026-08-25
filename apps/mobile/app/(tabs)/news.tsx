@@ -246,7 +246,7 @@ export default function SentimentFeedScreen() {
       ) : showError ? (
         <View style={styles.listContent}>
           <TouchableOpacity style={styles.errorBox} onPress={reload}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>Couldn't load the news feed. Please try again.</Text>
             <Text style={styles.retryText}>Tap to Retry</Text>
           </TouchableOpacity>
         </View>

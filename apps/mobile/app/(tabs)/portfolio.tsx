@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   usePortfolioStore,
   PortfolioHolding,
@@ -462,6 +463,7 @@ export default function PortfolioScreen() {
   const showFetchError = !showInitialSkeleton && !!error && holdings.length === 0;
 
   return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
     <View style={styles.container}>
       {/* Header row */}
       <View style={styles.topHeader}>
@@ -941,6 +943,7 @@ export default function PortfolioScreen() {
         </KeyboardAvoidingView>
       </Modal>
     </View>
+    </SafeAreaView>
   );
 }
 
@@ -948,11 +951,14 @@ const styles = StyleSheet.create({
   pressedOpacity: {
     opacity: 0.7,
   },
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLOR_CANVAS,
+  },
   container: {
     flex: 1,
     backgroundColor: COLOR_CANVAS,
     paddingHorizontal: 20,
-    paddingTop: 60,
   },
   topHeader: {
     marginBottom: 16,

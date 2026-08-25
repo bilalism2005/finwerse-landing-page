@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHealthStore, StockHealthInfo, SectorInfo } from '@/src/store/healthStore';
 import { HoldingPeriod } from '@/src/store/portfolioStore';
 import { useChatStore } from '@/src/store/chatStore';
@@ -157,6 +158,7 @@ export default function HealthScreen() {
   // Loading (initial fetch, nothing cached yet) — skeleton matching the gauge + evidence-row shape.
   if (loading && !healthData) {
     return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {header}
         {timeframeControl}
@@ -175,12 +177,14 @@ export default function HealthScreen() {
           ))}
         </View>
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
   // Error — fixes the raw-error-string rendering gap with human copy + tap-to-retry.
   if (error) {
     return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {header}
         {timeframeControl}
@@ -189,12 +193,14 @@ export default function HealthScreen() {
           <Text style={styles.retryText}>Tap to Retry</Text>
         </Pressable>
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
   if (!healthData) {
     // Momentary state before the first fetch resolves — treat like loading rather than a blank screen.
     return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {header}
         {timeframeControl}
@@ -203,6 +209,7 @@ export default function HealthScreen() {
           <Text style={styles.loadingText}>Analyzing your portfolio…</Text>
         </View>
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -211,6 +218,7 @@ export default function HealthScreen() {
   // confusing 0/100 gauge with empty evidence rows.
   if (healthData.holdings.length === 0) {
     return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {header}
         {timeframeControl}
@@ -223,6 +231,7 @@ export default function HealthScreen() {
           </Text>
         </View>
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -232,6 +241,7 @@ export default function HealthScreen() {
   const divBand = getBand(healthData.diversification_score);
 
   return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {header}
       {timeframeControl}
@@ -344,17 +354,21 @@ export default function HealthScreen() {
         </View>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLOR_CANVAS,
+  },
   container: {
     flex: 1,
     backgroundColor: COLOR_CANVAS,
   },
   content: {
     padding: 20,
-    paddingTop: 60,
     paddingBottom: 60,
   },
 

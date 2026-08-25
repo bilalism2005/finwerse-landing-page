@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore, Timeframe } from '../../src/store';
 import { getStockDetailScore, StockScoreDetail } from '../../src/api/stockService';
 import { IconSymbol } from '../../components/ui/IconSymbol';
@@ -138,6 +139,7 @@ export default function StockDetailScreen() {
   };
 
   return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header row — back button + star toggle */}
       <View style={styles.headerTopRow}>
@@ -189,10 +191,33 @@ export default function StockDetailScreen() {
 
       {/* Score hero + "Why this score?" — loading skeleton / error / populated */}
       {loading ? (
-        <View style={styles.heroSkeletonBlock}>
-          <ActivityIndicator size="large" color={COLOR_ACCENT_LIME} />
-          <Text style={styles.loadingText}>Loading {timeframe} score…</Text>
-        </View>
+        <>
+          {/* Score hero skeleton — matches heroSection's centered score + status pill shape */}
+          <View style={styles.heroSection}>
+            <View style={styles.skeletonHeroScore} />
+            <View style={styles.skeletonStatusPill} />
+          </View>
+
+          {/* "Why this score?" skeleton — matches the 3 pillar rows' shape */}
+          <View style={styles.skeletonSectionTitle} />
+          <View style={styles.pillarSection}>
+            {PILLAR_ROWS.map((pillar, index) => {
+              const isLast = index === PILLAR_ROWS.length - 1;
+              return (
+                <View key={pillar.key} style={[styles.pillarRow, !isLast && styles.pillarRowDivider]}>
+                  <View style={styles.pillarRowTop}>
+                    <View style={styles.skeletonPillarLabel} />
+                    <View style={styles.skeletonPillarValue} />
+                  </View>
+                  <View style={styles.skeletonPillarNote} />
+                  <View style={styles.pillarBarTrack}>
+                    <View style={styles.skeletonPillarBarFill} />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </>
       ) : error || !data ? (
         <Pressable style={styles.errorBox} onPress={() => fetchScore(timeframe)}>
           <Text style={styles.errorText}>{error || 'Stock score unavailable'}</Text>
@@ -323,17 +348,21 @@ export default function StockDetailScreen() {
         })}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLOR_CANVAS,
+  },
   container: {
     flex: 1,
     backgroundColor: COLOR_CANVAS,
   },
   content: {
     padding: 20,
-    paddingTop: 60,
     paddingBottom: 40,
   },
   headerTopRow: {
@@ -391,15 +420,52 @@ const styles = StyleSheet.create({
   segmentTextSelected: {
     color: COLOR_CANVAS,
   },
-  heroSkeletonBlock: {
-    paddingVertical: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
+  // Loading skeleton (item 4, spec/ui.md → Screen: Stock Detail) — matches the score-hero +
+  // "Why this score?" pillar-row shape, same block-based pattern as Home/Portfolio/Health.
+  skeletonHeroScore: {
+    width: 120,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
   },
-  loadingText: {
-    color: COLOR_TEXT_SECONDARY,
-    marginTop: 12,
-    fontSize: 13,
+  skeletonStatusPill: {
+    width: 130,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    marginTop: 10,
+  },
+  skeletonSectionTitle: {
+    width: 140,
+    height: 19,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    marginBottom: 12,
+  },
+  skeletonPillarLabel: {
+    width: 80,
+    height: 15,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+  },
+  skeletonPillarValue: {
+    width: 32,
+    height: 17,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+  },
+  skeletonPillarNote: {
+    width: '65%',
+    height: 12.5,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    marginTop: 6,
+  },
+  skeletonPillarBarFill: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
   },
   errorBox: {
     padding: 20,

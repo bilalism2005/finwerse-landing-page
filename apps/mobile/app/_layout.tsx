@@ -109,7 +109,7 @@ function AuthGate() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0D0D0D', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#090B0A', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#B7FF00" />
       </View>
     );
@@ -156,11 +156,11 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
-      <StatusBar style="light" backgroundColor="#0D0D0D" />
+    <View style={{ flex: 1, backgroundColor: '#090B0A' }}>
+      <StatusBar style="light" backgroundColor="#090B0A" />
       <AuthProvider>
         <AuthGate />
-        <Stack screenOptions={{ contentStyle: { backgroundColor: '#0D0D0D' } }}>
+        <Stack screenOptions={{ contentStyle: { backgroundColor: '#090B0A' } }}>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="stock/[symbol]" options={{ headerTitle: 'Stock Detail', headerBackTitle: 'Back' }} />

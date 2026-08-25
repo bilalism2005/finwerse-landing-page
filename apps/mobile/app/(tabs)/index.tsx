@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore, Timeframe } from '../../src/store';
 import { getTopStocks, getCachedTopStocks, searchStocks, StockItem } from '../../src/api/stockService';
 import { warmUpBackend } from '../../src/api/client';
@@ -133,6 +134,7 @@ export default function HomeScreen() {
   }, [trimmedQuery, selectedTimeframe]);
 
   return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
@@ -287,17 +289,21 @@ export default function HomeScreen() {
         </View>
       )}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLOR_CANVAS,
+  },
   container: {
     flex: 1,
     backgroundColor: COLOR_CANVAS,
   },
   content: {
     padding: 20,
-    paddingTop: 60,
     paddingBottom: 40,
   },
   headerRow: {

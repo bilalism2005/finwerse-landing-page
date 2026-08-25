@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAlertsStore, Alert } from '../../src/store/alertsStore';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 
@@ -93,6 +94,15 @@ export default function AlertsScreen() {
     } catch (e) {
       RNAlert.alert('Error', 'Could not create alert.');
     }
+  };
+
+  // Delete Alert with Confirmation — spec/ui.md's cross-cutting Error States rule requires
+  // destructive actions to confirm before executing, matching portfolio.tsx's handleDelete.
+  const confirmDeleteAlert = (id: string) => {
+    RNAlert.alert('Delete alert?', "This can't be undone.", [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteAlert(id) },
+    ]);
   };
 
   // Triggered alerts render first (existing behavior, unchanged).
@@ -219,6 +229,7 @@ export default function AlertsScreen() {
   );
 
   return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header row */}
       <View style={styles.headerRow}>
@@ -274,7 +285,7 @@ export default function AlertsScreen() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Delete alert"
-                      onPress={() => deleteAlert(alert.id)}
+                      onPress={() => confirmDeleteAlert(alert.id)}
                       hitSlop={8}
                     >
                       <IconSymbol name="trash" size={18} color={COLOR_NEGATIVE} />
@@ -307,7 +318,7 @@ export default function AlertsScreen() {
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel="Delete alert"
-                          onPress={() => deleteAlert(alert.id)}
+                          onPress={() => confirmDeleteAlert(alert.id)}
                           hitSlop={8}
                         >
                           <IconSymbol name="trash" size={18} color={COLOR_NEGATIVE} />
@@ -322,17 +333,21 @@ export default function AlertsScreen() {
         </>
       )}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLOR_CANVAS,
+  },
   container: {
     flex: 1,
     backgroundColor: COLOR_CANVAS,
   },
   content: {
     padding: 20,
-    paddingTop: 60,
     paddingBottom: 40,
   },
   headerRow: {
