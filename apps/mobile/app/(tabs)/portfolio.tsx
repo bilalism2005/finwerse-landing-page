@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Modal,
   TextInput,
@@ -11,20 +11,66 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  Text,
+  View,
 } from 'react-native';
-import { Text, View } from '@/components/Themed';
+import { useRouter } from 'expo-router';
 import {
   usePortfolioStore,
   PortfolioHolding,
   HoldingPeriod,
 } from '@/src/store/portfolioStore';
 import { searchStocks } from '@/src/api/stockService';
+import { IconSymbol } from '@/components/ui/IconSymbol';
+
+// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
+// Duplicated locally (same values as app/(tabs)/index.tsx and app/stock/[symbol].tsx) rather
+// than importing from those screens, to keep this a self-contained single-file redesign per
+// the build instructions.
+const COLOR_CANVAS = '#090B0A';
+const COLOR_SURFACE_ELEVATED = '#131613';
+const COLOR_SURFACE_SECONDARY = '#191D19';
+const COLOR_DIVIDER = '#1A1E1A';
+const COLOR_TEXT_PRIMARY = '#F5F7F2';
+const COLOR_TEXT_SECONDARY = '#A4AAA3';
+const COLOR_TEXT_TERTIARY = '#6F766F';
+const COLOR_ACCENT_LIME = '#C7FF3D';
+const COLOR_POSITIVE = '#B8F35A';
+const COLOR_NEGATIVE = '#FF6B67';
+const COLOR_WARNING = '#FFB84D';
+
+type Band = 'green' | 'amber' | 'red';
+
+// Standing Platform Rule 2 / spec/ui.md Cross-Cutting UI Rules: Red <40, Amber 41-65, Green 66-100
+function getBand(score: number): Band {
+  if (score < 40) return 'red';
+  if (score <= 65) return 'amber';
+  return 'green';
+}
+
+const BAND_COLOR: Record<Band, string> = {
+  green: COLOR_ACCENT_LIME,
+  amber: COLOR_WARNING,
+  red: COLOR_NEGATIVE,
+};
+
+function withAlpha(hex: string, alphaHex: string): string {
+  return `${hex}${alphaHex}`;
+}
+
+function formatRupees(amount: number): string {
+  return `₹${Math.round(amount).toLocaleString('en-IN')}`;
+}
+
+const SKELETON_HOLDING_ROWS = [0, 1, 2];
 
 export default function PortfolioScreen() {
+  const router = useRouter();
   const {
     holdings,
     fetchHoldings,
     loading,
+    error,
     addHolding,
     updateHolding,
     deleteHolding,
@@ -76,6 +122,7 @@ export default function PortfolioScreen() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Filtered Holdings
@@ -87,6 +134,28 @@ export default function PortfolioScreen() {
 
   const heldCount = useMemo(() => holdings.filter((h) => h.status === 'held').length, [holdings]);
   const soldCount = useMemo(() => holdings.filter((h) => h.status === 'sold').length, [holdings]);
+
+  // Portfolio summary — real aggregates only (spec/ui.md "Screen: Portfolio", item 2): no
+  // sparkline/trend chart and no "today's change" stat, since neither has backing data.
+  const investedTotal = useMemo(
+    () =>
+      holdings
+        .filter((h) => h.status === 'held')
+        .reduce((sum, h) => sum + h.quantity * h.avg_price, 0),
+    [holdings]
+  );
+
+  const realizedPnl = useMemo(
+    () =>
+      holdings
+        .filter((h) => h.status === 'sold')
+        .reduce((sum, h) => {
+          const soldQty = h.sold_quantity ?? h.quantity;
+          const soldPrice = h.sold_price ?? 0;
+          return sum + (soldPrice - h.avg_price) * soldQty;
+        }, 0),
+    [holdings]
+  );
 
   // Symbol Autocomplete Search
   const handleSymbolSearch = async (text: string) => {
@@ -114,7 +183,7 @@ export default function PortfolioScreen() {
     else if (type === '3m') d.setMonth(d.getMonth() - 3);
     else if (type === '6m') d.setMonth(d.getMonth() - 6);
     else if (type === '1y') d.setFullYear(d.getFullYear() - 1);
-    
+
     const formatted = d.toISOString().split('T')[0];
     if (target === 'purchase') setAddDate(formatted);
     else if (target === 'sold') setAddSoldDate(formatted);
@@ -298,124 +367,192 @@ export default function PortfolioScreen() {
   const renderItem = ({ item }: { item: PortfolioHolding }) => {
     const isHeld = item.status === 'held';
     const totalInvested = item.quantity * item.avg_price;
-    const isSold = item.status === 'sold';
-    const soldQty = item.sold_quantity || item.quantity;
-    const soldTotal = isSold && item.sold_price ? soldQty * item.sold_price : null;
-    const pnl = isSold && soldTotal ? soldTotal - (soldQty * item.avg_price) : null;
-    const pnlPct = isSold && pnl && soldQty ? (pnl / (soldQty * item.avg_price)) * 100 : null;
+    const soldQty = item.sold_quantity ?? item.quantity;
+    const soldTotal = !isHeld && item.sold_price != null ? soldQty * item.sold_price : null;
+    const pnl = !isHeld && soldTotal !== null ? soldTotal - soldQty * item.avg_price : null;
+    const pnlPct = !isHeld && pnl !== null && item.avg_price > 0 ? (pnl / (soldQty * item.avg_price)) * 100 : null;
 
     return (
       <View style={styles.holdingCard}>
         <View style={styles.cardHeader}>
-          <Text style={styles.symbol}>{item.stock_symbol}</Text>
-          <View style={[styles.statusBadge, isHeld ? styles.statusHeld : styles.statusSold]}>
-            <Text style={styles.statusText}>{isHeld ? 'HELD' : 'SOLD'}</Text>
-          </View>
-        </View>
-
-        <View style={styles.cardGrid}>
-          <View style={styles.metricCol}>
-            <Text style={styles.metricLabel}>{isHeld ? 'Quantity' : 'Sold Qty'}</Text>
-            <Text style={styles.metricVal}>{isHeld ? item.quantity : soldQty}</Text>
-          </View>
-
-          <View style={styles.metricCol}>
-            <Text style={styles.metricLabel}>Avg Buy Price</Text>
-            <Text style={styles.metricVal}>₹{item.avg_price.toLocaleString('en-IN')}</Text>
-          </View>
-
-          <View style={styles.metricCol}>
-            <Text style={styles.metricLabel}>{isHeld ? 'Total Invested' : 'Sold Price'}</Text>
-            <Text style={styles.metricVal}>
-              {isHeld ? `₹${Math.round(totalInvested).toLocaleString('en-IN')}` : `₹${item.sold_price || '—'}`}
+          <Text style={styles.ticker}>{item.stock_symbol}</Text>
+          <View style={[styles.statusPill, isHeld ? styles.statusPillHeld : styles.statusPillSold]}>
+            <Text style={[styles.statusPillText, isHeld ? styles.statusPillTextHeld : styles.statusPillTextSold]}>
+              {isHeld ? 'HELD' : 'SOLD'}
             </Text>
           </View>
+        </View>
 
-          <View style={styles.metricCol}>
-            <Text style={styles.metricLabel}>{isHeld ? 'Holding Horizon' : 'Realized P&L'}</Text>
-            {isHeld ? (
-              <Text style={styles.metricVal}>
-                {item.intended_holding_period ? item.intended_holding_period.toUpperCase() : 'MEDIUM'}
+        {isHeld ? (
+          <View style={styles.metricsRow}>
+            <Text style={styles.metricsLine}>
+              <Text style={styles.metricLabelInline}>Qty </Text>
+              <Text style={styles.metricValueInline}>{item.quantity}</Text>
+              <Text style={styles.metricLabelInline}>  ·  Avg </Text>
+              <Text style={styles.metricValueInline}>{formatRupees(item.avg_price)}</Text>
+              <Text style={styles.metricLabelInline}>  ·  Invested </Text>
+              <Text style={styles.metricValueInline}>{formatRupees(totalInvested)}</Text>
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.metricsRow}>
+            <Text style={styles.metricsLine}>
+              <Text style={styles.metricLabelInline}>Sold Qty </Text>
+              <Text style={styles.metricValueInline}>{soldQty}</Text>
+              <Text style={styles.metricLabelInline}>  ·  Price </Text>
+              <Text style={styles.metricValueInline}>
+                {item.sold_price != null ? formatRupees(item.sold_price) : '—'}
               </Text>
-            ) : pnl !== null ? (
-              <Text style={[styles.metricVal, { color: pnl >= 0 ? '#10B981' : '#EF4444' }]}>
-                {pnl >= 0 ? '+' : ''}₹{Math.round(pnl).toLocaleString('en-IN')} ({pnlPct ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '0%'})
-              </Text>
-            ) : (
-              <Text style={styles.metricVal}>—</Text>
-            )}
+              <Text style={styles.metricLabelInline}>  ·  P&L </Text>
+              {pnl !== null ? (
+                <Text style={[styles.metricValueInline, { color: pnl >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE }]}>
+                  {pnl >= 0 ? '+' : ''}
+                  {formatRupees(pnl)} ({pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '0%'})
+                </Text>
+              ) : (
+                <Text style={styles.metricValueInline}>—</Text>
+              )}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.cardMetaRow}>
+          <View style={styles.periodTag}>
+            <Text style={styles.periodTagText}>
+              {(item.intended_holding_period || 'medium').toUpperCase()}
+            </Text>
           </View>
         </View>
+
+        <View style={styles.cardDivider} />
 
         <View style={styles.dateRow}>
           <Text style={styles.dateText}>
-            Bought: {item.purchase_date || 'Today'} {isSold && item.sold_date ? ` • Sold: ${item.sold_date}` : ''}
+            Bought: {item.purchase_date || 'Today'}{!isHeld && item.sold_date ? ` • Sold: ${item.sold_date}` : ''}
           </Text>
         </View>
 
         <View style={styles.cardActions}>
           {isHeld && (
-            <TouchableOpacity style={[styles.actionBtn, styles.sellBtn]} onPress={() => handleOpenSellModal(item)}>
+            <Pressable
+              style={({ pressed }) => [styles.actionBtn, styles.sellBtn, pressed && styles.actionBtnPressed]}
+              onPress={() => handleOpenSellModal(item)}
+            >
               <Text style={styles.sellBtnText}>Mark as Sold</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
-          <TouchableOpacity style={styles.actionBtn} onPress={() => handleOpenEditModal(item)}>
-            <Text style={styles.actionText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, styles.deleteBtn]} onPress={() => handleDelete(item.id, item.stock_symbol)}>
-            <Text style={styles.deleteText}>Delete</Text>
-          </TouchableOpacity>
+          <Pressable
+            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            onPress={() => handleOpenEditModal(item)}
+          >
+            <Text style={styles.actionBtnText}>Edit</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.actionBtn, styles.deleteBtn, pressed && styles.actionBtnPressed]}
+            onPress={() => handleDelete(item.id, item.stock_symbol)}
+          >
+            <Text style={styles.deleteBtnText}>Delete</Text>
+          </Pressable>
         </View>
       </View>
     );
   };
 
+  const showInitialSkeleton = loading && holdings.length === 0;
+  const showFetchError = !showInitialSkeleton && !!error && holdings.length === 0;
+
   return (
     <View style={styles.container}>
-      {/* Title Header */}
+      {/* Header row */}
       <View style={styles.topHeader}>
         <Text style={styles.pageTitle}>Portfolio</Text>
-        <Text style={styles.pageSubtitle}>{holdings.length} {holdings.length === 1 ? 'Position' : 'Positions'}</Text>
+        <Text style={styles.pageSubtitle}>
+          {holdings.length} {holdings.length === 1 ? 'Position' : 'Positions'}
+        </Text>
       </View>
 
-      {/* Filter Chips Bar */}
-      <View style={styles.filterBar}>
-        <TouchableOpacity
-          style={[styles.filterChip, filterTab === 'all' && styles.filterChipActive]}
+      {/* Portfolio summary — via typography, not cards (spec/ui.md item 2) */}
+      <View style={styles.summaryBlock}>
+        <Text style={styles.summaryLabel}>Total Invested</Text>
+        <Text style={styles.investedValue}>{formatRupees(investedTotal)}</Text>
+        <View style={styles.pnlRow}>
+          <Text style={styles.pnlLabel}>Realized P&L</Text>
+          <Text style={[styles.pnlValue, { color: realizedPnl >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE }]}>
+            {realizedPnl >= 0 ? '+' : ''}
+            {formatRupees(realizedPnl)}
+          </Text>
+        </View>
+      </View>
+
+      {/* "View portfolio health →" link-out — no new fetch, pure navigation (spec/ui.md item 3) */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="View portfolio health"
+        onPress={() => router.push('/(tabs)/health')}
+        style={({ pressed }) => [styles.healthLinkRow, pressed && styles.healthLinkRowPressed]}
+      >
+        <Text style={styles.healthLinkText}>View portfolio health</Text>
+        <IconSymbol name="chevron.right" size={16} color={COLOR_TEXT_SECONDARY} />
+      </Pressable>
+
+      {/* Filter row */}
+      <View style={styles.segmentedControl}>
+        <Pressable
           onPress={() => setFilterTab('all')}
+          style={[styles.segment, filterTab === 'all' && styles.segmentSelected]}
         >
-          <Text style={[styles.filterChipText, filterTab === 'all' && styles.filterChipTextActive]}>
+          <Text style={[styles.segmentText, filterTab === 'all' && styles.segmentTextSelected]}>
             All ({holdings.length})
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterChip, filterTab === 'held' && styles.filterChipActive]}
+        </Pressable>
+        <Pressable
           onPress={() => setFilterTab('held')}
+          style={[styles.segment, filterTab === 'held' && styles.segmentSelected]}
         >
-          <Text style={[styles.filterChipText, filterTab === 'held' && styles.filterChipTextActive]}>
+          <Text style={[styles.segmentText, filterTab === 'held' && styles.segmentTextSelected]}>
             Held ({heldCount})
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterChip, filterTab === 'sold' && styles.filterChipActive]}
+        </Pressable>
+        <Pressable
           onPress={() => setFilterTab('sold')}
+          style={[styles.segment, filterTab === 'sold' && styles.segmentSelected]}
         >
-          <Text style={[styles.filterChipText, filterTab === 'sold' && styles.filterChipTextActive]}>
+          <Text style={[styles.segmentText, filterTab === 'sold' && styles.segmentTextSelected]}>
             Sold ({soldCount})
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
-      {/* Holdings List / Empty State */}
-      {loading && holdings.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#B7FF00" />
-          <Text style={styles.loadingText}>Loading positions...</Text>
-        </View>
+      {/* Holdings List / Skeleton / Error / Empty */}
+      {showInitialSkeleton ? (
+        <ScrollView contentContainerStyle={styles.list}>
+          {SKELETON_HOLDING_ROWS.map((i) => (
+            <View key={i} style={styles.holdingCard}>
+              <View style={styles.cardHeader}>
+                <View style={styles.skeletonTicker} />
+                <View style={styles.skeletonPill} />
+              </View>
+              <View style={styles.skeletonMetricsLine} />
+              <View style={styles.skeletonMetaRow}>
+                <View style={styles.skeletonTagSmall} />
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      ) : showFetchError ? (
+        <ScrollView
+          contentContainerStyle={styles.emptyContainer}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={COLOR_ACCENT_LIME} />}
+        >
+          <Pressable style={styles.errorBox} onPress={() => loadData()}>
+            <Text style={styles.errorText}>Couldn't load your positions. Please try again.</Text>
+            <Text style={styles.retryText}>Tap to Retry</Text>
+          </Pressable>
+        </ScrollView>
       ) : displayedHoldings.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor="#B7FF00" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={COLOR_ACCENT_LIME} />}
         >
           <Text style={styles.emptyTitle}>
             {filterTab === 'sold' ? 'No sold positions yet.' : 'No portfolio positions yet.'}
@@ -432,14 +569,17 @@ export default function PortfolioScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor="#B7FF00" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={COLOR_ACCENT_LIME} />}
         />
       )}
 
       {/* Floating Add Stock Button */}
-      <TouchableOpacity style={styles.fab} onPress={handleOpenAddModal} activeOpacity={0.85}>
+      <Pressable
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+        onPress={handleOpenAddModal}
+      >
         <Text style={styles.fabText}>+ Add Stock</Text>
-      </TouchableOpacity>
+      </Pressable>
 
       {/* ===================== ADD STOCK MODAL ===================== */}
       <Modal visible={isAddModalVisible} animationType="slide" transparent onRequestClose={() => setAddModalVisible(false)}>
@@ -447,9 +587,12 @@ export default function PortfolioScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Stock Position</Text>
-              <TouchableOpacity onPress={() => setAddModalVisible(false)}>
+              <Pressable
+                onPress={() => setAddModalVisible(false)}
+                style={({ pressed }) => pressed && styles.pressedOpacity}
+              >
                 <Text style={styles.closeBtn}>✕</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
@@ -460,29 +603,34 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. RELIANCE, TCS, INFY, AYMSYNTEX"
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 value={addSymbol}
                 onChangeText={handleSymbolSearch}
                 autoCapitalize="characters"
                 autoCorrect={false}
               />
-              {isSearchingSymbol && <ActivityIndicator size="small" color="#B7FF00" style={{ alignSelf: 'flex-start', marginVertical: 4 }} />}
+              {isSearchingSymbol && <ActivityIndicator size="small" color={COLOR_ACCENT_LIME} style={{ alignSelf: 'flex-start', marginVertical: 4 }} />}
 
               {symbolSuggestions.length > 0 && (
                 <View style={styles.suggestionBox}>
-                  {symbolSuggestions.map((item) => (
-                    <TouchableOpacity
-                      key={item.symbol}
-                      style={styles.suggestionRow}
-                      onPress={() => {
-                        setAddSymbol(item.symbol);
-                        setSymbolSuggestions([]);
-                      }}
-                    >
-                      <Text style={styles.suggestionSymbol}>{item.symbol}</Text>
-                      <Text style={styles.suggestionScore}>Score: {Math.round(item.overall_score)}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {symbolSuggestions.map((item) => {
+                    const band = getBand(item.overall_score);
+                    return (
+                      <Pressable
+                        key={item.symbol}
+                        style={({ pressed }) => [styles.suggestionRow, pressed && styles.pressedOpacity]}
+                        onPress={() => {
+                          setAddSymbol(item.symbol);
+                          setSymbolSuggestions([]);
+                        }}
+                      >
+                        <Text style={styles.suggestionSymbol}>{item.symbol}</Text>
+                        <Text style={[styles.suggestionScore, { color: BAND_COLOR[band] }]}>
+                          Score: {Math.round(item.overall_score)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               )}
 
@@ -491,7 +639,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 10"
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 keyboardType="numeric"
                 value={addQty}
                 onChangeText={setAddQty}
@@ -502,7 +650,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 254.00"
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 keyboardType="decimal-pad"
                 value={addAvgPrice}
                 onChangeText={setAddAvgPrice}
@@ -511,23 +659,23 @@ export default function PortfolioScreen() {
               {/* Purchase Date (Optional) */}
               <Text style={styles.inputLabel}>Purchase Date (Optional)</Text>
               <View style={styles.quickDateRow}>
-                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('today', 'purchase')}>
+                <Pressable style={({ pressed }) => [styles.quickDateChip, pressed && styles.pressedOpacity]} onPress={() => setQuickDate('today', 'purchase')}>
                   <Text style={styles.quickDateText}>Today</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('1m', 'purchase')}>
+                </Pressable>
+                <Pressable style={({ pressed }) => [styles.quickDateChip, pressed && styles.pressedOpacity]} onPress={() => setQuickDate('1m', 'purchase')}>
                   <Text style={styles.quickDateText}>1M Ago</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('6m', 'purchase')}>
+                </Pressable>
+                <Pressable style={({ pressed }) => [styles.quickDateChip, pressed && styles.pressedOpacity]} onPress={() => setQuickDate('6m', 'purchase')}>
                   <Text style={styles.quickDateText}>6M Ago</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('1y', 'purchase')}>
+                </Pressable>
+                <Pressable style={({ pressed }) => [styles.quickDateChip, pressed && styles.pressedOpacity]} onPress={() => setQuickDate('1y', 'purchase')}>
                   <Text style={styles.quickDateText}>1Y Ago</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
               <TextInput
                 style={styles.modalInput}
                 placeholder="YYYY-MM-DD (defaults to Today)"
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 value={addDate}
                 onChangeText={setAddDate}
               />
@@ -536,7 +684,7 @@ export default function PortfolioScreen() {
               <Text style={styles.inputLabel}>Intended Holding Horizon</Text>
               <View style={styles.periodPillRow}>
                 {(['short', 'medium', 'long'] as HoldingPeriod[]).map((period) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={period}
                     style={[styles.periodPill, addPeriod === period && styles.periodPillActive]}
                     onPress={() => setAddPeriod(period)}
@@ -544,21 +692,20 @@ export default function PortfolioScreen() {
                     <Text style={[styles.periodPillText, addPeriod === period && styles.periodPillTextActive]}>
                       {period.toUpperCase()}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
 
               {/* Toggle Already Sold */}
-              <TouchableOpacity
-                style={styles.soldToggleCard}
+              <Pressable
+                style={({ pressed }) => [styles.soldToggleCard, pressed && styles.pressedOpacity]}
                 onPress={() => setAddIsSold(!addIsSold)}
-                activeOpacity={0.8}
               >
                 <Text style={styles.soldToggleTitle}>Is this a closed / already sold trade?</Text>
                 <View style={[styles.toggleCheckbox, addIsSold && styles.toggleCheckboxChecked]}>
                   {addIsSold && <Text style={styles.checkmarkText}>✓</Text>}
                 </View>
-              </TouchableOpacity>
+              </Pressable>
 
               {addIsSold && (
                 <View style={styles.soldFieldsBlock}>
@@ -566,7 +713,7 @@ export default function PortfolioScreen() {
                   <TextInput
                     style={styles.modalInput}
                     placeholder="e.g. 290.00"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={COLOR_TEXT_TERTIARY}
                     keyboardType="decimal-pad"
                     value={addSoldPrice}
                     onChangeText={setAddSoldPrice}
@@ -576,7 +723,7 @@ export default function PortfolioScreen() {
                   <TextInput
                     style={styles.modalInput}
                     placeholder="YYYY-MM-DD (defaults to Today)"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={COLOR_TEXT_TERTIARY}
                     value={addSoldDate}
                     onChangeText={setAddSoldDate}
                   />
@@ -584,17 +731,21 @@ export default function PortfolioScreen() {
               )}
 
               {/* Submit Button */}
-              <TouchableOpacity
-                style={[styles.modalSubmitBtn, isSubmittingAdd && styles.btnDisabled]}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalSubmitBtn,
+                  isSubmittingAdd && styles.btnDisabled,
+                  pressed && styles.pressedOpacity,
+                ]}
                 onPress={handleSaveHolding}
                 disabled={isSubmittingAdd}
               >
                 {isSubmittingAdd ? (
-                  <ActivityIndicator color="#0D0D0D" />
+                  <ActivityIndicator color={COLOR_CANVAS} />
                 ) : (
                   <Text style={styles.modalSubmitText}>Save Position</Text>
                 )}
-              </TouchableOpacity>
+              </Pressable>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -606,9 +757,12 @@ export default function PortfolioScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Record Sale — {selectedHoldingForSell?.stock_symbol}</Text>
-              <TouchableOpacity onPress={() => setSellModalVisible(false)}>
+              <Pressable
+                onPress={() => setSellModalVisible(false)}
+                style={({ pressed }) => pressed && styles.pressedOpacity}
+              >
                 <Text style={styles.closeBtn}>✕</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
@@ -616,35 +770,35 @@ export default function PortfolioScreen() {
 
               <View style={styles.infoBanner}>
                 <Text style={styles.infoBannerText}>
-                  Held Quantity: <Text style={{ fontWeight: 'bold', color: '#fff' }}>{selectedHoldingForSell?.quantity}</Text>
+                  Held Quantity: <Text style={styles.infoBannerValue}>{selectedHoldingForSell?.quantity}</Text>
                 </Text>
                 <Text style={styles.infoBannerText}>
-                  Avg Buy: <Text style={{ fontWeight: 'bold', color: '#fff' }}>₹{selectedHoldingForSell?.avg_price}</Text>
+                  Avg Buy: <Text style={styles.infoBannerValue}>₹{selectedHoldingForSell?.avg_price}</Text>
                 </Text>
               </View>
 
               {/* Quick Qty Presets */}
               <Text style={styles.inputLabel}>Quantity to Sell *</Text>
               <View style={styles.quickDateRow}>
-                <TouchableOpacity
-                  style={styles.quickDateChip}
+                <Pressable
+                  style={({ pressed }) => [styles.quickDateChip, pressed && styles.pressedOpacity]}
                   onPress={() => setSellQty(selectedHoldingForSell?.quantity.toString() || '')}
                 >
                   <Text style={styles.quickDateText}>All ({selectedHoldingForSell?.quantity})</Text>
-                </TouchableOpacity>
+                </Pressable>
                 {selectedHoldingForSell && selectedHoldingForSell.quantity > 1 && (
-                  <TouchableOpacity
-                    style={styles.quickDateChip}
+                  <Pressable
+                    style={({ pressed }) => [styles.quickDateChip, pressed && styles.pressedOpacity]}
                     onPress={() => setSellQty(Math.floor(selectedHoldingForSell.quantity / 2).toString())}
                   >
                     <Text style={styles.quickDateText}>50% ({Math.floor(selectedHoldingForSell.quantity / 2)})</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </View>
               <TextInput
                 style={styles.modalInput}
                 placeholder={`Max ${selectedHoldingForSell?.quantity}`}
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 keyboardType="numeric"
                 value={sellQty}
                 onChangeText={setSellQty}
@@ -655,7 +809,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 290.00"
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 keyboardType="decimal-pad"
                 value={sellPrice}
                 onChangeText={setSellPrice}
@@ -664,33 +818,38 @@ export default function PortfolioScreen() {
               {/* Sold Date */}
               <Text style={styles.inputLabel}>Sale Date (Optional)</Text>
               <View style={styles.quickDateRow}>
-                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('today', 'sellModal')}>
+                <Pressable style={({ pressed }) => [styles.quickDateChip, pressed && styles.pressedOpacity]} onPress={() => setQuickDate('today', 'sellModal')}>
                   <Text style={styles.quickDateText}>Today</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.quickDateChip} onPress={() => setQuickDate('1w', 'sellModal')}>
+                </Pressable>
+                <Pressable style={({ pressed }) => [styles.quickDateChip, pressed && styles.pressedOpacity]} onPress={() => setQuickDate('1w', 'sellModal')}>
                   <Text style={styles.quickDateText}>1W Ago</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
               <TextInput
                 style={styles.modalInput}
                 placeholder="YYYY-MM-DD (defaults to Today)"
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 value={sellDate}
                 onChangeText={setSellDate}
               />
 
               {/* Submit Button */}
-              <TouchableOpacity
-                style={[styles.modalSubmitBtn, styles.sellSubmitBtn, isSubmittingSell && styles.btnDisabled]}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalSubmitBtn,
+                  styles.sellSubmitBtn,
+                  isSubmittingSell && styles.btnDisabled,
+                  pressed && styles.pressedOpacity,
+                ]}
                 onPress={handleConfirmSell}
                 disabled={isSubmittingSell}
               >
                 {isSubmittingSell ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={COLOR_CANVAS} />
                 ) : (
-                  <Text style={[styles.modalSubmitText, { color: '#FFF' }]}>Confirm Sale</Text>
+                  <Text style={styles.modalSubmitText}>Confirm Sale</Text>
                 )}
-              </TouchableOpacity>
+              </Pressable>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -702,9 +861,12 @@ export default function PortfolioScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Position — {selectedHoldingForEdit?.stock_symbol}</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+              <Pressable
+                onPress={() => setEditModalVisible(false)}
+                style={({ pressed }) => pressed && styles.pressedOpacity}
+              >
                 <Text style={styles.closeBtn}>✕</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
@@ -715,7 +877,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="Quantity"
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 keyboardType="numeric"
                 value={editQty}
                 onChangeText={setEditQty}
@@ -726,7 +888,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="Average Price"
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 keyboardType="decimal-pad"
                 value={editAvgPrice}
                 onChangeText={setEditAvgPrice}
@@ -737,7 +899,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor="#666"
+                placeholderTextColor={COLOR_TEXT_TERTIARY}
                 value={editDate}
                 onChangeText={setEditDate}
               />
@@ -746,7 +908,7 @@ export default function PortfolioScreen() {
               <Text style={styles.inputLabel}>Intended Holding Horizon</Text>
               <View style={styles.periodPillRow}>
                 {(['short', 'medium', 'long'] as HoldingPeriod[]).map((period) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={period}
                     style={[styles.periodPill, editPeriod === period && styles.periodPillActive]}
                     onPress={() => setEditPeriod(period)}
@@ -754,22 +916,26 @@ export default function PortfolioScreen() {
                     <Text style={[styles.periodPillText, editPeriod === period && styles.periodPillTextActive]}>
                       {period.toUpperCase()}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
 
               {/* Submit Button */}
-              <TouchableOpacity
-                style={[styles.modalSubmitBtn, isSubmittingEdit && styles.btnDisabled]}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalSubmitBtn,
+                  isSubmittingEdit && styles.btnDisabled,
+                  pressed && styles.pressedOpacity,
+                ]}
                 onPress={handleSaveEdit}
                 disabled={isSubmittingEdit}
               >
                 {isSubmittingEdit ? (
-                  <ActivityIndicator color="#0D0D0D" />
+                  <ActivityIndicator color={COLOR_CANVAS} />
                 ) : (
                   <Text style={styles.modalSubmitText}>Save Changes</Text>
                 )}
-              </TouchableOpacity>
+              </Pressable>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -779,64 +945,95 @@ export default function PortfolioScreen() {
 }
 
 const styles = StyleSheet.create({
+  pressedOpacity: {
+    opacity: 0.7,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
-    padding: 16,
-    paddingTop: 54,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0D0D0D',
+    backgroundColor: COLOR_CANVAS,
+    paddingHorizontal: 20,
+    paddingTop: 60,
   },
   topHeader: {
-    marginBottom: 14,
-    backgroundColor: 'transparent',
+    marginBottom: 16,
   },
   pageTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFF',
-    letterSpacing: 0.5,
+    fontSize: 30,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
   },
   pageSubtitle: {
     fontSize: 13,
-    color: '#888',
+    color: COLOR_TEXT_SECONDARY,
     marginTop: 2,
   },
-  loadingText: {
-    color: '#888',
-    marginTop: 12,
-    fontSize: 14,
-  },
-  filterBar: {
-    flexDirection: 'row',
-    gap: 8,
+  summaryBlock: {
     marginBottom: 16,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    color: COLOR_TEXT_SECONDARY,
+    marginBottom: 4,
+  },
+  investedValue: {
+    fontSize: 46,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
+    fontVariant: ['tabular-nums'],
+  },
+  pnlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  pnlLabel: {
+    fontSize: 13,
+    color: COLOR_TEXT_SECONDARY,
+  },
+  pnlValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  healthLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  healthLinkRowPressed: {
+    opacity: 0.7,
+  },
+  healthLinkText: {
+    fontSize: 15,
+    color: COLOR_TEXT_SECONDARY,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
     backgroundColor: 'transparent',
   },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
+  segmentSelected: {
+    backgroundColor: COLOR_ACCENT_LIME,
   },
-  filterChipActive: {
-    backgroundColor: '#2A2A2A',
-    borderColor: '#B7FF00',
-  },
-  filterChipText: {
-    color: '#888',
+  segmentText: {
+    color: COLOR_TEXT_SECONDARY,
     fontSize: 13,
     fontWeight: '600',
   },
-  filterChipTextActive: {
-    color: '#FFF',
-    fontWeight: '700',
+  segmentTextSelected: {
+    color: COLOR_CANVAS,
   },
   emptyContainer: {
     flexGrow: 1,
@@ -845,145 +1042,196 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFF',
+    fontSize: 19,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#888',
+    color: COLOR_TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 20,
   },
+  errorBox: {
+    padding: 20,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: COLOR_NEGATIVE,
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  retryText: {
+    color: COLOR_ACCENT_LIME,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   list: {
-    paddingBottom: 90,
+    paddingBottom: 100,
   },
   holdingCard: {
     padding: 16,
-    marginBottom: 14,
+    marginBottom: 12,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#222',
-    backgroundColor: '#141414',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    backgroundColor: 'transparent',
+    marginBottom: 10,
   },
-  symbol: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFF',
-    letterSpacing: 0.5,
+  ticker: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLOR_TEXT_PRIMARY,
   },
-  statusBadge: {
+  statusPill: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
-  statusHeld: {
-    backgroundColor: '#133918',
+  statusPillHeld: {
+    backgroundColor: withAlpha(COLOR_ACCENT_LIME, '26'),
   },
-  statusSold: {
-    backgroundColor: '#333333',
+  statusPillSold: {
+    backgroundColor: COLOR_SURFACE_SECONDARY,
   },
-  statusText: {
+  statusPillText: {
     fontSize: 11,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-  cardGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: 'transparent',
-    rowGap: 12,
-    marginBottom: 12,
-  },
-  metricCol: {
-    width: '50%',
-    backgroundColor: 'transparent',
-  },
-  metricLabel: {
-    fontSize: 12,
-    color: '#777',
-    marginBottom: 2,
-  },
-  metricVal: {
-    fontSize: 15,
     fontWeight: '700',
-    color: '#EEE',
+  },
+  statusPillTextHeld: {
+    color: COLOR_ACCENT_LIME,
+  },
+  statusPillTextSold: {
+    color: COLOR_TEXT_TERTIARY,
+  },
+  metricsRow: {
+    marginBottom: 10,
+  },
+  metricsLine: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  metricLabelInline: {
+    color: COLOR_TEXT_SECONDARY,
+  },
+  metricValueInline: {
+    color: COLOR_TEXT_PRIMARY,
+    fontWeight: '600',
+  },
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  periodTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: COLOR_SURFACE_SECONDARY,
+  },
+  periodTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLOR_TEXT_TERTIARY,
+  },
+  cardDivider: {
+    borderTopWidth: 1,
+    borderTopColor: COLOR_DIVIDER,
+    marginTop: 12,
   },
   dateRow: {
-    backgroundColor: 'transparent',
-    borderTopWidth: 1,
-    borderTopColor: '#222',
-    paddingTop: 8,
-    marginBottom: 10,
+    paddingTop: 10,
   },
   dateText: {
     fontSize: 12,
-    color: '#666',
+    color: COLOR_TEXT_TERTIARY,
   },
   cardActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 10,
-    backgroundColor: 'transparent',
-    paddingTop: 4,
+    paddingTop: 10,
   },
   actionBtn: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#222',
-    borderWidth: 1,
-    borderColor: '#333',
+    backgroundColor: COLOR_SURFACE_SECONDARY,
+  },
+  actionBtnPressed: {
+    opacity: 0.7,
   },
   sellBtn: {
-    backgroundColor: '#1E3A1E',
-    borderColor: '#2E5A2E',
+    backgroundColor: withAlpha(COLOR_POSITIVE, '22'),
   },
   sellBtnText: {
-    color: '#34D399',
-    fontWeight: '700',
+    color: COLOR_POSITIVE,
+    fontWeight: '600',
     fontSize: 13,
   },
   deleteBtn: {
-    backgroundColor: '#3A1414',
-    borderColor: '#551C1C',
+    backgroundColor: withAlpha(COLOR_NEGATIVE, '22'),
   },
-  actionText: {
-    color: '#DDD',
+  actionBtnText: {
+    color: COLOR_TEXT_SECONDARY,
     fontWeight: '600',
     fontSize: 13,
   },
-  deleteText: {
-    color: '#F87171',
+  deleteBtnText: {
+    color: COLOR_NEGATIVE,
     fontWeight: '600',
     fontSize: 13,
+  },
+  skeletonTicker: {
+    width: 72,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_SECONDARY,
+  },
+  skeletonPill: {
+    width: 44,
+    height: 18,
+    borderRadius: 6,
+    backgroundColor: COLOR_SURFACE_SECONDARY,
+  },
+  skeletonMetricsLine: {
+    width: '80%',
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_SECONDARY,
+    marginBottom: 10,
+  },
+  skeletonMetaRow: {
+    flexDirection: 'row',
+  },
+  skeletonTagSmall: {
+    width: 56,
+    height: 16,
+    borderRadius: 6,
+    backgroundColor: COLOR_SURFACE_SECONDARY,
   },
   fab: {
     position: 'absolute',
     bottom: 24,
     right: 20,
-    backgroundColor: '#10B981',
+    backgroundColor: COLOR_ACCENT_LIME,
     paddingHorizontal: 22,
     paddingVertical: 14,
     borderRadius: 30,
-    elevation: 6,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+  },
+  fabPressed: {
+    opacity: 0.85,
   },
   fabText: {
-    color: '#0D0D0D',
-    fontWeight: '800',
+    color: COLOR_CANVAS,
+    fontWeight: '700',
     fontSize: 16,
   },
   modalOverlay: {
@@ -992,82 +1240,78 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#161616',
+    backgroundColor: COLOR_SURFACE_SECONDARY,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
     maxHeight: '90%',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    backgroundColor: 'transparent',
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFF',
+    fontSize: 19,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
   },
   closeBtn: {
     fontSize: 20,
-    color: '#888',
+    color: COLOR_TEXT_SECONDARY,
     padding: 4,
   },
   modalError: {
-    backgroundColor: '#3A1414',
-    color: '#F87171',
+    backgroundColor: withAlpha(COLOR_NEGATIVE, '22'),
+    color: COLOR_NEGATIVE,
     padding: 10,
     borderRadius: 8,
     marginBottom: 12,
     fontSize: 13,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#AAA',
+    color: COLOR_TEXT_TERTIARY,
     marginBottom: 6,
     marginTop: 10,
   },
   modalInput: {
-    backgroundColor: '#0D0D0D',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
     borderWidth: 1,
-    borderColor: '#2E2E2E',
+    borderColor: COLOR_DIVIDER,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#FFF',
+    color: COLOR_TEXT_PRIMARY,
     fontSize: 15,
   },
   quickDateRow: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 8,
-    backgroundColor: 'transparent',
   },
   quickDateChip: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#222',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: COLOR_DIVIDER,
   },
   quickDateText: {
-    color: '#AAA',
+    color: COLOR_TEXT_SECONDARY,
     fontSize: 12,
     fontWeight: '600',
   },
   suggestionBox: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
     borderRadius: 10,
     marginTop: 4,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: COLOR_DIVIDER,
     maxHeight: 160,
     overflow: 'hidden',
   },
@@ -1076,15 +1320,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#282828',
+    borderBottomColor: COLOR_DIVIDER,
   },
   suggestionSymbol: {
-    color: '#FFF',
-    fontWeight: 'bold',
+    color: COLOR_TEXT_PRIMARY,
+    fontWeight: '700',
     fontSize: 14,
   },
   suggestionScore: {
-    color: '#10B981',
     fontWeight: '600',
     fontSize: 13,
   },
@@ -1093,103 +1336,102 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 4,
     marginBottom: 16,
-    backgroundColor: 'transparent',
   },
   periodPill: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
     borderRadius: 8,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
     borderWidth: 1,
-    borderColor: '#2E2E2E',
+    borderColor: COLOR_DIVIDER,
   },
   periodPillActive: {
-    backgroundColor: '#2A2A2A',
-    borderColor: '#10B981',
+    backgroundColor: COLOR_ACCENT_LIME,
+    borderColor: COLOR_ACCENT_LIME,
   },
   periodPillText: {
-    color: '#777',
+    color: COLOR_TEXT_SECONDARY,
     fontWeight: '600',
     fontSize: 12,
   },
   periodPillTextActive: {
-    color: '#10B981',
+    color: COLOR_CANVAS,
     fontWeight: '700',
   },
   soldToggleCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
     padding: 14,
     borderRadius: 10,
     marginTop: 8,
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
   },
   soldToggleTitle: {
-    color: '#DDD',
+    color: COLOR_TEXT_SECONDARY,
     fontSize: 14,
     fontWeight: '600',
+    flex: 1,
+    marginRight: 12,
   },
   toggleCheckbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#555',
+    borderColor: COLOR_TEXT_TERTIARY,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toggleCheckboxChecked: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
+    backgroundColor: COLOR_ACCENT_LIME,
+    borderColor: COLOR_ACCENT_LIME,
   },
   checkmarkText: {
-    color: '#0D0D0D',
-    fontWeight: 'bold',
+    color: COLOR_CANVAS,
+    fontWeight: '700',
     fontSize: 13,
   },
   soldFieldsBlock: {
-    backgroundColor: '#131313',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
     padding: 12,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#262626',
     marginBottom: 10,
   },
   modalSubmitBtn: {
-    backgroundColor: '#B7FF00',
+    backgroundColor: COLOR_ACCENT_LIME,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 14,
   },
   sellSubmitBtn: {
-    backgroundColor: '#10B981',
+    backgroundColor: COLOR_POSITIVE,
   },
   modalSubmitText: {
-    color: '#0D0D0D',
-    fontWeight: '800',
+    color: COLOR_CANVAS,
+    fontWeight: '700',
     fontSize: 16,
   },
   btnDisabled: {
     opacity: 0.6,
   },
   infoBanner: {
-    backgroundColor: '#1F1F1F',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
     padding: 12,
     borderRadius: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#333',
   },
   infoBannerText: {
-    color: '#AAA',
+    color: COLOR_TEXT_SECONDARY,
     fontSize: 13,
+  },
+  infoBannerValue: {
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
   },
 });
