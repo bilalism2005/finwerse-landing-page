@@ -64,6 +64,12 @@ Retail traders lack a single, consistent, jargon-free signal to evaluate stocks 
 
 > This roadmap describes an existing, largely-built product, not a from-scratch build — so "phases" here means **next increments**, not the boilerplate's greenfield Phase-1/Phase-2 model. Use `/zero-shot-build` to spec and build any of these as an actual phase when picked up.
 
+### In Progress — Mobile Visual Redesign (started 2026-08-25)
+`apps/mobile` is adopting a full visual redesign from an approved Claude Design prototype ("Finwerse Interactive Prototype"), delivered **screen by screen**, spec-first. Full token reference: `spec/ui.md` → "Design System — Mobile Redesign." Alongside the visual work, the tab bar restructures from 7 direct tabs to 5 (Home, Portfolio, Health, Ask AI, More) — Alerts, Impulse Analyzer, and Sentiment Feed move from direct tabs to rows on a new More screen, keeping their existing (unredesigned) implementation.
+- **Spec'd, not yet built:** Home screen (`spec/ui.md` → "Screen: Home") and the new More screen (`spec/ui.md` → "Screen: More"), plus the 5-tab nav shell restructuring.
+- **Not yet spec'd or built:** Portfolio, Health, Alerts, Impulse Analyzer, Sentiment Feed, and Ask AI screen content — these keep their current implementation (rows in the Build Status table above are unaffected) until each gets its own design pass.
+- **Open questions flagged in `spec/ui.md`'s Home entry, not yet resolved with the user:** (a) the design brief's ranked-list score display/bar-width math was written against a 0-100 mock but real scores are -100..100 (Standing Platform Rule 2) — spec currently resolves this in favor of the platform rule, flagged for confirmation; (b) the "Strong"/"Building" status-label threshold is assumed to be the existing Green-band cutoff (≥66), not explicitly specified in the design brief.
+
 ### Next — Chart Analyzer (Feature 8)
 Not yet spec'd. Needs its own PRD before any build phase starts (`spec-writer`'s job) — pattern detection, plain-language explanation, reliability score, per the one-line placeholder in the original PRD.
 

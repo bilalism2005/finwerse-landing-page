@@ -20,6 +20,8 @@ const MAPPING: Record<string, React.ComponentProps<typeof MaterialIcons>['name']
   'magnifyingglass': 'search',
   'house.fill': 'home',
   'paperplane.fill': 'send',
+  'ellipsis': 'more-horiz',
+  'chevron.right': 'chevron-right',
 };
 
 export type IconSymbolName = keyof typeof MAPPING;

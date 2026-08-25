@@ -1,38 +1,29 @@
 import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
+import { Tabs } from 'expo-router';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+// Design System — Mobile Redesign tokens (spec/ui.md)
+const COLOR_ACCENT_LIME = '#C7FF3D';
+const COLOR_TEXT_TERTIARY = '#6F766F';
+const COLOR_CANVAS = '#090B0A';
+const COLOR_DIVIDER = '#1A1E1A';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#B7FF00',
-        tabBarInactiveTintColor: '#666',
-        tabBarStyle: { backgroundColor: '#0D0D0D', borderTopColor: '#1A1A1A', elevation: 0 },
+        tabBarActiveTintColor: COLOR_ACCENT_LIME,
+        tabBarInactiveTintColor: COLOR_TEXT_TERTIARY,
+        tabBarStyle: { backgroundColor: COLOR_CANVAS, borderTopColor: COLOR_DIVIDER, elevation: 0 },
         tabBarHideOnKeyboard: true,
-        sceneContainerStyle: { backgroundColor: '#0D0D0D' },
+        sceneContainerStyle: { backgroundColor: COLOR_CANVAS },
         headerShown: false,
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="chart.bar.fill" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="two"
-        options={{
-          href: null, // Hides this tab from the bar
+          title: 'Home',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -52,41 +43,35 @@ export default function TabLayout() {
           ),
         }}
       />
-<Tabs.Screen
+      <Tabs.Screen
         name="health"
         options={{
           title: 'Health',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="heart.fill" color={color} />,
         }}
       />
-<Tabs.Screen
+      <Tabs.Screen
         name="chat"
         options={{
           title: 'Ask AI',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="alerts"
+        name="more"
         options={{
-          title: 'Alerts',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bell.fill" color={color} />,
+          title: 'More',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="ellipsis" color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="impulse"
-        options={{
-          title: 'Impulse',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.line.down.right" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="news"
-        options={{
-          title: 'News',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="newspaper.fill" color={color} />,
-        }}
-      />
+      {/* Reached via the More screen, not directly tabbed — kept registered with href: null
+          so the tab bar doesn't surface them (same href: null pattern the old "Tab Two"
+          scaffold used before it was removed). */}
+      <Tabs.Screen name="alerts" options={{ href: null }} />
+      <Tabs.Screen name="impulse" options={{ href: null }} />
+      <Tabs.Screen name="news" options={{ href: null }} />
     </Tabs>
   );
 }

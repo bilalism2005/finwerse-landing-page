@@ -1,19 +1,63 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAppStore, Timeframe } from '../../src/store';
 import { getTopStocks, getCachedTopStocks, searchStocks, StockItem } from '../../src/api/stockService';
 import { warmUpBackend } from '../../src/api/client';
+import { IconSymbol } from '../../components/ui/IconSymbol';
 
-export default function TabOneScreen() {
+// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
+const COLOR_CANVAS = '#090B0A';
+const COLOR_SURFACE_ELEVATED = '#131613';
+const COLOR_DIVIDER = '#1A1E1A';
+const COLOR_TEXT_PRIMARY = '#F5F7F2';
+const COLOR_TEXT_SECONDARY = '#A4AAA3';
+const COLOR_TEXT_TERTIARY = '#6F766F';
+const COLOR_ACCENT_LIME = '#C7FF3D';
+
+// Standing Platform Rule 2: scores are -100..100, same color bands everywhere (Red <40, Amber 41-65, Green 66-100).
+const GREEN_BAND_MIN = 66;
+
+type SearchResult = { symbol: string; overall_score: number };
+
+const HORIZON_LABELS: Record<Timeframe, string> = {
+  short: 'Short',
+  medium: 'Medium',
+  long: 'Long',
+};
+
+const HORIZON_CONTEXT: Record<Timeframe, string> = {
+  short: 'Short-term reads use daily signals. Momentum names lead this view.',
+  medium: 'Medium-term signals are strongest this week. Higher score means a stronger setup.',
+  long: 'Long-term reads weight financial safety and durable trends more heavily.',
+};
+
+const SKELETON_ROWS = [0, 1, 2, 3, 4, 5];
+
+function signalBarWidthPercent(score: number): number {
+  return Math.max(0, Math.min(100, (score + 100) / 2));
+}
+
+export default function HomeScreen() {
   const router = useRouter();
   const { selectedTimeframe, setTimeframe } = useAppStore();
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
   const [topStocks, setTopStocks] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Pre-warm backend on startup for background ML/AI readiness
@@ -21,149 +65,224 @@ export default function TabOneScreen() {
     warmUpBackend();
   }, []);
 
-  const loadStocks = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else if (topStocks.length === 0) setLoading(true);
-    setError(null);
+  const loadStocks = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else if (topStocks.length === 0) setLoading(true);
+      setError(null);
 
-    try {
-      // Step 1: Immediately render from local cache if present (0ms!)
-      if (!isRefresh && topStocks.length === 0) {
-        const cached = await getCachedTopStocks('overall', selectedTimeframe);
-        if (cached && cached.length > 0) {
-          setTopStocks(cached);
-          setLoading(false);
+      try {
+        // Step 1: Immediately render from local cache if present (0ms!)
+        if (!isRefresh && topStocks.length === 0) {
+          const cached = await getCachedTopStocks('overall', selectedTimeframe);
+          if (cached && cached.length > 0) {
+            setTopStocks(cached);
+            setLoading(false);
+          }
         }
-      }
 
-      // Step 2: Fetch fresh data (direct Supabase sub-50ms query)
-      const res = await getTopStocks('overall', selectedTimeframe, 10);
-      if (res.stocks && res.stocks.length > 0) {
-        setTopStocks(res.stocks);
-      } else if (topStocks.length === 0) {
-        setError('No stock data available. Tap to retry.');
+        // Step 2: Fetch fresh data
+        const res = await getTopStocks('overall', selectedTimeframe, 10);
+        setTopStocks(res.stocks ?? []);
+      } catch (e) {
+        console.error('Failed to load top stocks:', e);
+        if (topStocks.length === 0) {
+          setError('Failed to load stocks. Please pull down to retry.');
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } catch (e: any) {
-      console.error('Failed to load top stocks:', e);
-      if (topStocks.length === 0) {
-        setError('Failed to load stocks. Please pull down to retry.');
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [selectedTimeframe, topStocks.length]);
+    },
+    [selectedTimeframe, topStocks.length]
+  );
 
   useEffect(() => {
     loadStocks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTimeframe]);
 
-  const handleSearch = async (text: string) => {
-    setSearchQuery(text);
-    if (text.length > 1) {
-      setSearchLoading(true);
-      try {
-        const results = await searchStocks(text, selectedTimeframe);
-        setSearchResults(results);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setSearchLoading(false);
-      }
-    } else {
+  const trimmedQuery = searchQuery.trim();
+  const isSearchActive = trimmedQuery.length > 0;
+
+  useEffect(() => {
+    if (trimmedQuery.length < 2) {
       setSearchResults([]);
       setSearchLoading(false);
+      return;
     }
-  };
 
-  const renderTimeframeButton = (title: string, value: Timeframe) => (
-    <TouchableOpacity
-      style={[styles.timeframeButton, selectedTimeframe === value && styles.timeframeButtonActive]}
-      onPress={() => setTimeframe(value)}
-    >
-      <Text style={[styles.timeframeText, selectedTimeframe === value && styles.timeframeTextActive]}>
-        {title}
-      </Text>
-    </TouchableOpacity>
-  );
+    let cancelled = false;
+    setSearchLoading(true);
+
+    searchStocks(trimmedQuery, selectedTimeframe)
+      .then((results) => {
+        if (!cancelled) setSearchResults(results);
+      })
+      .catch((e) => {
+        console.error('Search failed:', e);
+        if (!cancelled) setSearchResults([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSearchLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trimmedQuery, selectedTimeframe]);
 
   return (
-    <ScrollView 
-      style={styles.container} 
+    <ScrollView
+      style={styles.container}
       contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
       refreshControl={
-        <RefreshControl 
-          refreshing={refreshing} 
-          onRefresh={() => loadStocks(true)} 
-          tintColor="#4F46E5"
-        />
+        <RefreshControl refreshing={refreshing} onRefresh={() => loadStocks(true)} tintColor={COLOR_ACCENT_LIME} />
       }
     >
-      <Text style={styles.title}>Finwerse</Text>
-      
-      <View style={styles.timeframeContainer}>
-        {renderTimeframeButton('Short Term', 'short')}
-        {renderTimeframeButton('Medium Term', 'medium')}
-        {renderTimeframeButton('Long Term', 'long')}
+      {/* Header row */}
+      <View style={styles.headerRow}>
+        <Text style={styles.wordmark}>Finwerse</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
+          style={({ pressed }) => [styles.headerIconButton, pressed && styles.headerIconButtonPressed]}
+        >
+          <IconSymbol name="bell.fill" size={18} color={COLOR_TEXT_PRIMARY} />
+        </Pressable>
       </View>
 
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search for a stock (e.g., RELIANCE)..."
-        placeholderTextColor="#888"
-        value={searchQuery}
-        onChangeText={handleSearch}
-        autoCapitalize="characters"
-      />
+      {/* Search field */}
+      <View style={styles.searchField}>
+        <IconSymbol name="magnifyingglass" size={18} color={COLOR_TEXT_TERTIARY} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search stocks, e.g. RELIANCE"
+          placeholderTextColor={COLOR_TEXT_TERTIARY}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+      </View>
 
-      {searchQuery.length > 1 ? (
-        <View style={styles.listContainer}>
-          <Text style={styles.subtitle}>Search Results</Text>
-          {searchLoading ? (
-            <ActivityIndicator size="small" color="#4F46E5" style={{ marginVertical: 16 }} />
+      {/* Time horizon control */}
+      <View style={styles.segmentedControl}>
+        {(Object.keys(HORIZON_LABELS) as Timeframe[]).map((value) => {
+          const isSelected = selectedTimeframe === value;
+          return (
+            <Pressable
+              key={value}
+              onPress={() => setTimeframe(value)}
+              style={[styles.segment, isSelected && styles.segmentSelected]}
+            >
+              <Text style={[styles.segmentText, isSelected && styles.segmentTextSelected]}>
+                {HORIZON_LABELS[value]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Context sentence */}
+      <Text style={styles.contextSentence}>{HORIZON_CONTEXT[selectedTimeframe]}</Text>
+
+      {isSearchActive ? (
+        <View style={styles.listSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Search results</Text>
+          </View>
+
+          {trimmedQuery.length < 2 ? (
+            <Text style={styles.hintText}>Type at least 2 characters to search.</Text>
+          ) : searchLoading ? (
+            <View style={styles.searchLoadingRow}>
+              <ActivityIndicator size="small" color={COLOR_ACCENT_LIME} />
+              <Text style={styles.hintText}>Searching…</Text>
+            </View>
           ) : searchResults.length === 0 ? (
-            <Text style={styles.emptyText}>No matching stocks found.</Text>
+            <Text style={styles.hintText}>
+              No stocks match '{trimmedQuery}'. Try a different ticker or company name.
+            </Text>
           ) : (
             searchResults.map((stock) => (
-              <TouchableOpacity 
-                key={stock.symbol} 
-                style={styles.card}
+              <Pressable
+                key={stock.symbol}
                 onPress={() => router.push(`/stock/${stock.symbol}`)}
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
               >
-                <Text style={styles.stockSymbol}>{stock.symbol}</Text>
-                <Text style={styles.stockScore}>{Math.round(stock.overall_score)}</Text>
-              </TouchableOpacity>
+                <Text style={styles.ticker}>{stock.symbol}</Text>
+                <View style={styles.scoreColumn}>
+                  <Text style={styles.score}>{Math.round(stock.overall_score)}</Text>
+                  <Text
+                    style={[
+                      styles.statusLabel,
+                      { color: stock.overall_score >= GREEN_BAND_MIN ? COLOR_ACCENT_LIME : COLOR_TEXT_SECONDARY },
+                    ]}
+                  >
+                    {stock.overall_score >= GREEN_BAND_MIN ? 'Strong' : 'Building'}
+                  </Text>
+                </View>
+              </Pressable>
             ))
           )}
         </View>
       ) : (
-        <View style={styles.listContainer}>
-          <View style={styles.listHeaderRow}>
-            <Text style={styles.subtitle}>Top 10 Stocks (Overall)</Text>
-            {refreshing && <ActivityIndicator size="small" color="#888" />}
+        <View style={styles.listSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Strongest signals</Text>
+            <Text style={styles.sectionMeta}>Score -100 to 100</Text>
           </View>
 
           {loading && topStocks.length === 0 ? (
-            <ActivityIndicator size="large" color="#4F46E5" style={{ marginVertical: 32 }} />
+            SKELETON_ROWS.map((i) => (
+              <View key={i} style={styles.row}>
+                <View style={styles.skeletonBlockSmall} />
+                <View style={styles.rowMiddle}>
+                  <View style={styles.skeletonBlockTicker} />
+                  <View style={styles.skeletonBlockDescriptor} />
+                  <View style={styles.skeletonBar} />
+                </View>
+                <View style={styles.skeletonBlockScore} />
+              </View>
+            ))
           ) : error && topStocks.length === 0 ? (
-            <TouchableOpacity style={styles.errorBox} onPress={() => loadStocks()}>
+            <Pressable style={styles.errorBox} onPress={() => loadStocks()}>
               <Text style={styles.errorText}>{error}</Text>
               <Text style={styles.retryText}>Tap to Retry</Text>
-            </TouchableOpacity>
+            </Pressable>
+          ) : topStocks.length === 0 ? (
+            <Text style={styles.hintText}>
+              No ranked signals yet for this timeframe. Check back after today's market update.
+            </Text>
           ) : (
-            topStocks.map((stock, index) => (
-              <TouchableOpacity 
-                key={stock.symbol} 
-                style={styles.card}
-                onPress={() => router.push(`/stock/${stock.symbol}`)}
-              >
-                <View style={styles.cardLeft}>
-                  <Text style={styles.rank}>#{index + 1}</Text>
-                  <Text style={styles.stockSymbol}>{stock.symbol}</Text>
-                </View>
-                <Text style={styles.stockScore}>{Math.round(stock.score)}</Text>
-              </TouchableOpacity>
-            ))
+            topStocks.map((stock, index) => {
+              const barWidth = signalBarWidthPercent(stock.score);
+              const isStrong = stock.score >= GREEN_BAND_MIN;
+              return (
+                <Pressable
+                  key={stock.symbol}
+                  onPress={() => router.push(`/stock/${stock.symbol}`)}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <Text style={styles.rank}>{String(index + 1).padStart(2, '0')}</Text>
+                  <View style={styles.rowMiddle}>
+                    <Text style={styles.ticker}>{stock.symbol}</Text>
+                    {stock.sector ? <Text style={styles.descriptor}>{stock.sector}</Text> : null}
+                    <View style={styles.signalBarTrack}>
+                      <View style={[styles.signalBarFill, { width: `${barWidth}%` }]} />
+                    </View>
+                  </View>
+                  <View style={styles.scoreColumn}>
+                    <Text style={styles.score}>{Math.round(stock.score)}</Text>
+                    <Text style={[styles.statusLabel, { color: isStrong ? COLOR_ACCENT_LIME : COLOR_TEXT_SECONDARY }]}>
+                      {isStrong ? 'Strong' : 'Building'}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })
           )}
         </View>
       )}
@@ -174,115 +293,213 @@ export default function TabOneScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: COLOR_CANVAS,
   },
   content: {
     padding: 20,
     paddingTop: 60,
+    paddingBottom: 40,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-  },
-  timeframeContainer: {
+  headerRow: {
     flexDirection: 'row',
-    backgroundColor: '#111',
-    borderRadius: 8,
-    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 20,
   },
-  timeframeButton: {
+  wordmark: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
+  },
+  headerIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIconButtonPressed: {
+    opacity: 0.7,
+  },
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLOR_TEXT_PRIMARY,
+    paddingVertical: 14,
+    fontSize: 15,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 8,
+  },
+  segment: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
   },
-  timeframeButtonActive: {
-    backgroundColor: '#333',
+  segmentSelected: {
+    backgroundColor: COLOR_ACCENT_LIME,
   },
-  timeframeText: {
-    color: '#888',
+  segmentText: {
+    color: COLOR_TEXT_SECONDARY,
+    fontSize: 14,
     fontWeight: '600',
   },
-  timeframeTextActive: {
-    color: '#fff',
+  segmentTextSelected: {
+    color: COLOR_CANVAS,
   },
-  searchInput: {
-    backgroundColor: '#111',
-    color: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    fontSize: 16,
+  contextSentence: {
+    fontSize: 13,
+    color: COLOR_TEXT_SECONDARY,
     marginBottom: 24,
   },
-  listContainer: {
-    gap: 12,
+  listSection: {
+    gap: 0,
   },
-  subtitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 10,
-  },
-  card: {
-    backgroundColor: '#111',
-    padding: 16,
-    borderRadius: 12,
+  sectionHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 8,
   },
-  cardLeft: {
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
+  },
+  sectionMeta: {
+    fontSize: 12,
+    color: COLOR_TEXT_TERTIARY,
+  },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLOR_DIVIDER,
     gap: 12,
+  },
+  rowPressed: {
+    transform: [{ scale: 0.985 }],
   },
   rank: {
-    color: '#888',
+    fontSize: 12,
+    color: COLOR_TEXT_TERTIARY,
+    fontVariant: ['tabular-nums'],
+    width: 18,
+  },
+  rowMiddle: {
+    flex: 1,
+    gap: 6,
+  },
+  ticker: {
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  stockSymbol: {
-    color: '#fff',
-    fontSize: 18,
     fontWeight: '600',
+    color: COLOR_TEXT_PRIMARY,
   },
-  stockScore: {
-    color: '#4F46E5',
-    fontSize: 20,
-    fontWeight: 'bold',
+  descriptor: {
+    fontSize: 12.5,
+    color: COLOR_TEXT_TERTIARY,
   },
-  listHeaderRow: {
+  signalBarTrack: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: COLOR_DIVIDER,
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  signalBarFill: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: COLOR_ACCENT_LIME,
+    opacity: 0.85,
+  },
+  scoreColumn: {
+    alignItems: 'flex-end',
+  },
+  score: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLOR_TEXT_PRIMARY,
+    fontVariant: ['tabular-nums'],
+  },
+  statusLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  hintText: {
+    fontSize: 14,
+    color: COLOR_TEXT_SECONDARY,
+    paddingVertical: 24,
+    textAlign: 'center',
+  },
+  searchLoadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  emptyText: {
-    color: '#888',
-    fontSize: 15,
-    textAlign: 'center',
-    marginVertical: 20,
+    gap: 10,
+    paddingVertical: 24,
+    justifyContent: 'center',
   },
   errorBox: {
     padding: 20,
-    backgroundColor: '#1c1111',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#4a1e1e',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 14,
     alignItems: 'center',
     marginVertical: 12,
   },
   errorText: {
-    color: '#ff8080',
-    fontSize: 15,
+    color: '#FF6B67',
+    fontSize: 14,
     marginBottom: 8,
     textAlign: 'center',
   },
   retryText: {
-    color: '#B7FF00',
+    color: COLOR_ACCENT_LIME,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
+  },
+  skeletonBlockSmall: {
+    width: 18,
+    height: 12,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+  },
+  skeletonBlockTicker: {
+    width: 80,
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+  },
+  skeletonBlockDescriptor: {
+    width: 120,
+    height: 10,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+  },
+  skeletonBar: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+  },
+  skeletonBlockScore: {
+    width: 32,
+    height: 22,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
   },
 });
