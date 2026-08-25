@@ -2,7 +2,7 @@ import { useFonts } from 'expo-font';
 import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initSupabase, AuthProvider, useAuth } from '@finwerse/shared';
@@ -127,16 +127,22 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function checkUpdates() {
+      if (__DEV__) return;
+      if (!Updates.isEnabled) {
+        Alert.alert('OTA disabled', 'Updates.isEnabled is false on this build — the native updates config did not take effect.');
+        return;
+      }
       try {
-        if (!__DEV__) {
-          const update = await Updates.checkForUpdateAsync();
-          if (update.isAvailable) {
-            await Updates.fetchUpdateAsync();
-            await Updates.reloadAsync();
-          }
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
         }
       } catch (e) {
-        console.log('Update check error:', e);
+        // Was previously a silent console.log — invisible on an installed build with
+        // no attached debugger. Surfaced so a failed update check is actually
+        // reportable instead of just "the new screen wasn't there."
+        Alert.alert('Update check failed', String(e instanceof Error ? e.message : e));
       }
     }
     checkUpdates();
