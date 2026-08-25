@@ -139,13 +139,12 @@ export default function ChatScreen() {
     );
   };
 
-  const ContainerComponent = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
   const containerProps = Platform.OS === 'ios'
     ? { behavior: 'padding' as const, keyboardVerticalOffset: 90, style: styles.keyboardContainer }
-    : { style: styles.keyboardContainer };
+    : { behavior: 'height' as const, style: styles.keyboardContainer };
 
   return (
-    <ContainerComponent {...containerProps}>
+    <KeyboardAvoidingView {...containerProps}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
@@ -229,7 +228,7 @@ export default function ChatScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
-    </ContainerComponent>
+    </KeyboardAvoidingView>
   );
 }
 
