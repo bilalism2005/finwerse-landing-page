@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,19 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAnalyzerStore, CustomTradeInput, ImpulseTrade } from '../../src/store/analyzerStore';
 import { IconSymbol } from '../../components/ui/IconSymbol';
-
-// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
-const COLOR_CANVAS = '#090B0A';
-const COLOR_SURFACE_ELEVATED = '#131613';
-const COLOR_SURFACE_SECONDARY = '#191D19';
-const COLOR_DIVIDER = '#1A1E1A';
-const COLOR_DIVIDER_STRONG = '#2A2E2A';
-const COLOR_TEXT_PRIMARY = '#F5F7F2';
-const COLOR_TEXT_SECONDARY = '#A4AAA3';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_ACCENT_LIME = '#C7FF3D';
-const COLOR_POSITIVE = '#B8F35A';
-const COLOR_NEGATIVE = '#FF6B67';
+import { useThemeTokens } from '../../src/store/themeStore';
+import type { ThemeTokens } from '../../src/theme/tokens';
 
 interface EditableTrade {
   id: string;
@@ -49,6 +38,8 @@ function formatRupees(value: number): string {
 }
 
 export default function ImpulseScreen() {
+  const tokens = useThemeTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const { impulseTrades, totalCost, isLoading, error, fetchAnalyzerData, analyzeCustomTrades } = useAnalyzerStore();
   const [activeTab, setActiveTab] = useState<'custom' | 'portfolio'>('custom');
 
@@ -201,7 +192,7 @@ export default function ImpulseScreen() {
             <View style={styles.formHeader}>
               <Text style={styles.formSectionTitle}>Trade Inputs</Text>
               <TouchableOpacity activeOpacity={0.7} style={styles.addBtn} onPress={addTradeRow}>
-                <IconSymbol name="plus.circle.fill" size={18} color={COLOR_ACCENT_LIME} />
+                <IconSymbol name="plus.circle.fill" size={18} color={tokens.accent} />
                 <Text style={styles.addBtnText}>Add Trade</Text>
               </TouchableOpacity>
             </View>
@@ -212,7 +203,7 @@ export default function ImpulseScreen() {
                   <Text style={styles.rowNumber}>Trade #{idx + 1}</Text>
                   {tradeRows.length > 1 && (
                     <TouchableOpacity activeOpacity={0.7} onPress={() => removeTradeRow(row.id)}>
-                      <IconSymbol name="trash" size={16} color={COLOR_NEGATIVE} />
+                      <IconSymbol name="trash" size={16} color={tokens.negative} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -224,7 +215,7 @@ export default function ImpulseScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="ZOMATO"
-                      placeholderTextColor={COLOR_TEXT_TERTIARY}
+                      placeholderTextColor={tokens.textTertiary}
                       value={row.stock_symbol}
                       onChangeText={(val) => updateTradeField(row.id, 'stock_symbol', val)}
                       autoCapitalize="characters"
@@ -235,7 +226,7 @@ export default function ImpulseScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="100"
-                      placeholderTextColor={COLOR_TEXT_TERTIARY}
+                      placeholderTextColor={tokens.textTertiary}
                       value={row.quantity}
                       onChangeText={(val) => updateTradeField(row.id, 'quantity', val)}
                       keyboardType="numeric"
@@ -250,7 +241,7 @@ export default function ImpulseScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="240"
-                      placeholderTextColor={COLOR_TEXT_TERTIARY}
+                      placeholderTextColor={tokens.textTertiary}
                       value={row.buy_price}
                       onChangeText={(val) => updateTradeField(row.id, 'buy_price', val)}
                       keyboardType="numeric"
@@ -261,7 +252,7 @@ export default function ImpulseScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="2026-08-01"
-                      placeholderTextColor={COLOR_TEXT_TERTIARY}
+                      placeholderTextColor={tokens.textTertiary}
                       value={row.buy_date}
                       onChangeText={(val) => updateTradeField(row.id, 'buy_date', val)}
                     />
@@ -275,7 +266,7 @@ export default function ImpulseScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="210"
-                      placeholderTextColor={COLOR_TEXT_TERTIARY}
+                      placeholderTextColor={tokens.textTertiary}
                       value={row.sell_price}
                       onChangeText={(val) => updateTradeField(row.id, 'sell_price', val)}
                       keyboardType="numeric"
@@ -286,7 +277,7 @@ export default function ImpulseScreen() {
                     <TextInput
                       style={styles.textInput}
                       placeholder="2026-08-10"
-                      placeholderTextColor={COLOR_TEXT_TERTIARY}
+                      placeholderTextColor={tokens.textTertiary}
                       value={row.sell_date}
                       onChangeText={(val) => updateTradeField(row.id, 'sell_date', val)}
                     />
@@ -297,10 +288,10 @@ export default function ImpulseScreen() {
 
             <TouchableOpacity activeOpacity={0.85} style={styles.scanBtn} onPress={handleScanImpulse} disabled={isLoading}>
               {isLoading ? (
-                <ActivityIndicator color={COLOR_CANVAS} />
+                <ActivityIndicator color={tokens.onAccent} />
               ) : (
                 <>
-                  <IconSymbol name="bolt.fill" size={18} color={COLOR_CANVAS} />
+                  <IconSymbol name="bolt.fill" size={18} color={tokens.onAccent} />
                   <Text style={styles.scanBtnText}>Scan & Analyze Impulse</Text>
                 </>
               )}
@@ -311,7 +302,7 @@ export default function ImpulseScreen() {
         {/* Results Section */}
         {showFullAreaLoading ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={COLOR_ACCENT_LIME} />
+            <ActivityIndicator size="large" color={tokens.accent} />
             <Text style={styles.loadingText}>Analyzing Trades Against Historical Data...</Text>
           </View>
         ) : showError ? (
@@ -338,7 +329,7 @@ export default function ImpulseScreen() {
 
             {impulseTrades.length === 0 ? (
               <View style={styles.emptyState}>
-                <IconSymbol name="checkmark.shield.fill" size={44} color={COLOR_POSITIVE} />
+                <IconSymbol name="checkmark.shield.fill" size={44} color={tokens.positive} />
                 <Text style={styles.emptyTitle}>No Impulse Losses Flagged</Text>
                 <Text style={styles.emptyText}>
                   {activeTab === 'custom'
@@ -383,7 +374,7 @@ export default function ImpulseScreen() {
                           </View>
                           <View style={styles.divider} />
                           <View style={styles.side}>
-                            <Text style={[styles.sideLabel, { color: COLOR_ACCENT_LIME }]}>Data-Backed Timing</Text>
+                            <Text style={[styles.sideLabel, { color: tokens.accent }]}>Data-Backed Timing</Text>
                             <Text style={styles.sideDate}>
                               {trade.counterfactual.buy_date} → {trade.counterfactual.sell_date}
                             </Text>
@@ -417,177 +408,185 @@ export default function ImpulseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLOR_CANVAS },
-  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10 },
-  headerTitle: { fontSize: 30, fontWeight: '700', color: COLOR_TEXT_PRIMARY },
-  headerSubtitle: { fontSize: 13, color: COLOR_TEXT_SECONDARY, marginTop: 4 },
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 12,
-    padding: 4,
-    marginHorizontal: 20,
-    marginBottom: 12,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: 'transparent',
-  },
-  segmentSelected: {
-    backgroundColor: COLOR_ACCENT_LIME,
-  },
-  segmentText: {
-    color: COLOR_TEXT_SECONDARY,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  segmentTextSelected: {
-    color: COLOR_CANVAS,
-  },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
-  formSection: { marginBottom: 20 },
-  formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  formSectionTitle: { fontSize: 18, fontWeight: '700', color: COLOR_TEXT_PRIMARY },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  addBtnText: { color: COLOR_ACCENT_LIME, fontSize: 13, fontWeight: '600' },
-  tradeInputCard: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
-  },
-  rowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  rowNumber: { fontSize: 12, fontWeight: '600', color: COLOR_ACCENT_LIME, textTransform: 'uppercase', letterSpacing: 0.5 },
-  inputRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  inputGroup: { flex: 1 },
-  inputLabel: { fontSize: 11, fontWeight: '600', color: COLOR_TEXT_TERTIARY, marginBottom: 4, textTransform: 'uppercase' },
-  textInput: {
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: COLOR_TEXT_PRIMARY,
-    borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
-  },
-  scanBtn: {
-    backgroundColor: COLOR_ACCENT_LIME,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-    marginTop: 4,
-  },
-  scanBtnText: { color: COLOR_CANVAS, fontSize: 15, fontWeight: '700' },
-  resultsSection: { marginTop: 8 },
-  summaryCard: {
-    borderWidth: 1,
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  summaryCardNegative: {
-    backgroundColor: '#1A0F0F',
-    borderColor: '#3A1A1A',
-  },
-  summaryCardNeutral: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderColor: COLOR_DIVIDER,
-  },
-  summaryLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
-  summaryLabelNegative: { color: COLOR_NEGATIVE },
-  summaryLabelNeutral: { color: COLOR_TEXT_SECONDARY },
-  summaryValue: { fontSize: 36, fontWeight: '700', marginVertical: 6, fontVariant: ['tabular-nums'] },
-  summaryValueNegative: { color: COLOR_NEGATIVE },
-  summaryValueNeutral: { color: COLOR_TEXT_PRIMARY },
-  summaryCount: { color: COLOR_TEXT_SECONDARY, fontSize: 13, fontWeight: '600', marginBottom: 4 },
-  summaryDesc: { color: COLOR_TEXT_TERTIARY, fontSize: 12, textAlign: 'center', lineHeight: 17 },
-  emptyState: {
-    alignItems: 'center',
-    marginTop: 24,
-    padding: 24,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
-  },
-  emptyTitle: { color: COLOR_TEXT_PRIMARY, fontSize: 16, fontWeight: '700', marginTop: 12 },
-  emptyText: { marginTop: 6, fontSize: 13, color: COLOR_TEXT_SECONDARY, textAlign: 'center', lineHeight: 18 },
-  listContainer: { paddingBottom: 24 },
-  listTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12, color: COLOR_TEXT_PRIMARY },
-  tradeCard: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  symbol: { fontSize: 17, fontWeight: '700', color: COLOR_TEXT_PRIMARY },
-  qtyText: { fontSize: 12, color: COLOR_TEXT_TERTIARY, marginTop: 2 },
-  costBadge: { alignItems: 'flex-end' },
-  costBadgeLabel: { fontSize: 10, color: COLOR_TEXT_TERTIARY, textTransform: 'uppercase' },
-  rupeeCost: { fontSize: 15, fontWeight: '700', color: COLOR_NEGATIVE, marginTop: 2 },
-  comparisonRow: {
-    flexDirection: 'row',
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
-  },
-  side: { flex: 1, alignItems: 'center' },
-  divider: { width: 1, backgroundColor: COLOR_DIVIDER_STRONG, marginHorizontal: 8 },
-  sideLabel: { fontSize: 11, color: COLOR_TEXT_TERTIARY, marginBottom: 4, textTransform: 'uppercase', fontWeight: '700' },
-  sideDate: { fontSize: 11, color: COLOR_TEXT_TERTIARY, marginBottom: 2 },
-  sidePrice: { fontSize: 12, color: COLOR_TEXT_SECONDARY, marginBottom: 4 },
-  outcomeLoss: { fontSize: 14, fontWeight: '700', color: COLOR_NEGATIVE },
-  outcomeProfit: { fontSize: 14, fontWeight: '700', color: COLOR_POSITIVE },
-  noComparisonBox: {
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
-  },
-  noComparisonText: { fontSize: 12.5, color: COLOR_TEXT_TERTIARY, textAlign: 'center' },
-  loadingBox: { padding: 40, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: COLOR_TEXT_SECONDARY, marginTop: 12, fontSize: 13, textAlign: 'center' },
-  errorBox: {
-    padding: 20,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  errorText: {
-    color: COLOR_NEGATIVE,
-    fontSize: 14,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  retryText: {
-    color: COLOR_ACCENT_LIME,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
+// Derives a translucent tint of a token color for a subtle background/border wash — same
+// convention as apps/mobile/app/(tabs)/portfolio.tsx's local `withAlpha` helper.
+function withAlpha(hex: string, alphaHex: string): string {
+  return `${hex}${alphaHex}`;
+}
+
+function createStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tokens.canvas },
+    header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10 },
+    headerTitle: { fontSize: 30, fontWeight: '700', color: tokens.textPrimary },
+    headerSubtitle: { fontSize: 13, color: tokens.textSecondary, marginTop: 4 },
+    segmentedControl: {
+      flexDirection: 'row',
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 12,
+      padding: 4,
+      marginHorizontal: 20,
+      marginBottom: 12,
+    },
+    segment: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: 10,
+      backgroundColor: 'transparent',
+    },
+    segmentSelected: {
+      backgroundColor: tokens.accent,
+    },
+    segmentText: {
+      color: tokens.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    segmentTextSelected: {
+      color: tokens.onAccent,
+    },
+    scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+    formSection: { marginBottom: 20 },
+    formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    formSectionTitle: { fontSize: 18, fontWeight: '700', color: tokens.textPrimary },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: tokens.secondarySurface,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 10,
+    },
+    addBtnText: { color: tokens.accent, fontSize: 13, fontWeight: '600' },
+    tradeInputCard: {
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: tokens.dividerSubtle,
+    },
+    rowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    rowNumber: { fontSize: 12, fontWeight: '600', color: tokens.accent, textTransform: 'uppercase', letterSpacing: 0.5 },
+    inputRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+    inputGroup: { flex: 1 },
+    inputLabel: { fontSize: 11, fontWeight: '600', color: tokens.textTertiary, marginBottom: 4, textTransform: 'uppercase' },
+    textInput: {
+      backgroundColor: tokens.secondarySurface,
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: tokens.textPrimary,
+      borderWidth: 1,
+      borderColor: tokens.dividerSubtle,
+    },
+    scanBtn: {
+      backgroundColor: tokens.accent,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      borderRadius: 12,
+      gap: 8,
+      marginTop: 4,
+    },
+    scanBtnText: { color: tokens.onAccent, fontSize: 15, fontWeight: '700' },
+    resultsSection: { marginTop: 8 },
+    summaryCard: {
+      borderWidth: 1,
+      padding: 20,
+      borderRadius: 16,
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    summaryCardNegative: {
+      backgroundColor: withAlpha(tokens.negative, '22'),
+      borderColor: withAlpha(tokens.negative, '4D'),
+    },
+    summaryCardNeutral: {
+      backgroundColor: tokens.elevatedSurface,
+      borderColor: tokens.dividerSubtle,
+    },
+    summaryLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+    summaryLabelNegative: { color: tokens.negative },
+    summaryLabelNeutral: { color: tokens.textSecondary },
+    summaryValue: { fontSize: 36, fontWeight: '700', marginVertical: 6, fontVariant: ['tabular-nums'] },
+    summaryValueNegative: { color: tokens.negative },
+    summaryValueNeutral: { color: tokens.textPrimary },
+    summaryCount: { color: tokens.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 4 },
+    summaryDesc: { color: tokens.textTertiary, fontSize: 12, textAlign: 'center', lineHeight: 17 },
+    emptyState: {
+      alignItems: 'center',
+      marginTop: 24,
+      padding: 24,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: tokens.dividerSubtle,
+    },
+    emptyTitle: { color: tokens.textPrimary, fontSize: 16, fontWeight: '700', marginTop: 12 },
+    emptyText: { marginTop: 6, fontSize: 13, color: tokens.textSecondary, textAlign: 'center', lineHeight: 18 },
+    listContainer: { paddingBottom: 24 },
+    listTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12, color: tokens.textPrimary },
+    tradeCard: {
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: tokens.dividerSubtle,
+    },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    symbol: { fontSize: 17, fontWeight: '700', color: tokens.textPrimary },
+    qtyText: { fontSize: 12, color: tokens.textTertiary, marginTop: 2 },
+    costBadge: { alignItems: 'flex-end' },
+    costBadgeLabel: { fontSize: 10, color: tokens.textTertiary, textTransform: 'uppercase' },
+    rupeeCost: { fontSize: 15, fontWeight: '700', color: tokens.negative, marginTop: 2 },
+    comparisonRow: {
+      flexDirection: 'row',
+      backgroundColor: tokens.secondarySurface,
+      borderRadius: 10,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: tokens.dividerSubtle,
+    },
+    side: { flex: 1, alignItems: 'center' },
+    divider: { width: 1, backgroundColor: tokens.dividerStrong, marginHorizontal: 8 },
+    sideLabel: { fontSize: 11, color: tokens.textTertiary, marginBottom: 4, textTransform: 'uppercase', fontWeight: '700' },
+    sideDate: { fontSize: 11, color: tokens.textTertiary, marginBottom: 2 },
+    sidePrice: { fontSize: 12, color: tokens.textSecondary, marginBottom: 4 },
+    outcomeLoss: { fontSize: 14, fontWeight: '700', color: tokens.negative },
+    outcomeProfit: { fontSize: 14, fontWeight: '700', color: tokens.positive },
+    noComparisonBox: {
+      backgroundColor: tokens.secondarySurface,
+      borderRadius: 10,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: tokens.dividerSubtle,
+    },
+    noComparisonText: { fontSize: 12.5, color: tokens.textTertiary, textAlign: 'center' },
+    loadingBox: { padding: 40, alignItems: 'center', justifyContent: 'center' },
+    loadingText: { color: tokens.textSecondary, marginTop: 12, fontSize: 13, textAlign: 'center' },
+    errorBox: {
+      padding: 20,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginVertical: 12,
+    },
+    errorText: {
+      color: tokens.negative,
+      fontSize: 14,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    retryText: {
+      color: tokens.accent,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+}

@@ -1,22 +1,18 @@
 import { SymbolView } from 'expo-symbols';
 import { Tabs } from 'expo-router';
 import { IconSymbol } from '../../components/ui/IconSymbol';
-
-// Design System — Mobile Redesign tokens (spec/ui.md)
-const COLOR_ACCENT_LIME = '#C7FF3D';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_CANVAS = '#090B0A';
-const COLOR_DIVIDER = '#1A1E1A';
+import { useThemeTokens } from '../../src/store/themeStore';
 
 export default function TabLayout() {
+  const tokens = useThemeTokens();
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: COLOR_ACCENT_LIME,
-        tabBarInactiveTintColor: COLOR_TEXT_TERTIARY,
-        tabBarStyle: { backgroundColor: COLOR_CANVAS, borderTopColor: COLOR_DIVIDER, elevation: 0 },
+        tabBarActiveTintColor: tokens.accent,
+        tabBarInactiveTintColor: tokens.textTertiary,
+        tabBarStyle: { backgroundColor: tokens.canvas, borderTopColor: tokens.dividerSubtle, elevation: 0 },
         tabBarHideOnKeyboard: true,
-        sceneContainerStyle: { backgroundColor: COLOR_CANVAS },
+        sceneContainerStyle: { backgroundColor: tokens.canvas },
         headerShown: false,
       }}>
       <Tabs.Screen

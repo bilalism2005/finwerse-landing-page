@@ -9,28 +9,24 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
 import { useAuth } from '@finwerse/shared';
+import { useThemeTokens } from '../../src/store/themeStore';
+import type { ThemeTokens } from '../../src/theme/tokens';
 
-// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
-// Duplicated locally (same values as app/(tabs)/index.tsx, alerts.tsx, chat.tsx, etc.) rather
-// than importing from those screens, to keep this a self-contained single-file redesign per
-// the build instructions.
-const COLOR_CANVAS = '#090B0A';
-const COLOR_SURFACE_ELEVATED = '#131613';
-const COLOR_SURFACE_SECONDARY = '#191D19';
-const COLOR_DIVIDER = '#1A1E1A';
-const COLOR_TEXT_PRIMARY = '#F5F7F2';
-const COLOR_TEXT_SECONDARY = '#A4AAA3';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_ACCENT_LIME = '#C7FF3D';
-const COLOR_NEGATIVE = '#FF6B67';
-// Low-opacity tint of Negative, for the inline-error callout fill (spec/ui.md Login §5).
-const COLOR_NEGATIVE_TINT_BG = 'rgba(255, 107, 103, 0.12)';
-// Google's real brand blue for the "G" glyph — exempt from the single-accent-color rule,
+// Google's real brand blue for the "G" glyph — exempt from the theme-token system,
 // same as sector-identity colors elsewhere (spec/ui.md Login §8).
 const COLOR_GOOGLE_BLUE = '#4285F4';
+
+// Adds an alpha channel to a 6-digit hex token, for the inline-error callout's low-opacity
+// Negative-tinted fill (spec/ui.md Login §5). The base hex is passed in per-call from the live
+// theme tokens (tokens.negative), not a module-level constant, so the derived tint updates when
+// the theme switches. Same helper shape as app/(tabs)/news.tsx's withAlpha.
+function withAlpha(hex: string, alpha: number): string {
+  const clamped = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
+  return `${hex}${clamped.toString(16).padStart(2, '0')}`;
+}
 
 // Configure Google Sign-In with your Web Client ID
 GoogleSignin.configure({
@@ -39,6 +35,9 @@ GoogleSignin.configure({
 });
 
 export default function LoginScreen() {
+  const tokens = useThemeTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -136,7 +135,7 @@ export default function LoginScreen() {
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor={COLOR_TEXT_TERTIARY}
+            placeholderTextColor={tokens.textTertiary}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -148,7 +147,7 @@ export default function LoginScreen() {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor={COLOR_TEXT_TERTIARY}
+            placeholderTextColor={tokens.textTertiary}
             secureTextEntry
             autoCapitalize="none"
             value={password}
@@ -171,7 +170,7 @@ export default function LoginScreen() {
             disabled={loading}
           >
             {loading
-              ? <ActivityIndicator color={COLOR_CANVAS} />
+              ? <ActivityIndicator color={tokens.onAccent} />
               : <Text style={styles.btnText}>
                   {tab === 'signin' ? 'Sign In' : 'Create Account'}
                 </Text>
@@ -192,7 +191,7 @@ export default function LoginScreen() {
             disabled={googleLoading}
           >
             {googleLoading ? (
-              <ActivityIndicator color={COLOR_TEXT_PRIMARY} />
+              <ActivityIndicator color={tokens.textPrimary} />
             ) : (
               <>
                 {/* Google G icon — real brand blue, exempt from the single-accent-color rule */}
@@ -207,138 +206,140 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  scroll: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  // Wordmark — reuses the Screen-title type token (top of the 28-34pt range), centered and
-  // standalone since this screen has no adjacent nav chrome (spec/ui.md Login §1). 650 weight
-  // rounded to RN's nearest supported fontWeight string ('700'), same workaround used for
-  // Stock Detail's ticker (spec/ui.md Stock Detail §1).
-  logo: {
-    fontSize: 34,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-    letterSpacing: 2,
-    marginBottom: 32,
-    textAlign: 'center',
-  },
-  // Card — Elevated surface, hero-surface radius, no border: surface-color contrast over
-  // borders, same reasoning as Home's search field (spec/ui.md Login §2).
-  card: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 22,
-    padding: 24,
-    gap: 14,
-  },
-  // Tab toggle — segmented control nested inside the Elevated card, so its track uses
-  // Secondary surface (not Elevated) for contrast against the parent card (spec/ui.md Login §3).
-  tabRow: {
-    flexDirection: 'row',
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-    borderRadius: 10,
-    padding: 4,
-    marginBottom: 8,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  tabActive: {
-    backgroundColor: COLOR_ACCENT_LIME,
-  },
-  tabText: {
-    color: COLOR_TEXT_SECONDARY,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  tabTextActive: {
-    color: COLOR_CANVAS,
-  },
-  // Inputs — same nested-surface adaptation as the tab toggle, Home's search-field treatment
-  // otherwise (spec/ui.md Login §4).
-  input: {
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: COLOR_TEXT_PRIMARY,
-    fontSize: 15,
-  },
-  // Inline error — contained, tokenized callout: low-opacity Negative-tinted fill holding
-  // Negative-colored text. No retry action (spec/ui.md Login §5).
-  errorBox: {
-    backgroundColor: COLOR_NEGATIVE_TINT_BG,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  errorText: {
-    color: COLOR_NEGATIVE,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  // Submit — standard primary-CTA treatment (spec/ui.md Login §6).
-  btn: {
-    backgroundColor: COLOR_ACCENT_LIME,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  btnText: {
-    color: COLOR_CANVAS,
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginVertical: 4,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLOR_DIVIDER,
-  },
-  dividerText: {
-    color: COLOR_TEXT_TERTIARY,
-    fontSize: 12,
-  },
-  // Google — neutral secondary-action treatment, same nested-surface adaptation as the tab
-  // toggle/inputs above (spec/ui.md Login §8).
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-    borderRadius: 12,
-    paddingVertical: 14,
-    gap: 10,
-  },
-  googleIcon: {
-    color: COLOR_GOOGLE_BLUE,
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  googleText: {
-    color: COLOR_TEXT_PRIMARY,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-});
+function createStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    scroll: {
+      flexGrow: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+    },
+    // Wordmark — reuses the Screen-title type token (top of the 28-34pt range), centered and
+    // standalone since this screen has no adjacent nav chrome (spec/ui.md Login §1). 650 weight
+    // rounded to RN's nearest supported fontWeight string ('700'), same workaround used for
+    // Stock Detail's ticker (spec/ui.md Stock Detail §1).
+    logo: {
+      fontSize: 34,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+      letterSpacing: 2,
+      marginBottom: 32,
+      textAlign: 'center',
+    },
+    // Card — Elevated surface, hero-surface radius, no border: surface-color contrast over
+    // borders, same reasoning as Home's search field (spec/ui.md Login §2).
+    card: {
+      width: '100%',
+      maxWidth: 400,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 22,
+      padding: 24,
+      gap: 14,
+    },
+    // Tab toggle — segmented control nested inside the Elevated card, so its track uses
+    // Secondary surface (not Elevated) for contrast against the parent card (spec/ui.md Login §3).
+    tabRow: {
+      flexDirection: 'row',
+      backgroundColor: tokens.secondarySurface,
+      borderRadius: 10,
+      padding: 4,
+      marginBottom: 8,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: 8,
+    },
+    tabActive: {
+      backgroundColor: tokens.accent,
+    },
+    tabText: {
+      color: tokens.textSecondary,
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    tabTextActive: {
+      color: tokens.onAccent,
+    },
+    // Inputs — same nested-surface adaptation as the tab toggle, Home's search-field treatment
+    // otherwise (spec/ui.md Login §4).
+    input: {
+      backgroundColor: tokens.secondarySurface,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      color: tokens.textPrimary,
+      fontSize: 15,
+    },
+    // Inline error — contained, tokenized callout: low-opacity Negative-tinted fill holding
+    // Negative-colored text. No retry action (spec/ui.md Login §5).
+    errorBox: {
+      backgroundColor: withAlpha(tokens.negative, 0.12),
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+    },
+    errorText: {
+      color: tokens.negative,
+      fontSize: 13,
+      textAlign: 'center',
+    },
+    // Submit — standard primary-CTA treatment (spec/ui.md Login §6).
+    btn: {
+      backgroundColor: tokens.accent,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginTop: 4,
+    },
+    btnDisabled: {
+      opacity: 0.6,
+    },
+    btnText: {
+      color: tokens.onAccent,
+      fontWeight: '700',
+      fontSize: 15,
+    },
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginVertical: 4,
+    },
+    divider: {
+      flex: 1,
+      height: 1,
+      backgroundColor: tokens.dividerSubtle,
+    },
+    dividerText: {
+      color: tokens.textTertiary,
+      fontSize: 12,
+    },
+    // Google — neutral secondary-action treatment, same nested-surface adaptation as the tab
+    // toggle/inputs above (spec/ui.md Login §8).
+    googleBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tokens.secondarySurface,
+      borderRadius: 12,
+      paddingVertical: 14,
+      gap: 10,
+    },
+    googleIcon: {
+      color: COLOR_GOOGLE_BLUE,
+      fontWeight: '800',
+      fontSize: 16,
+    },
+    googleText: {
+      color: tokens.textPrimary,
+      fontWeight: '600',
+      fontSize: 14,
+    },
+  });
+}

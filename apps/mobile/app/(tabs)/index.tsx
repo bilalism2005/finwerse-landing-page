@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -15,15 +15,8 @@ import { useAppStore, Timeframe } from '../../src/store';
 import { getTopStocks, getCachedTopStocks, searchStocks, StockItem } from '../../src/api/stockService';
 import { warmUpBackend } from '../../src/api/client';
 import { IconSymbol } from '../../components/ui/IconSymbol';
-
-// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
-const COLOR_CANVAS = '#090B0A';
-const COLOR_SURFACE_ELEVATED = '#131613';
-const COLOR_DIVIDER = '#1A1E1A';
-const COLOR_TEXT_PRIMARY = '#F5F7F2';
-const COLOR_TEXT_SECONDARY = '#A4AAA3';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_ACCENT_LIME = '#C7FF3D';
+import { useThemeTokens } from '../../src/store/themeStore';
+import type { ThemeTokens } from '../../src/theme/tokens';
 
 // Standing Platform Rule 2: scores are -100..100, same color bands everywhere (Red <40, Amber 41-65, Green 66-100).
 const GREEN_BAND_MIN = 66;
@@ -51,6 +44,8 @@ function signalBarWidthPercent(score: number): number {
 export default function HomeScreen() {
   const router = useRouter();
   const { selectedTimeframe, setTimeframe } = useAppStore();
+  const tokens = useThemeTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -140,7 +135,7 @@ export default function HomeScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => loadStocks(true)} tintColor={COLOR_ACCENT_LIME} />
+        <RefreshControl refreshing={refreshing} onRefresh={() => loadStocks(true)} tintColor={tokens.accent} />
       }
     >
       {/* Header row */}
@@ -151,17 +146,17 @@ export default function HomeScreen() {
           accessibilityLabel="Notifications"
           style={({ pressed }) => [styles.headerIconButton, pressed && styles.headerIconButtonPressed]}
         >
-          <IconSymbol name="bell.fill" size={18} color={COLOR_TEXT_PRIMARY} />
+          <IconSymbol name="bell.fill" size={18} color={tokens.textPrimary} />
         </Pressable>
       </View>
 
       {/* Search field */}
       <View style={styles.searchField}>
-        <IconSymbol name="magnifyingglass" size={18} color={COLOR_TEXT_TERTIARY} />
+        <IconSymbol name="magnifyingglass" size={18} color={tokens.textTertiary} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search stocks, e.g. RELIANCE"
-          placeholderTextColor={COLOR_TEXT_TERTIARY}
+          placeholderTextColor={tokens.textTertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCapitalize="characters"
@@ -200,7 +195,7 @@ export default function HomeScreen() {
             <Text style={styles.hintText}>Type at least 2 characters to search.</Text>
           ) : searchLoading ? (
             <View style={styles.searchLoadingRow}>
-              <ActivityIndicator size="small" color={COLOR_ACCENT_LIME} />
+              <ActivityIndicator size="small" color={tokens.accent} />
               <Text style={styles.hintText}>Searching…</Text>
             </View>
           ) : searchResults.length === 0 ? (
@@ -220,7 +215,7 @@ export default function HomeScreen() {
                   <Text
                     style={[
                       styles.statusLabel,
-                      { color: stock.overall_score >= GREEN_BAND_MIN ? COLOR_ACCENT_LIME : COLOR_TEXT_SECONDARY },
+                      { color: stock.overall_score >= GREEN_BAND_MIN ? tokens.accent : tokens.textSecondary },
                     ]}
                   >
                     {stock.overall_score >= GREEN_BAND_MIN ? 'Strong' : 'Building'}
@@ -278,7 +273,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.scoreColumn}>
                     <Text style={styles.score}>{Math.round(stock.score)}</Text>
-                    <Text style={[styles.statusLabel, { color: isStrong ? COLOR_ACCENT_LIME : COLOR_TEXT_SECONDARY }]}>
+                    <Text style={[styles.statusLabel, { color: isStrong ? tokens.accent : tokens.textSecondary }]}>
                       {isStrong ? 'Strong' : 'Building'}
                     </Text>
                   </View>
@@ -293,219 +288,221 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  wordmark: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  headerIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerIconButtonPressed: {
-    opacity: 0.7,
-  },
-  searchField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-  },
-  searchInput: {
-    flex: 1,
-    color: COLOR_TEXT_PRIMARY,
-    paddingVertical: 14,
-    fontSize: 15,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 8,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: 'transparent',
-  },
-  segmentSelected: {
-    backgroundColor: COLOR_ACCENT_LIME,
-  },
-  segmentText: {
-    color: COLOR_TEXT_SECONDARY,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  segmentTextSelected: {
-    color: COLOR_CANVAS,
-  },
-  contextSentence: {
-    fontSize: 13,
-    color: COLOR_TEXT_SECONDARY,
-    marginBottom: 24,
-  },
-  listSection: {
-    gap: 0,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  sectionMeta: {
-    fontSize: 12,
-    color: COLOR_TEXT_TERTIARY,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLOR_DIVIDER,
-    gap: 12,
-  },
-  rowPressed: {
-    transform: [{ scale: 0.985 }],
-  },
-  rank: {
-    fontSize: 12,
-    color: COLOR_TEXT_TERTIARY,
-    fontVariant: ['tabular-nums'],
-    width: 18,
-  },
-  rowMiddle: {
-    flex: 1,
-    gap: 6,
-  },
-  ticker: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  descriptor: {
-    fontSize: 12.5,
-    color: COLOR_TEXT_TERTIARY,
-  },
-  signalBarTrack: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: COLOR_DIVIDER,
-    overflow: 'hidden',
-    marginTop: 2,
-  },
-  signalBarFill: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: COLOR_ACCENT_LIME,
-    opacity: 0.85,
-  },
-  scoreColumn: {
-    alignItems: 'flex-end',
-  },
-  score: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-    fontVariant: ['tabular-nums'],
-  },
-  statusLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  hintText: {
-    fontSize: 14,
-    color: COLOR_TEXT_SECONDARY,
-    paddingVertical: 24,
-    textAlign: 'center',
-  },
-  searchLoadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 24,
-    justifyContent: 'center',
-  },
-  errorBox: {
-    padding: 20,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  errorText: {
-    color: '#FF6B67',
-    fontSize: 14,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  retryText: {
-    color: COLOR_ACCENT_LIME,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  skeletonBlockSmall: {
-    width: 18,
-    height: 12,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-  skeletonBlockTicker: {
-    width: 80,
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-  skeletonBlockDescriptor: {
-    width: 120,
-    height: 10,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-  skeletonBar: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-  skeletonBlockScore: {
-    width: 32,
-    height: 22,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-});
+function createStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    content: {
+      padding: 20,
+      paddingBottom: 40,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 20,
+    },
+    wordmark: {
+      fontSize: 30,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+    },
+    headerIconButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: tokens.elevatedSurface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerIconButtonPressed: {
+      opacity: 0.7,
+    },
+    searchField: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      marginBottom: 16,
+    },
+    searchInput: {
+      flex: 1,
+      color: tokens.textPrimary,
+      paddingVertical: 14,
+      fontSize: 15,
+    },
+    segmentedControl: {
+      flexDirection: 'row',
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 12,
+      padding: 4,
+      marginBottom: 8,
+    },
+    segment: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: 10,
+      backgroundColor: 'transparent',
+    },
+    segmentSelected: {
+      backgroundColor: tokens.accent,
+    },
+    segmentText: {
+      color: tokens.textSecondary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    segmentTextSelected: {
+      color: tokens.onAccent,
+    },
+    contextSentence: {
+      fontSize: 13,
+      color: tokens.textSecondary,
+      marginBottom: 24,
+    },
+    listSection: {
+      gap: 0,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    sectionTitle: {
+      fontSize: 19,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+    },
+    sectionMeta: {
+      fontSize: 12,
+      color: tokens.textTertiary,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.dividerSubtle,
+      gap: 12,
+    },
+    rowPressed: {
+      transform: [{ scale: 0.985 }],
+    },
+    rank: {
+      fontSize: 12,
+      color: tokens.textTertiary,
+      fontVariant: ['tabular-nums'],
+      width: 18,
+    },
+    rowMiddle: {
+      flex: 1,
+      gap: 6,
+    },
+    ticker: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: tokens.textPrimary,
+    },
+    descriptor: {
+      fontSize: 12.5,
+      color: tokens.textTertiary,
+    },
+    signalBarTrack: {
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: tokens.dividerSubtle,
+      overflow: 'hidden',
+      marginTop: 2,
+    },
+    signalBarFill: {
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: tokens.accent,
+      opacity: 0.85,
+    },
+    scoreColumn: {
+      alignItems: 'flex-end',
+    },
+    score: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+      fontVariant: ['tabular-nums'],
+    },
+    statusLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    hintText: {
+      fontSize: 14,
+      color: tokens.textSecondary,
+      paddingVertical: 24,
+      textAlign: 'center',
+    },
+    searchLoadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 24,
+      justifyContent: 'center',
+    },
+    errorBox: {
+      padding: 20,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginVertical: 12,
+    },
+    errorText: {
+      color: tokens.negative,
+      fontSize: 14,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    retryText: {
+      color: tokens.accent,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    skeletonBlockSmall: {
+      width: 18,
+      height: 12,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+    },
+    skeletonBlockTicker: {
+      width: 80,
+      height: 14,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+    },
+    skeletonBlockDescriptor: {
+      width: 120,
+      height: 10,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+    },
+    skeletonBar: {
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: tokens.elevatedSurface,
+    },
+    skeletonBlockScore: {
+      width: 32,
+      height: 22,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+    },
+  });
+}

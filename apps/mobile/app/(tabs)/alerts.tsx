@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert as RNAlert,
   Pressable,
@@ -11,21 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAlertsStore, Alert } from '../../src/store/alertsStore';
 import { IconSymbol } from '../../components/ui/IconSymbol';
-
-// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
-// Duplicated locally (same values as app/(tabs)/index.tsx and app/stock/[symbol].tsx) rather
-// than importing from those screens, to keep this a self-contained single-file redesign per
-// the build instructions.
-const COLOR_CANVAS = '#090B0A';
-const COLOR_SURFACE_ELEVATED = '#131613';
-const COLOR_SURFACE_SECONDARY = '#191D19';
-const COLOR_DIVIDER = '#1A1E1A';
-const COLOR_TEXT_PRIMARY = '#F5F7F2';
-const COLOR_TEXT_SECONDARY = '#A4AAA3';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_ACCENT_LIME = '#C7FF3D';
-const COLOR_NEGATIVE = '#FF6B67';
-const COLOR_WARNING = '#FFB84D';
+import { useThemeTokens } from '../../src/store/themeStore';
+import type { ThemeTokens } from '../../src/theme/tokens';
 
 const SKELETON_ROWS = [0, 1, 2];
 
@@ -53,6 +40,8 @@ function groupKeyFor(alert: Alert): string {
 }
 
 export default function AlertsScreen() {
+  const tokens = useThemeTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const { alerts, fetchAlerts, createAlert, deleteAlert, isLoading, error } = useAlertsStore();
   const [showForm, setShowForm] = useState(false);
 
@@ -144,7 +133,7 @@ export default function AlertsScreen() {
         <TextInput
           style={styles.input}
           placeholder="Stock symbol (e.g. RELIANCE)"
-          placeholderTextColor={COLOR_TEXT_TERTIARY}
+          placeholderTextColor={tokens.textTertiary}
           value={stockSymbol}
           onChangeText={setStockSymbol}
           autoCapitalize="characters"
@@ -202,7 +191,7 @@ export default function AlertsScreen() {
         <TextInput
           style={[styles.input, styles.thresholdInput]}
           placeholder="Value"
-          placeholderTextColor={COLOR_TEXT_TERTIARY}
+          placeholderTextColor={tokens.textTertiary}
           keyboardType="numeric"
           value={threshold}
           onChangeText={setThreshold}
@@ -243,7 +232,7 @@ export default function AlertsScreen() {
           <IconSymbol
             name={showForm ? 'xmark.circle.fill' : 'plus.circle.fill'}
             size={22}
-            color={COLOR_ACCENT_LIME}
+            color={tokens.accent}
           />
         </Pressable>
       </View>
@@ -266,7 +255,7 @@ export default function AlertsScreen() {
 
           {isEmpty && (
             <View style={styles.emptyState}>
-              <IconSymbol name="bell.fill" size={40} color={COLOR_TEXT_TERTIARY} />
+              <IconSymbol name="bell.fill" size={40} color={tokens.textTertiary} />
               <Text style={styles.emptyTitle}>Nothing needs your attention.</Text>
               <Text style={styles.emptySubtitle}>Create an alert and Finwerse will watch it for you.</Text>
             </View>
@@ -279,7 +268,7 @@ export default function AlertsScreen() {
                 <View key={alert.id} style={styles.triggeredCard}>
                   <View style={styles.cardHeaderRow}>
                     <View style={styles.statusRow}>
-                      <View style={[styles.statusDot, { backgroundColor: COLOR_WARNING }]} />
+                      <View style={[styles.statusDot, { backgroundColor: tokens.warning }]} />
                       <Text style={styles.triggeredLabel}>Fired on {alert.triggered_date}</Text>
                     </View>
                     <Pressable
@@ -288,7 +277,7 @@ export default function AlertsScreen() {
                       onPress={() => confirmDeleteAlert(alert.id)}
                       hitSlop={8}
                     >
-                      <IconSymbol name="trash" size={18} color={COLOR_NEGATIVE} />
+                      <IconSymbol name="trash" size={18} color={tokens.negative} />
                     </Pressable>
                   </View>
                   <Text style={styles.alertDesc}>
@@ -321,7 +310,7 @@ export default function AlertsScreen() {
                           onPress={() => confirmDeleteAlert(alert.id)}
                           hitSlop={8}
                         >
-                          <IconSymbol name="trash" size={18} color={COLOR_NEGATIVE} />
+                          <IconSymbol name="trash" size={18} color={tokens.negative} />
                         </Pressable>
                       </View>
                     ))}
@@ -337,271 +326,273 @@ export default function AlertsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  screenTitle: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  headerIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerIconButtonPressed: {
-    opacity: 0.7,
-  },
-  pressedOpacity: {
-    opacity: 0.7,
-  },
-  // Loading state — skeleton cards matching the alert-card shape
-  skeletonCard: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    gap: 8,
-  },
-  skeletonLineWide: {
-    width: '70%',
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-  },
-  skeletonLineNarrow: {
-    width: '45%',
-    height: 12,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-  },
-  // Error/retry state
-  errorBox: {
-    padding: 20,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  errorText: {
-    color: COLOR_NEGATIVE,
-    fontSize: 14,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  retryText: {
-    color: COLOR_ACCENT_LIME,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 64,
-    gap: 10,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    color: COLOR_TEXT_SECONDARY,
-    textAlign: 'center',
-    maxWidth: 260,
-  },
-  // New-alert form
-  formCard: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-  },
-  formTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-    marginBottom: 16,
-  },
-  formSectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-    marginBottom: 10,
-  },
-  formSectionTitleSpaced: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLOR_DIVIDER,
-  },
-  fieldLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLOR_TEXT_TERTIARY,
-    marginTop: 12,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-  },
-  chip: {
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-  },
-  chipSelected: {
-    backgroundColor: COLOR_ACCENT_LIME,
-  },
-  chipText: {
-    color: COLOR_TEXT_SECONDARY,
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  chipTextSelected: {
-    color: COLOR_CANVAS,
-  },
-  input: {
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 12,
-    fontSize: 15,
-    color: COLOR_TEXT_PRIMARY,
-  },
-  thresholdInput: {
-    flex: 1,
-    minWidth: 90,
-    marginTop: 0,
-  },
-  formActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginTop: 24,
-    gap: 20,
-  },
-  cancelBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-  },
-  cancelText: {
-    color: COLOR_NEGATIVE,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  saveBtn: {
-    backgroundColor: COLOR_ACCENT_LIME,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  saveText: {
-    color: COLOR_CANVAS,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  // Sections
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-    marginBottom: 12,
-  },
-  // Triggered alerts
-  triggeredCard: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: COLOR_WARNING,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  triggeredLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLOR_WARNING,
-  },
-  alertDesc: {
-    fontSize: 14.5,
-    color: COLOR_TEXT_SECONDARY,
-    flex: 1,
-  },
-  // Active alerts, grouped by target
-  groupContainer: {
-    marginBottom: 16,
-  },
-  groupLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: COLOR_TEXT_TERTIARY,
-    marginBottom: 8,
-  },
-  groupCard: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  alertRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  alertRowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLOR_DIVIDER,
-  },
-});
+function createStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    content: {
+      padding: 20,
+      paddingBottom: 40,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 24,
+    },
+    screenTitle: {
+      fontSize: 30,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+    },
+    headerIconButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: tokens.elevatedSurface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerIconButtonPressed: {
+      opacity: 0.7,
+    },
+    pressedOpacity: {
+      opacity: 0.7,
+    },
+    // Loading state — skeleton cards matching the alert-card shape
+    skeletonCard: {
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 12,
+      gap: 8,
+    },
+    skeletonLineWide: {
+      width: '70%',
+      height: 14,
+      borderRadius: 4,
+      backgroundColor: tokens.secondarySurface,
+    },
+    skeletonLineNarrow: {
+      width: '45%',
+      height: 12,
+      borderRadius: 4,
+      backgroundColor: tokens.secondarySurface,
+    },
+    // Error/retry state
+    errorBox: {
+      padding: 20,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    errorText: {
+      color: tokens.negative,
+      fontSize: 14,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    retryText: {
+      color: tokens.accent,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    // Empty state
+    emptyState: {
+      alignItems: 'center',
+      paddingVertical: 64,
+      gap: 10,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+      marginTop: 8,
+      textAlign: 'center',
+    },
+    emptySubtitle: {
+      fontSize: 15,
+      color: tokens.textSecondary,
+      textAlign: 'center',
+      maxWidth: 260,
+    },
+    // New-alert form
+    formCard: {
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 24,
+    },
+    formTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+      marginBottom: 16,
+    },
+    formSectionTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+      marginBottom: 10,
+    },
+    formSectionTitleSpaced: {
+      marginTop: 20,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: tokens.dividerSubtle,
+    },
+    fieldLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: tokens.textTertiary,
+      marginTop: 12,
+      marginBottom: 8,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    chipRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      alignItems: 'center',
+    },
+    chip: {
+      paddingVertical: 9,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      backgroundColor: tokens.secondarySurface,
+    },
+    chipSelected: {
+      backgroundColor: tokens.accent,
+    },
+    chipText: {
+      color: tokens.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+      textTransform: 'capitalize',
+    },
+    chipTextSelected: {
+      color: tokens.onAccent,
+    },
+    input: {
+      backgroundColor: tokens.secondarySurface,
+      borderRadius: 10,
+      padding: 12,
+      marginTop: 12,
+      fontSize: 15,
+      color: tokens.textPrimary,
+    },
+    thresholdInput: {
+      flex: 1,
+      minWidth: 90,
+      marginTop: 0,
+    },
+    formActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      marginTop: 24,
+      gap: 20,
+    },
+    cancelBtn: {
+      paddingVertical: 12,
+      paddingHorizontal: 4,
+    },
+    cancelText: {
+      color: tokens.negative,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    saveBtn: {
+      backgroundColor: tokens.accent,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 12,
+    },
+    saveText: {
+      color: tokens.onAccent,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    // Sections
+    section: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+      marginBottom: 12,
+    },
+    // Triggered alerts
+    triggeredCard: {
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 10,
+      borderLeftWidth: 3,
+      borderLeftColor: tokens.warning,
+    },
+    cardHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    statusDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    triggeredLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: tokens.warning,
+    },
+    alertDesc: {
+      fontSize: 14.5,
+      color: tokens.textSecondary,
+      flex: 1,
+    },
+    // Active alerts, grouped by target
+    groupContainer: {
+      marginBottom: 16,
+    },
+    groupLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 1,
+      color: tokens.textTertiary,
+      marginBottom: 8,
+    },
+    groupCard: {
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      overflow: 'hidden',
+    },
+    alertRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      gap: 12,
+    },
+    alertRowDivider: {
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.dividerSubtle,
+    },
+  });
+}

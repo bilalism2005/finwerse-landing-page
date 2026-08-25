@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,31 +12,23 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSentimentStore, Article } from '../../src/store/sentimentStore';
 import { IconSymbol } from '../../components/ui/IconSymbol';
-
-// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
-// Duplicated locally (same values as app/(tabs)/index.tsx) rather than importing from that
-// screen, to keep this a self-contained single-file redesign per the build instructions.
-const COLOR_CANVAS = '#090B0A';
-const COLOR_SURFACE_ELEVATED = '#131613';
-const COLOR_DIVIDER = '#1A1E1A';
-const COLOR_TEXT_PRIMARY = '#F5F7F2';
-const COLOR_TEXT_SECONDARY = '#A4AAA3';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_ACCENT_LIME = '#C7FF3D';
-const COLOR_POSITIVE = '#B8F35A';
-const COLOR_NEGATIVE = '#FF6B67';
-const COLOR_WARNING = '#FFB84D';
+import { useThemeTokens } from '../../src/store/themeStore';
+import type { ThemeTokens } from '../../src/theme/tokens';
 
 const SKELETON_ROWS = [0, 1, 2, 3, 4, 5];
 
 // Adds an alpha channel to a 6-digit hex token, for badge tints derived from the
-// Positive/Negative/Warning tokens above (spec/ui.md's badge-restyle instruction).
+// Positive/Negative/Warning tokens (spec/ui.md's badge-restyle instruction). The base hex is
+// passed in per-call from the live theme tokens (tokens.positive/negative/warning), not a
+// module-level constant, so the derived tint updates when the theme switches.
 function withAlpha(hex: string, alpha: number): string {
   const clamped = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
   return `${hex}${clamped.toString(16).padStart(2, '0')}`;
 }
 
 export default function SentimentFeedScreen() {
+  const tokens = useThemeTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const { articles, isLoading, error, fetchMarketNews, fetchPortfolioSentiment, searchSentiment } =
     useSentimentStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,12 +77,12 @@ export default function SentimentFeedScreen() {
 
   const getPolarityBadge = (polarity: number) => {
     if (polarity > 0.15) {
-      return { label: 'Bullish', color: COLOR_POSITIVE };
+      return { label: 'Bullish', color: tokens.positive };
     }
     if (polarity < -0.15) {
-      return { label: 'Bearish', color: COLOR_NEGATIVE };
+      return { label: 'Bearish', color: tokens.negative };
     }
-    return { label: 'Neutral', color: COLOR_WARNING };
+    return { label: 'Neutral', color: tokens.warning };
   };
 
   const extractHeadline = (url: string) => {
@@ -207,11 +199,11 @@ export default function SentimentFeedScreen() {
 
       {/* Search field */}
       <View style={styles.searchField}>
-        <IconSymbol name="magnifyingglass" size={18} color={COLOR_TEXT_TERTIARY} />
+        <IconSymbol name="magnifyingglass" size={18} color={tokens.textTertiary} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by symbol or company (e.g. INFY, ZOMATO)..."
-          placeholderTextColor={COLOR_TEXT_TERTIARY}
+          placeholderTextColor={tokens.textTertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
           onSubmitEditing={handleSearch}
@@ -221,7 +213,7 @@ export default function SentimentFeedScreen() {
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={clearSearch} style={styles.clearBtn}>
-            <IconSymbol name="xmark.circle.fill" size={18} color={COLOR_TEXT_TERTIARY} />
+            <IconSymbol name="xmark.circle.fill" size={18} color={tokens.textTertiary} />
           </TouchableOpacity>
         )}
       </View>
@@ -257,11 +249,11 @@ export default function SentimentFeedScreen() {
           renderItem={renderArticle}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLOR_ACCENT_LIME} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} />
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <IconSymbol name="newspaper.fill" size={40} color={COLOR_TEXT_TERTIARY} />
+              <IconSymbol name="newspaper.fill" size={40} color={tokens.textTertiary} />
               <Text style={styles.emptyTitle}>No Articles Found</Text>
               <Text style={styles.emptyText}>
                 {searchQuery
@@ -276,99 +268,101 @@ export default function SentimentFeedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLOR_CANVAS },
-  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10 },
-  headerTitle: { fontSize: 30, fontWeight: '700', color: COLOR_TEXT_PRIMARY },
-  headerSubtitle: { fontSize: 13, color: COLOR_TEXT_SECONDARY, marginTop: 3 },
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 12,
-    padding: 4,
-    marginHorizontal: 20,
-    marginBottom: 12,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: 'transparent',
-  },
-  segmentSelected: { backgroundColor: COLOR_ACCENT_LIME },
-  segmentText: { fontSize: 13, fontWeight: '600', color: COLOR_TEXT_SECONDARY },
-  segmentTextSelected: { color: COLOR_CANVAS },
-  searchField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    marginHorizontal: 20,
-    marginBottom: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-  },
-  searchInput: { flex: 1, color: COLOR_TEXT_PRIMARY, paddingVertical: 14, fontSize: 15 },
-  clearBtn: { padding: 4 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 40 },
-  articleRow: {
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLOR_DIVIDER,
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  symbolBadge: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  symbolText: { fontSize: 13, fontWeight: '700', color: COLOR_TEXT_PRIMARY, letterSpacing: 0.5 },
-  sentimentBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 5,
-  },
-  badgeDot: { width: 6, height: 6, borderRadius: 3 },
-  badgeText: { fontSize: 11, fontWeight: '600' },
-  headline: { fontSize: 15, fontWeight: '600', color: COLOR_TEXT_PRIMARY, lineHeight: 21, marginBottom: 12 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  sourceText: { fontSize: 12.5, color: COLOR_TEXT_TERTIARY, fontWeight: '500', flexShrink: 1 },
-  dateText: { fontSize: 12.5, color: COLOR_TEXT_TERTIARY },
-  errorBox: {
-    padding: 20,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  errorText: { color: COLOR_NEGATIVE, fontSize: 14, marginBottom: 8, textAlign: 'center' },
-  retryText: { color: COLOR_ACCENT_LIME, fontSize: 14, fontWeight: '600' },
-  emptyState: { padding: 40, alignItems: 'center', marginTop: 30 },
-  emptyTitle: { color: COLOR_TEXT_PRIMARY, fontSize: 16, fontWeight: '700', marginTop: 12 },
-  emptyText: { color: COLOR_TEXT_SECONDARY, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18 },
-  // Skeleton loading state (item 5, spec/ui.md → Screen: Market News) — matches populated row shape.
-  skeletonSymbolBadge: { width: 56, height: 22, borderRadius: 8, backgroundColor: COLOR_SURFACE_ELEVATED },
-  skeletonSentimentBadge: { width: 72, height: 22, borderRadius: 8, backgroundColor: COLOR_SURFACE_ELEVATED },
-  skeletonHeadlineLineFull: {
-    width: '100%',
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    marginBottom: 8,
-  },
-  skeletonHeadlineLineShort: {
-    width: '60%',
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    marginBottom: 12,
-  },
-  skeletonFooterLine: { width: 90, height: 10, borderRadius: 4, backgroundColor: COLOR_SURFACE_ELEVATED },
-  skeletonFooterLineShort: { width: 60, height: 10, borderRadius: 4, backgroundColor: COLOR_SURFACE_ELEVATED },
-});
+function createStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tokens.canvas },
+    header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10 },
+    headerTitle: { fontSize: 30, fontWeight: '700', color: tokens.textPrimary },
+    headerSubtitle: { fontSize: 13, color: tokens.textSecondary, marginTop: 3 },
+    segmentedControl: {
+      flexDirection: 'row',
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 12,
+      padding: 4,
+      marginHorizontal: 20,
+      marginBottom: 12,
+    },
+    segment: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: 10,
+      backgroundColor: 'transparent',
+    },
+    segmentSelected: { backgroundColor: tokens.accent },
+    segmentText: { fontSize: 13, fontWeight: '600', color: tokens.textSecondary },
+    segmentTextSelected: { color: tokens.onAccent },
+    searchField: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: tokens.elevatedSurface,
+      marginHorizontal: 20,
+      marginBottom: 12,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+    },
+    searchInput: { flex: 1, color: tokens.textPrimary, paddingVertical: 14, fontSize: 15 },
+    clearBtn: { padding: 4 },
+    listContent: { paddingHorizontal: 20, paddingBottom: 40 },
+    articleRow: {
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.dividerSubtle,
+    },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    symbolBadge: {
+      backgroundColor: tokens.elevatedSurface,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    symbolText: { fontSize: 13, fontWeight: '700', color: tokens.textPrimary, letterSpacing: 0.5 },
+    sentimentBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      borderWidth: 1,
+      gap: 5,
+    },
+    badgeDot: { width: 6, height: 6, borderRadius: 3 },
+    badgeText: { fontSize: 11, fontWeight: '600' },
+    headline: { fontSize: 15, fontWeight: '600', color: tokens.textPrimary, lineHeight: 21, marginBottom: 12 },
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+    sourceText: { fontSize: 12.5, color: tokens.textTertiary, fontWeight: '500', flexShrink: 1 },
+    dateText: { fontSize: 12.5, color: tokens.textTertiary },
+    errorBox: {
+      padding: 20,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginTop: 12,
+    },
+    errorText: { color: tokens.negative, fontSize: 14, marginBottom: 8, textAlign: 'center' },
+    retryText: { color: tokens.accent, fontSize: 14, fontWeight: '600' },
+    emptyState: { padding: 40, alignItems: 'center', marginTop: 30 },
+    emptyTitle: { color: tokens.textPrimary, fontSize: 16, fontWeight: '700', marginTop: 12 },
+    emptyText: { color: tokens.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18 },
+    // Skeleton loading state (item 5, spec/ui.md → Screen: Market News) — matches populated row shape.
+    skeletonSymbolBadge: { width: 56, height: 22, borderRadius: 8, backgroundColor: tokens.elevatedSurface },
+    skeletonSentimentBadge: { width: 72, height: 22, borderRadius: 8, backgroundColor: tokens.elevatedSurface },
+    skeletonHeadlineLineFull: {
+      width: '100%',
+      height: 14,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+      marginBottom: 8,
+    },
+    skeletonHeadlineLineShort: {
+      width: '60%',
+      height: 14,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+      marginBottom: 12,
+    },
+    skeletonFooterLine: { width: 90, height: 10, borderRadius: 4, backgroundColor: tokens.elevatedSurface },
+    skeletonFooterLineShort: { width: 60, height: 10, borderRadius: 4, backgroundColor: tokens.elevatedSurface },
+  });
+}

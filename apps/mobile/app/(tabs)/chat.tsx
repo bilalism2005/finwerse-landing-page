@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,18 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChatStore } from '../../src/store/chatStore';
 import { IconSymbol } from '../../components/ui/IconSymbol';
-
-// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
-const COLOR_CANVAS = '#090B0A';
-const COLOR_SURFACE_ELEVATED = '#131613';
-const COLOR_SURFACE_SECONDARY = '#191D19';
-const COLOR_DIVIDER = '#1A1E1A';
-const COLOR_TEXT_PRIMARY = '#F5F7F2';
-const COLOR_TEXT_SECONDARY = '#A4AAA3';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_ACCENT_LIME = '#C7FF3D';
-const COLOR_NEGATIVE = '#FF6B67';
-const COLOR_BORDER = '#2A2E2A';
+import { useThemeTokens, useThemeStore } from '../../src/store/themeStore';
+import type { ThemeTokens } from '../../src/theme/tokens';
 
 const SUGGESTIONS = [
   "Why is my portfolio weak?",
@@ -43,7 +33,7 @@ const ERROR_MESSAGE_COPY = 'Sorry, I encountered an error. Please try again.';
 // Home nor Stock Detail has a shipped dot-pulse pattern to reuse today — this is a fresh
 // application of the Design System's micro-interaction motion token (120-250ms per-dot stagger)
 // for this screen, replacing the previous spinner + "Analyzing data..." treatment.
-function DotPulse() {
+function DotPulse({ styles }: { styles: ReturnType<typeof createStyles> }) {
   const dot1 = useRef(new Animated.Value(0.3)).current;
   const dot2 = useRef(new Animated.Value(0.3)).current;
   const dot3 = useRef(new Animated.Value(0.3)).current;
@@ -90,6 +80,9 @@ function DotPulse() {
 }
 
 export default function ChatScreen() {
+  const tokens = useThemeTokens();
+  const mode = useThemeStore((s) => s.mode);
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const [inputText, setInputText] = useState('');
   const { messages, isStreaming, sendMessage, clearHistory } = useChatStore();
   const flatListRef = useRef<FlatList>(null);
@@ -129,7 +122,7 @@ export default function ChatScreen() {
     return (
       <View style={[styles.messageRow, styles.botRow]}>
         {isLoading ? (
-          <DotPulse />
+          <DotPulse styles={styles} />
         ) : (
           <Text style={[styles.botText, isErrorMessage && styles.botTextError]}>
             {item.content}
@@ -178,7 +171,7 @@ export default function ChatScreen() {
                   onPress={() => handleSend(suggestion)}
                 >
                   <Text style={styles.suggestionText}>{suggestion}</Text>
-                  <IconSymbol name="chevron.right" size={12} color={COLOR_TEXT_TERTIARY} />
+                  <IconSymbol name="chevron.right" size={12} color={tokens.textTertiary} />
                 </Pressable>
               ))}
             </View>
@@ -201,13 +194,13 @@ export default function ChatScreen() {
           <TextInput
             style={styles.input}
             placeholder="Ask about a stock or your portfolio..."
-            placeholderTextColor={COLOR_TEXT_TERTIARY}
+            placeholderTextColor={tokens.textTertiary}
             value={inputText}
             onChangeText={setInputText}
             multiline
             maxLength={500}
             editable={!isStreaming}
-            keyboardAppearance="dark"
+            keyboardAppearance={mode === 'light' ? 'light' : 'dark'}
           />
           <Pressable
             style={({ pressed }) => [
@@ -223,7 +216,7 @@ export default function ChatScreen() {
             <IconSymbol
               name="arrow.up"
               size={18}
-              color={inputText.trim() && !isStreaming ? COLOR_CANVAS : COLOR_TEXT_TERTIARY}
+              color={inputText.trim() && !isStreaming ? tokens.onAccent : tokens.textTertiary}
             />
           </Pressable>
         </View>
@@ -232,181 +225,183 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  keyboardContainer: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: COLOR_CANVAS,
-    borderBottomWidth: 1,
-    borderBottomColor: COLOR_DIVIDER,
-  },
-  headerTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: COLOR_TEXT_TERTIARY,
-    marginTop: 2,
-  },
-  clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
-  },
-  clearButtonPressed: {
-    opacity: 0.7,
-  },
-  clearText: {
-    color: COLOR_TEXT_SECONDARY,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  chatList: {
-    padding: 16,
-    paddingBottom: 24,
-  },
-  messageRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    backgroundColor: 'transparent',
-  },
-  userRow: {
-    justifyContent: 'flex-end',
-  },
-  botRow: {
-    justifyContent: 'flex-start',
-  },
-  userBubble: {
-    maxWidth: '78%',
-    backgroundColor: COLOR_DIVIDER,
-    borderRadius: 16,
-    borderBottomRightRadius: 4,
-    paddingHorizontal: 15,
-    paddingVertical: 11,
-  },
-  userText: {
-    color: COLOR_TEXT_PRIMARY,
-    fontWeight: '600',
-    fontSize: 14.5,
-    lineHeight: 21,
-  },
-  botText: {
-    color: COLOR_TEXT_PRIMARY,
-    fontSize: 15,
-    lineHeight: 22,
-    flexShrink: 1,
-  },
-  botTextError: {
-    color: COLOR_NEGATIVE,
-  },
-  dotPulseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
-    backgroundColor: 'transparent',
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLOR_TEXT_TERTIARY,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: 'transparent',
-  },
-  emptyTitle: {
-    fontSize: 25,
-    fontWeight: '600',
-    letterSpacing: -0.4,
-    lineHeight: 31,
-    maxWidth: 280,
-    color: COLOR_TEXT_PRIMARY,
-    textAlign: 'center',
-  },
-  suggestionsContainer: {
-    width: '100%',
-    backgroundColor: 'transparent',
-  },
-  suggestionsHeader: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLOR_TEXT_TERTIARY,
-    letterSpacing: 1,
-    marginTop: 32,
-    marginBottom: 4,
-  },
-  suggestionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    paddingVertical: 15,
-    paddingHorizontal: 2,
-    borderBottomWidth: 1,
-    borderBottomColor: COLOR_DIVIDER,
-  },
-  suggestionRowPressed: {
-    opacity: 0.8,
-  },
-  suggestionText: {
-    color: COLOR_TEXT_PRIMARY,
-    fontSize: 14.5,
-    flex: 1,
-    marginRight: 8,
-  },
-  composer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLOR_CANVAS,
-    borderWidth: 1,
-    borderColor: COLOR_BORDER,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    color: COLOR_TEXT_PRIMARY,
-    fontSize: 15,
-    maxHeight: 100,
-  },
-  sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: COLOR_ACCENT_LIME,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonPressed: {
-    opacity: 0.85,
-  },
-  sendButtonDisabled: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-});
+function createStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    keyboardContainer: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    safeArea: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      backgroundColor: tokens.canvas,
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.dividerSubtle,
+    },
+    headerTitle: {
+      fontSize: 19,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+    },
+    headerSubtitle: {
+      fontSize: 13,
+      color: tokens.textTertiary,
+      marginTop: 2,
+    },
+    clearButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 10,
+      backgroundColor: tokens.secondarySurface,
+    },
+    clearButtonPressed: {
+      opacity: 0.7,
+    },
+    clearText: {
+      color: tokens.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    chatList: {
+      padding: 16,
+      paddingBottom: 24,
+    },
+    messageRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 16,
+      backgroundColor: 'transparent',
+    },
+    userRow: {
+      justifyContent: 'flex-end',
+    },
+    botRow: {
+      justifyContent: 'flex-start',
+    },
+    userBubble: {
+      maxWidth: '78%',
+      backgroundColor: tokens.dividerSubtle,
+      borderRadius: 16,
+      borderBottomRightRadius: 4,
+      paddingHorizontal: 15,
+      paddingVertical: 11,
+    },
+    userText: {
+      color: tokens.textPrimary,
+      fontWeight: '600',
+      fontSize: 14.5,
+      lineHeight: 21,
+    },
+    botText: {
+      color: tokens.textPrimary,
+      fontSize: 15,
+      lineHeight: 22,
+      flexShrink: 1,
+    },
+    botTextError: {
+      color: tokens.negative,
+    },
+    dotPulseRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 4,
+      backgroundColor: 'transparent',
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: tokens.textTertiary,
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+      backgroundColor: 'transparent',
+    },
+    emptyTitle: {
+      fontSize: 25,
+      fontWeight: '600',
+      letterSpacing: -0.4,
+      lineHeight: 31,
+      maxWidth: 280,
+      color: tokens.textPrimary,
+      textAlign: 'center',
+    },
+    suggestionsContainer: {
+      width: '100%',
+      backgroundColor: 'transparent',
+    },
+    suggestionsHeader: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: tokens.textTertiary,
+      letterSpacing: 1,
+      marginTop: 32,
+      marginBottom: 4,
+    },
+    suggestionRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: 'transparent',
+      paddingVertical: 15,
+      paddingHorizontal: 2,
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.dividerSubtle,
+    },
+    suggestionRowPressed: {
+      opacity: 0.8,
+    },
+    suggestionText: {
+      color: tokens.textPrimary,
+      fontSize: 14.5,
+      flex: 1,
+      marginRight: 8,
+    },
+    composer: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: tokens.canvas,
+      borderWidth: 1,
+      borderColor: tokens.dividerStrong,
+    },
+    input: {
+      flex: 1,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 12,
+      color: tokens.textPrimary,
+      fontSize: 15,
+      maxHeight: 100,
+    },
+    sendButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: tokens.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sendButtonPressed: {
+      opacity: 0.85,
+    },
+    sendButtonDisabled: {
+      backgroundColor: tokens.elevatedSurface,
+    },
+  });
+}

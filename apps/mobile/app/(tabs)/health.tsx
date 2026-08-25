@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
@@ -6,22 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHealthStore, StockHealthInfo, SectorInfo } from '@/src/store/healthStore';
 import { HoldingPeriod } from '@/src/store/portfolioStore';
 import { useChatStore } from '@/src/store/chatStore';
+import { useThemeTokens } from '@/src/store/themeStore';
+import type { ThemeTokens } from '@/src/theme/tokens';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
-// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
-// Duplicated locally rather than imported, matching the established single-file-redesign
-// pattern already used by app/(tabs)/index.tsx and app/stock/[symbol].tsx.
-const COLOR_CANVAS = '#090B0A';
-const COLOR_SURFACE_ELEVATED = '#131613';
-const COLOR_SURFACE_SECONDARY = '#191D19';
-const COLOR_DIVIDER = '#1A1E1A';
-const COLOR_TEXT_PRIMARY = '#F5F7F2';
-const COLOR_TEXT_SECONDARY = '#A4AAA3';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_ACCENT_LIME = '#C7FF3D';
-const COLOR_POSITIVE = '#B8F35A';
-const COLOR_NEGATIVE = '#FF6B67';
-const COLOR_WARNING = '#FFB84D';
+function withAlpha(hex: string, alphaHex: string): string {
+  return `${hex}${alphaHex}`;
+}
 
 type Band = 'green' | 'amber' | 'red';
 
@@ -31,12 +22,6 @@ function getBand(score: number): Band {
   if (score <= 65) return 'amber';
   return 'green';
 }
-
-const BAND_COLOR: Record<Band, string> = {
-  green: COLOR_ACCENT_LIME,
-  amber: COLOR_WARNING,
-  red: COLOR_NEGATIVE,
-};
 
 const HORIZON_LABELS: Record<HoldingPeriod, string> = {
   short: 'Short',
@@ -80,6 +65,8 @@ const EVIDENCE_ROWS: { key: 'technical_score' | 'safety_score' | 'sentiment_scor
   { key: 'sentiment_score', label: 'Sentiment' },
 ];
 
+// Categorical sector-identity palette — exempt from the single-accent-color/theme-role
+// system (spec/ui.md), used only to distinguish diversification-bar segments from each other.
 const SECTOR_COLORS = ['#7c6af7', '#b8f567', '#f7a26a', '#4facfe', '#00f2fe', '#f093fb', '#f5576c', '#5ee7df'];
 
 export default function HealthScreen() {
@@ -87,6 +74,13 @@ export default function HealthScreen() {
   const { sendMessage } = useChatStore();
   const { healthData, fetchHealth, loading, error, clearBottleneckReport } = useHealthStore();
   const [timeframe, setTimeframe] = useState<HoldingPeriod>('medium');
+  const tokens = useThemeTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+  const BAND_COLOR: Record<Band, string> = {
+    green: tokens.positive,
+    amber: tokens.warning,
+    red: tokens.negative,
+  };
 
   useEffect(() => {
     fetchHealth(timeframe);
@@ -119,8 +113,8 @@ export default function HealthScreen() {
       <View key={item.stock_symbol} style={[styles.holdingRow, !isLast && styles.rowDivider]}>
         <View style={styles.holdingHeaderRow}>
           <Text style={styles.holdingSymbol}>{item.stock_symbol}</Text>
-          <View style={[styles.scoreBadge, { backgroundColor: band ? BAND_COLOR[band] : COLOR_SURFACE_SECONDARY }]}>
-            <Text style={[styles.scoreBadgeText, { color: band ? COLOR_CANVAS : COLOR_TEXT_TERTIARY }]}>
+          <View style={[styles.scoreBadge, { backgroundColor: band ? withAlpha(BAND_COLOR[band], '26') : tokens.secondarySurface }]}>
+            <Text style={[styles.scoreBadgeText, { color: band ? BAND_COLOR[band] : tokens.textTertiary }]}>
               {item.overall_score !== null ? Math.round(item.overall_score) : 'N/A'}
             </Text>
           </View>
@@ -205,7 +199,7 @@ export default function HealthScreen() {
         {header}
         {timeframeControl}
         <View style={styles.gaugeSkeletonWrap}>
-          <ActivityIndicator size="large" color={COLOR_ACCENT_LIME} />
+          <ActivityIndicator size="large" color={tokens.accent} />
           <Text style={styles.loadingText}>Analyzing your portfolio…</Text>
         </View>
       </ScrollView>
@@ -223,7 +217,7 @@ export default function HealthScreen() {
         {header}
         {timeframeControl}
         <View style={styles.emptyStateBox}>
-          <IconSymbol name="chart.line.uptrend.xyaxis" size={32} color={COLOR_TEXT_TERTIARY} />
+          <IconSymbol name="chart.line.uptrend.xyaxis" size={32} color={tokens.textTertiary} />
           <Text style={styles.emptyStateTitle}>You haven't added any holdings yet</Text>
           <Text style={styles.emptyStateSubtitle}>
             Add your stocks on the Portfolio tab to unlock your health score, diversification, and the AI Bottleneck
@@ -249,7 +243,7 @@ export default function HealthScreen() {
       {/* Score hero — semi-circle gauge, arc fill proportional to (score + 100) / 2 */}
       <View style={styles.gaugeWrap}>
         <Svg width={GAUGE_WIDTH} height={GAUGE_HEIGHT}>
-          <Path d={GAUGE_TRACK_PATH} stroke={COLOR_DIVIDER} strokeWidth={GAUGE_STROKE} strokeLinecap="round" fill="none" />
+          <Path d={GAUGE_TRACK_PATH} stroke={tokens.dividerSubtle} strokeWidth={GAUGE_STROKE} strokeLinecap="round" fill="none" />
           {gaugeFraction > 0 && (
             <Path
               d={gaugeFillPath}
@@ -273,11 +267,11 @@ export default function HealthScreen() {
       <View style={styles.splitScoresRow}>
         <View style={styles.splitBox}>
           <Text style={styles.splitLabel}>Green Score</Text>
-          <Text style={[styles.splitVal, { color: COLOR_POSITIVE }]}>{Math.round(healthData.green_score)}</Text>
+          <Text style={[styles.splitVal, { color: tokens.positive }]}>{Math.round(healthData.green_score)}</Text>
         </View>
         <View style={styles.splitBox}>
           <Text style={styles.splitLabel}>Red Score</Text>
-          <Text style={[styles.splitVal, { color: COLOR_NEGATIVE }]}>{Math.round(healthData.red_score)}</Text>
+          <Text style={[styles.splitVal, { color: tokens.negative }]}>{Math.round(healthData.red_score)}</Text>
         </View>
       </View>
 
@@ -292,7 +286,7 @@ export default function HealthScreen() {
             <View key={row.key} style={[styles.evidenceRow, !isLast && styles.rowDivider]}>
               <View style={styles.evidenceTopRow}>
                 <Text style={styles.evidenceLabel}>{row.label}</Text>
-                <Text style={[styles.evidenceValue, { color: na ? COLOR_TEXT_SECONDARY : BAND_COLOR[band as Band] }]}>
+                <Text style={[styles.evidenceValue, { color: na ? tokens.textSecondary : BAND_COLOR[band as Band] }]}>
                   {na ? 'Not Available' : Math.round(value as number)}
                 </Text>
               </View>
@@ -341,7 +335,7 @@ export default function HealthScreen() {
             handleBottleneckNav(prompt);
           }}
         >
-          <IconSymbol name="sparkles" size={20} color={COLOR_CANVAS} />
+          <IconSymbol name="sparkles" size={20} color={tokens.onAccent} />
           <Text style={styles.bottleneckBtnText}>See what's holding your portfolio back</Text>
         </Pressable>
       </View>
@@ -358,305 +352,307 @@ export default function HealthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 60,
-  },
+function createStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    content: {
+      padding: 20,
+      paddingBottom: 60,
+    },
 
-  headerRow: {
-    marginBottom: 20,
-  },
-  screenTitle: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-  },
+    headerRow: {
+      marginBottom: 20,
+    },
+    screenTitle: {
+      fontSize: 30,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+    },
 
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: 'transparent',
-  },
-  segmentSelected: {
-    backgroundColor: COLOR_ACCENT_LIME,
-  },
-  segmentText: {
-    color: COLOR_TEXT_SECONDARY,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  segmentTextSelected: {
-    color: COLOR_CANVAS,
-  },
+    segmentedControl: {
+      flexDirection: 'row',
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 12,
+      padding: 4,
+      marginBottom: 24,
+    },
+    segment: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: 10,
+      backgroundColor: 'transparent',
+    },
+    segmentSelected: {
+      backgroundColor: tokens.accent,
+    },
+    segmentText: {
+      color: tokens.textSecondary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    segmentTextSelected: {
+      color: tokens.onAccent,
+    },
 
-  loadingText: {
-    color: COLOR_TEXT_SECONDARY,
-    marginTop: 12,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  errorBox: {
-    padding: 20,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  errorText: {
-    color: COLOR_NEGATIVE,
-    fontSize: 14,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  retryText: {
-    color: COLOR_ACCENT_LIME,
-    fontSize: 14,
-    fontWeight: '600',
-  },
+    loadingText: {
+      color: tokens.textSecondary,
+      marginTop: 12,
+      fontSize: 13,
+      textAlign: 'center',
+    },
+    errorBox: {
+      padding: 20,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    errorText: {
+      color: tokens.negative,
+      fontSize: 14,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    retryText: {
+      color: tokens.accent,
+      fontSize: 14,
+      fontWeight: '600',
+    },
 
-  emptyStateBox: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  emptyStateTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: COLOR_TEXT_PRIMARY,
-    textAlign: 'center',
-  },
-  emptyStateSubtitle: {
-    fontSize: 14,
-    color: COLOR_TEXT_SECONDARY,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+    emptyStateBox: {
+      alignItems: 'center',
+      paddingVertical: 60,
+      paddingHorizontal: 20,
+      gap: 12,
+    },
+    emptyStateTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: tokens.textPrimary,
+      textAlign: 'center',
+    },
+    emptyStateSubtitle: {
+      fontSize: 14,
+      color: tokens.textSecondary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
 
-  gaugeSkeletonWrap: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  gaugeSkeletonCircle: {
-    width: GAUGE_WIDTH,
-    height: GAUGE_HEIGHT,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderTopLeftRadius: GAUGE_WIDTH / 2,
-    borderTopRightRadius: GAUGE_WIDTH / 2,
-    marginBottom: 12,
-  },
-  skeletonLabel: {
-    width: 80,
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-  skeletonValue: {
-    width: 40,
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
+    gaugeSkeletonWrap: {
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    gaugeSkeletonCircle: {
+      width: GAUGE_WIDTH,
+      height: GAUGE_HEIGHT,
+      backgroundColor: tokens.elevatedSurface,
+      borderTopLeftRadius: GAUGE_WIDTH / 2,
+      borderTopRightRadius: GAUGE_WIDTH / 2,
+      marginBottom: 12,
+    },
+    skeletonLabel: {
+      width: 80,
+      height: 14,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+    },
+    skeletonValue: {
+      width: 40,
+      height: 14,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+    },
 
-  gaugeWrap: {
-    width: GAUGE_WIDTH,
-    height: GAUGE_HEIGHT,
-    alignSelf: 'center',
-    position: 'relative',
-    marginBottom: 16,
-  },
-  gaugeNumeralOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 2,
-    alignItems: 'center',
-  },
-  gaugeScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  gaugeScore: {
-    fontSize: 48,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  gaugeScoreSuffix: {
-    fontSize: 14,
-    color: COLOR_TEXT_TERTIARY,
-    marginBottom: 6,
-  },
+    gaugeWrap: {
+      width: GAUGE_WIDTH,
+      height: GAUGE_HEIGHT,
+      alignSelf: 'center',
+      position: 'relative',
+      marginBottom: 16,
+    },
+    gaugeNumeralOverlay: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 2,
+      alignItems: 'center',
+    },
+    gaugeScoreRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+    },
+    gaugeScore: {
+      fontSize: 48,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    gaugeScoreSuffix: {
+      fontSize: 14,
+      color: tokens.textTertiary,
+      marginBottom: 6,
+    },
 
-  splitScoresRow: {
-    flexDirection: 'row',
-    gap: 24,
-    justifyContent: 'center',
-    marginBottom: 28,
-  },
-  splitBox: {
-    alignItems: 'center',
-  },
-  splitLabel: {
-    fontSize: 12,
-    color: COLOR_TEXT_SECONDARY,
-    marginBottom: 4,
-  },
-  splitVal: {
-    fontSize: 22,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
+    splitScoresRow: {
+      flexDirection: 'row',
+      gap: 24,
+      justifyContent: 'center',
+      marginBottom: 28,
+    },
+    splitBox: {
+      alignItems: 'center',
+    },
+    splitLabel: {
+      fontSize: 12,
+      color: tokens.textSecondary,
+      marginBottom: 4,
+    },
+    splitVal: {
+      fontSize: 22,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
 
-  evidenceSection: {
-    marginBottom: 28,
-  },
-  evidenceRow: {
-    paddingVertical: 14,
-  },
-  rowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLOR_DIVIDER,
-  },
-  evidenceTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  evidenceLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  evidenceValue: {
-    fontSize: 17,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  evidenceBarTrack: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: COLOR_DIVIDER,
-    overflow: 'hidden',
-    marginTop: 10,
-  },
-  evidenceBarFill: {
-    height: 3,
-    borderRadius: 2,
-  },
+    evidenceSection: {
+      marginBottom: 28,
+    },
+    evidenceRow: {
+      paddingVertical: 14,
+    },
+    rowDivider: {
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.dividerSubtle,
+    },
+    evidenceTopRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    evidenceLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: tokens.textPrimary,
+    },
+    evidenceValue: {
+      fontSize: 17,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    evidenceBarTrack: {
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: tokens.dividerSubtle,
+      overflow: 'hidden',
+      marginTop: 10,
+    },
+    evidenceBarFill: {
+      height: 3,
+      borderRadius: 2,
+    },
 
-  section: {
-    marginBottom: 28,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  sectionMetaScore: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
+    section: {
+      marginBottom: 28,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontSize: 19,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+    },
+    sectionMetaScore: {
+      fontSize: 16,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
 
-  chartBox: {
-    padding: 16,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    marginBottom: 12,
-  },
-  chartLabel: {
-    fontSize: 12,
-    color: COLOR_TEXT_TERTIARY,
-    marginBottom: 8,
-  },
-  barContainer: {
-    height: 24,
-    flexDirection: 'row',
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: COLOR_DIVIDER,
-  },
-  barSegment: {
-    height: '100%',
-  },
-  sentence: {
-    fontSize: 15,
-    color: COLOR_TEXT_SECONDARY,
-    lineHeight: 21,
-  },
+    chartBox: {
+      padding: 16,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      marginBottom: 12,
+    },
+    chartLabel: {
+      fontSize: 12,
+      color: tokens.textTertiary,
+      marginBottom: 8,
+    },
+    barContainer: {
+      height: 24,
+      flexDirection: 'row',
+      borderRadius: 12,
+      overflow: 'hidden',
+      backgroundColor: tokens.dividerSubtle,
+    },
+    barSegment: {
+      height: '100%',
+    },
+    sentence: {
+      fontSize: 15,
+      color: tokens.textSecondary,
+      lineHeight: 21,
+    },
 
-  bottleneckBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLOR_ACCENT_LIME,
-    paddingVertical: 16,
-    borderRadius: 14,
-  },
-  bottleneckBtnPressed: {
-    opacity: 0.85,
-  },
-  bottleneckBtnText: {
-    color: COLOR_CANVAS,
-    fontWeight: '700',
-    fontSize: 15,
-  },
+    bottleneckBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: tokens.accent,
+      paddingVertical: 16,
+      borderRadius: 14,
+    },
+    bottleneckBtnPressed: {
+      opacity: 0.85,
+    },
+    bottleneckBtnText: {
+      color: tokens.onAccent,
+      fontWeight: '700',
+      fontSize: 15,
+    },
 
-  holdingsCard: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-  },
-  holdingRow: {
-    paddingVertical: 14,
-  },
-  holdingHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  holdingSymbol: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  scoreBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 100,
-  },
-  scoreBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  holdingMeta: {
-    fontSize: 12.5,
-    color: COLOR_TEXT_SECONDARY,
-  },
-});
+    holdingsCard: {
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+    },
+    holdingRow: {
+      paddingVertical: 14,
+    },
+    holdingHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    holdingSymbol: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: tokens.textPrimary,
+    },
+    scoreBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 100,
+    },
+    scoreBadgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    holdingMeta: {
+      fontSize: 12.5,
+      color: tokens.textSecondary,
+    },
+  });
+}

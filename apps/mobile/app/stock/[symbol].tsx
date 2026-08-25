@@ -1,23 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore, Timeframe } from '../../src/store';
 import { getStockDetailScore, StockScoreDetail } from '../../src/api/stockService';
 import { IconSymbol } from '../../components/ui/IconSymbol';
-
-// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
-// Duplicated locally (same values as app/(tabs)/index.tsx) rather than importing from that
-// screen, to keep this a self-contained single-file redesign per the build instructions.
-const COLOR_CANVAS = '#090B0A';
-const COLOR_SURFACE_ELEVATED = '#131613';
-const COLOR_DIVIDER = '#1A1E1A';
-const COLOR_TEXT_PRIMARY = '#F5F7F2';
-const COLOR_TEXT_SECONDARY = '#A4AAA3';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_ACCENT_LIME = '#C7FF3D';
-const COLOR_NEGATIVE = '#FF6B67';
-const COLOR_WARNING = '#FFB84D';
+import { useThemeTokens } from '../../src/store/themeStore';
+import type { ThemeTokens } from '../../src/theme/tokens';
 
 type Band = 'green' | 'amber' | 'red';
 type PillarKey = 'technical' | 'safety' | 'sentiment';
@@ -35,11 +24,9 @@ function getBand(score: number): Band {
   return 'green';
 }
 
-const BAND_COLOR: Record<Band, string> = {
-  green: COLOR_ACCENT_LIME,
-  amber: COLOR_WARNING,
-  red: COLOR_NEGATIVE,
-};
+function getBandColor(tokens: ThemeTokens, band: Band): string {
+  return { green: tokens.positive, amber: tokens.warning, red: tokens.negative }[band];
+}
 
 // spec/ui.md Score hero: 3-way status pill mapping
 const BAND_STATUS_WORD: Record<Band, string> = {
@@ -99,6 +86,8 @@ function withAlpha(hex: string, alphaHex: string): string {
 }
 
 export default function StockDetailScreen() {
+  const tokens = useThemeTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const router = useRouter();
   const { selectedTimeframe } = useAppStore();
@@ -149,7 +138,7 @@ export default function StockDetailScreen() {
           onPress={() => router.back()}
           style={({ pressed }) => [styles.headerIconButton, pressed && styles.headerIconButtonPressed]}
         >
-          <IconSymbol name="chevron.left" size={20} color={COLOR_TEXT_PRIMARY} />
+          <IconSymbol name="chevron.left" size={20} color={tokens.textPrimary} />
         </Pressable>
 
         <Pressable
@@ -161,7 +150,7 @@ export default function StockDetailScreen() {
           <IconSymbol
             name={isFavorited ? 'star.fill' : 'star'}
             size={20}
-            color={isFavorited ? COLOR_ACCENT_LIME : COLOR_TEXT_SECONDARY}
+            color={isFavorited ? tokens.accent : tokens.textSecondary}
           />
         </Pressable>
       </View>
@@ -228,14 +217,14 @@ export default function StockDetailScreen() {
           {/* Score hero */}
           <View style={styles.heroSection}>
             <View style={styles.heroScoreRow}>
-              <Text style={[styles.heroScore, { color: BAND_COLOR[getBand(data.overall)] }]}>
+              <Text style={[styles.heroScore, { color: getBandColor(tokens, getBand(data.overall)) }]}>
                 {Math.round(data.overall)}
               </Text>
               <Text style={styles.heroScoreSuffix}> / 100</Text>
             </View>
             {(() => {
               const band = getBand(data.overall);
-              const color = BAND_COLOR[band];
+              const color = getBandColor(tokens, band);
               return (
                 <View style={[styles.statusPill, { backgroundColor: withAlpha(color, '26') }]}>
                   <View style={[styles.statusDot, { backgroundColor: color }]} />
@@ -249,7 +238,7 @@ export default function StockDetailScreen() {
           <View style={styles.priceStubSection}>
             <Text style={styles.priceStubText}>Price data coming soon</Text>
             <View style={styles.chartStubBox}>
-              <IconSymbol name="chart.line.uptrend.xyaxis" size={32} color={COLOR_TEXT_TERTIARY} />
+              <IconSymbol name="chart.line.uptrend.xyaxis" size={32} color={tokens.textTertiary} />
               <Text style={styles.chartStubText}>Chart coming soon</Text>
             </View>
             <View style={styles.chartRangeRow}>
@@ -278,7 +267,7 @@ export default function StockDetailScreen() {
                     <Text
                       style={[
                         styles.pillarValue,
-                        { color: na ? COLOR_TEXT_SECONDARY : BAND_COLOR[band as Band] },
+                        { color: na ? tokens.textSecondary : getBandColor(tokens, band as Band) },
                       ]}
                     >
                       {na ? 'Not Available' : Math.round(numericValue)}
@@ -312,7 +301,7 @@ export default function StockDetailScreen() {
           >
             <Text style={styles.signalDriverLabel}>{label}</Text>
             <Text style={styles.signalDriverStatus}>Coming soon</Text>
-            <IconSymbol name="chevron.right" size={16} color={COLOR_TEXT_TERTIARY} style={styles.chevronDimmed} />
+            <IconSymbol name="chevron.right" size={16} color={tokens.textTertiary} style={styles.chevronDimmed} />
           </View>
         ))}
       </View>
@@ -334,7 +323,7 @@ export default function StockDetailScreen() {
                 <IconSymbol
                   name="chevron.down"
                   size={18}
-                  color={COLOR_TEXT_SECONDARY}
+                  color={tokens.textSecondary}
                   style={isExpanded ? styles.chevronExpanded : undefined}
                 />
               </Pressable>
@@ -352,311 +341,313 @@ export default function StockDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: COLOR_CANVAS,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  headerIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerIconButtonPressed: {
-    opacity: 0.7,
-  },
-  headerTitleBlock: {
-    marginBottom: 20,
-  },
-  ticker: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  descriptor: {
-    fontSize: 13.5,
-    color: COLOR_TEXT_SECONDARY,
-    marginTop: 2,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: 'transparent',
-  },
-  segmentSelected: {
-    backgroundColor: COLOR_ACCENT_LIME,
-  },
-  segmentText: {
-    color: COLOR_TEXT_SECONDARY,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  segmentTextSelected: {
-    color: COLOR_CANVAS,
-  },
-  // Loading skeleton (item 4, spec/ui.md → Screen: Stock Detail) — matches the score-hero +
-  // "Why this score?" pillar-row shape, same block-based pattern as Home/Portfolio/Health.
-  skeletonHeroScore: {
-    width: 120,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-  skeletonStatusPill: {
-    width: 130,
-    height: 28,
-    borderRadius: 999,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    marginTop: 10,
-  },
-  skeletonSectionTitle: {
-    width: 140,
-    height: 19,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    marginBottom: 12,
-  },
-  skeletonPillarLabel: {
-    width: 80,
-    height: 15,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-  skeletonPillarValue: {
-    width: 32,
-    height: 17,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-  skeletonPillarNote: {
-    width: '65%',
-    height: 12.5,
-    borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    marginTop: 6,
-  },
-  skeletonPillarBarFill: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-  },
-  errorBox: {
-    padding: 20,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  errorText: {
-    color: COLOR_NEGATIVE,
-    fontSize: 14,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  retryText: {
-    color: COLOR_ACCENT_LIME,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  heroSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  heroScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  heroScore: {
-    fontSize: 50,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  heroScoreSuffix: {
-    fontSize: 16,
-    color: COLOR_TEXT_TERTIARY,
-    marginBottom: 6,
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginTop: 10,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusPillText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  priceStubSection: {
-    marginBottom: 24,
-  },
-  priceStubText: {
-    fontSize: 14,
-    color: COLOR_TEXT_TERTIARY,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  chartStubBox: {
-    height: 140,
-    borderRadius: 16,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  chartStubText: {
-    fontSize: 13,
-    color: COLOR_TEXT_TERTIARY,
-  },
-  chartRangeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    opacity: 0.4,
-  },
-  chartRangeSegment: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  chartRangeSegmentText: {
-    fontSize: 12,
-    color: COLOR_TEXT_TERTIARY,
-    fontWeight: '600',
-  },
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
-    marginBottom: 12,
-  },
-  pillarSection: {
-    marginBottom: 24,
-  },
-  pillarRow: {
-    paddingVertical: 14,
-  },
-  pillarRowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLOR_DIVIDER,
-  },
-  pillarRowTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  pillarLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLOR_TEXT_PRIMARY,
-  },
-  pillarValue: {
-    fontSize: 17,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  pillarNote: {
-    fontSize: 12.5,
-    color: COLOR_TEXT_SECONDARY,
-    marginTop: 4,
-  },
-  pillarBarTrack: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: COLOR_DIVIDER,
-    overflow: 'hidden',
-    marginTop: 10,
-  },
-  pillarBarFill: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: COLOR_ACCENT_LIME,
-  },
-  signalDriversSection: {
-    marginBottom: 24,
-  },
-  signalDriverRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    gap: 8,
-  },
-  signalDriverLabel: {
-    flex: 1,
-    fontSize: 15,
-    color: COLOR_TEXT_PRIMARY,
-  },
-  signalDriverStatus: {
-    fontSize: 13,
-    color: COLOR_TEXT_TERTIARY,
-  },
-  chevronDimmed: {
-    opacity: 0.4,
-  },
-  moreOnStockHeading: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: COLOR_TEXT_TERTIARY,
-    marginBottom: 8,
-  },
-  moreOnStockSection: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  disclosureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-  },
-  disclosureLabel: {
-    fontSize: 15,
-    color: COLOR_TEXT_PRIMARY,
-  },
-  chevronExpanded: {
-    transform: [{ rotate: '180deg' }],
-  },
-  disclosureBody: {
-    paddingBottom: 16,
-  },
-  disclosureBodyText: {
-    fontSize: 13,
-    color: COLOR_TEXT_SECONDARY,
-  },
-});
+function createStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: tokens.canvas,
+    },
+    content: {
+      padding: 20,
+      paddingBottom: 40,
+    },
+    headerTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    headerIconButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: tokens.elevatedSurface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerIconButtonPressed: {
+      opacity: 0.7,
+    },
+    headerTitleBlock: {
+      marginBottom: 20,
+    },
+    ticker: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+    },
+    descriptor: {
+      fontSize: 13.5,
+      color: tokens.textSecondary,
+      marginTop: 2,
+    },
+    segmentedControl: {
+      flexDirection: 'row',
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 12,
+      padding: 4,
+      marginBottom: 24,
+    },
+    segment: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: 10,
+      backgroundColor: 'transparent',
+    },
+    segmentSelected: {
+      backgroundColor: tokens.accent,
+    },
+    segmentText: {
+      color: tokens.textSecondary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    segmentTextSelected: {
+      color: tokens.onAccent,
+    },
+    // Loading skeleton (item 4, spec/ui.md → Screen: Stock Detail) — matches the score-hero +
+    // "Why this score?" pillar-row shape, same block-based pattern as Home/Portfolio/Health.
+    skeletonHeroScore: {
+      width: 120,
+      height: 50,
+      borderRadius: 8,
+      backgroundColor: tokens.elevatedSurface,
+    },
+    skeletonStatusPill: {
+      width: 130,
+      height: 28,
+      borderRadius: 999,
+      backgroundColor: tokens.elevatedSurface,
+      marginTop: 10,
+    },
+    skeletonSectionTitle: {
+      width: 140,
+      height: 19,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+      marginBottom: 12,
+    },
+    skeletonPillarLabel: {
+      width: 80,
+      height: 15,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+    },
+    skeletonPillarValue: {
+      width: 32,
+      height: 17,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+    },
+    skeletonPillarNote: {
+      width: '65%',
+      height: 12.5,
+      borderRadius: 4,
+      backgroundColor: tokens.elevatedSurface,
+      marginTop: 6,
+    },
+    skeletonPillarBarFill: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 2,
+      backgroundColor: tokens.elevatedSurface,
+    },
+    errorBox: {
+      padding: 20,
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    errorText: {
+      color: tokens.negative,
+      fontSize: 14,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    retryText: {
+      color: tokens.accent,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    heroSection: {
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    heroScoreRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+    },
+    heroScore: {
+      fontSize: 50,
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
+    },
+    heroScoreSuffix: {
+      fontSize: 16,
+      color: tokens.textTertiary,
+      marginBottom: 6,
+    },
+    statusPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      marginTop: 10,
+    },
+    statusDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    statusPillText: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    priceStubSection: {
+      marginBottom: 24,
+    },
+    priceStubText: {
+      fontSize: 14,
+      color: tokens.textTertiary,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    chartStubBox: {
+      height: 140,
+      borderRadius: 16,
+      backgroundColor: tokens.elevatedSurface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    chartStubText: {
+      fontSize: 13,
+      color: tokens.textTertiary,
+    },
+    chartRangeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 12,
+      opacity: 0.4,
+    },
+    chartRangeSegment: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+    },
+    chartRangeSegmentText: {
+      fontSize: 12,
+      color: tokens.textTertiary,
+      fontWeight: '600',
+    },
+    sectionTitle: {
+      fontSize: 19,
+      fontWeight: '700',
+      color: tokens.textPrimary,
+      marginBottom: 12,
+    },
+    pillarSection: {
+      marginBottom: 24,
+    },
+    pillarRow: {
+      paddingVertical: 14,
+    },
+    pillarRowDivider: {
+      borderBottomWidth: 1,
+      borderBottomColor: tokens.dividerSubtle,
+    },
+    pillarRowTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    pillarLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: tokens.textPrimary,
+    },
+    pillarValue: {
+      fontSize: 17,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    pillarNote: {
+      fontSize: 12.5,
+      color: tokens.textSecondary,
+      marginTop: 4,
+    },
+    pillarBarTrack: {
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: tokens.dividerSubtle,
+      overflow: 'hidden',
+      marginTop: 10,
+    },
+    pillarBarFill: {
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: tokens.accent,
+    },
+    signalDriversSection: {
+      marginBottom: 24,
+    },
+    signalDriverRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      gap: 8,
+    },
+    signalDriverLabel: {
+      flex: 1,
+      fontSize: 15,
+      color: tokens.textPrimary,
+    },
+    signalDriverStatus: {
+      fontSize: 13,
+      color: tokens.textTertiary,
+    },
+    chevronDimmed: {
+      opacity: 0.4,
+    },
+    moreOnStockHeading: {
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 1,
+      color: tokens.textTertiary,
+      marginBottom: 8,
+    },
+    moreOnStockSection: {
+      backgroundColor: tokens.elevatedSurface,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      marginBottom: 8,
+    },
+    disclosureRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 16,
+    },
+    disclosureLabel: {
+      fontSize: 15,
+      color: tokens.textPrimary,
+    },
+    chevronExpanded: {
+      transform: [{ rotate: '180deg' }],
+    },
+    disclosureBody: {
+      paddingBottom: 16,
+    },
+    disclosureBodyText: {
+      fontSize: 13,
+      color: tokens.textSecondary,
+    },
+  });
+}

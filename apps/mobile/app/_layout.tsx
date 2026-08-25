@@ -6,6 +6,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initSupabase, AuthProvider, useAuth } from '@finwerse/shared';
+import { useThemeTokens, useThemeStore } from '../src/store/themeStore';
 
 // Initialise the Supabase client once at app boot with AsyncStorage for
 // session persistence (React Native has no localStorage).
@@ -80,6 +81,7 @@ async function registerForPushNotificationsAsync() {
 function AuthGate() {
   const { session, loading } = useAuth();
   const segments = useSegments();
+  const tokens = useThemeTokens();
 
   useEffect(() => {
     if (session) {
@@ -109,8 +111,8 @@ function AuthGate() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#090B0A', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#B7FF00" />
+      <View style={{ flex: 1, backgroundColor: tokens.canvas, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={tokens.accent} />
       </View>
     );
   }
@@ -124,6 +126,8 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  const tokens = useThemeTokens();
+  const mode = useThemeStore((s) => s.mode);
 
   useEffect(() => {
     async function checkUpdates() {
@@ -156,11 +160,11 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#090B0A' }}>
-      <StatusBar style="light" backgroundColor="#090B0A" />
+    <View style={{ flex: 1, backgroundColor: tokens.canvas }}>
+      <StatusBar style={mode === 'light' ? 'dark' : 'light'} backgroundColor={tokens.canvas} />
       <AuthProvider>
         <AuthGate />
-        <Stack screenOptions={{ contentStyle: { backgroundColor: '#090B0A' } }}>
+        <Stack screenOptions={{ contentStyle: { backgroundColor: tokens.canvas } }}>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="stock/[symbol]" options={{ headerTitle: 'Stock Detail', headerBackTitle: 'Back' }} />

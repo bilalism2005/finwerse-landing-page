@@ -23,22 +23,8 @@ import {
 } from '@/src/store/portfolioStore';
 import { searchStocks } from '@/src/api/stockService';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-
-// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
-// Duplicated locally (same values as app/(tabs)/index.tsx and app/stock/[symbol].tsx) rather
-// than importing from those screens, to keep this a self-contained single-file redesign per
-// the build instructions.
-const COLOR_CANVAS = '#090B0A';
-const COLOR_SURFACE_ELEVATED = '#131613';
-const COLOR_SURFACE_SECONDARY = '#191D19';
-const COLOR_DIVIDER = '#1A1E1A';
-const COLOR_TEXT_PRIMARY = '#F5F7F2';
-const COLOR_TEXT_SECONDARY = '#A4AAA3';
-const COLOR_TEXT_TERTIARY = '#6F766F';
-const COLOR_ACCENT_LIME = '#C7FF3D';
-const COLOR_POSITIVE = '#B8F35A';
-const COLOR_NEGATIVE = '#FF6B67';
-const COLOR_WARNING = '#FFB84D';
+import { useThemeTokens } from '../../src/store/themeStore';
+import type { ThemeTokens } from '../../src/theme/tokens';
 
 type Band = 'green' | 'amber' | 'red';
 
@@ -49,11 +35,11 @@ function getBand(score: number): Band {
   return 'green';
 }
 
-const BAND_COLOR: Record<Band, string> = {
-  green: COLOR_ACCENT_LIME,
-  amber: COLOR_WARNING,
-  red: COLOR_NEGATIVE,
-};
+function bandColor(band: Band, tokens: ThemeTokens): string {
+  if (band === 'green') return tokens.accent;
+  if (band === 'amber') return tokens.warning;
+  return tokens.negative;
+}
 
 function withAlpha(hex: string, alphaHex: string): string {
   return `${hex}${alphaHex}`;
@@ -67,6 +53,8 @@ const SKELETON_HOLDING_ROWS = [0, 1, 2];
 
 export default function PortfolioScreen() {
   const router = useRouter();
+  const tokens = useThemeTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const {
     holdings,
     fetchHoldings,
@@ -406,7 +394,7 @@ export default function PortfolioScreen() {
               </Text>
               <Text style={styles.metricLabelInline}>  ·  P&L </Text>
               {pnl !== null ? (
-                <Text style={[styles.metricValueInline, { color: pnl >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE }]}>
+                <Text style={[styles.metricValueInline, { color: pnl >= 0 ? tokens.positive : tokens.negative }]}>
                   {pnl >= 0 ? '+' : ''}
                   {formatRupees(pnl)} ({pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : '0%'})
                 </Text>
@@ -479,7 +467,7 @@ export default function PortfolioScreen() {
         <Text style={styles.investedValue}>{formatRupees(investedTotal)}</Text>
         <View style={styles.pnlRow}>
           <Text style={styles.pnlLabel}>Realized P&L</Text>
-          <Text style={[styles.pnlValue, { color: realizedPnl >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE }]}>
+          <Text style={[styles.pnlValue, { color: realizedPnl >= 0 ? tokens.positive : tokens.negative }]}>
             {realizedPnl >= 0 ? '+' : ''}
             {formatRupees(realizedPnl)}
           </Text>
@@ -494,7 +482,7 @@ export default function PortfolioScreen() {
         style={({ pressed }) => [styles.healthLinkRow, pressed && styles.healthLinkRowPressed]}
       >
         <Text style={styles.healthLinkText}>View portfolio health</Text>
-        <IconSymbol name="chevron.right" size={16} color={COLOR_TEXT_SECONDARY} />
+        <IconSymbol name="chevron.right" size={16} color={tokens.textSecondary} />
       </Pressable>
 
       {/* Filter row */}
@@ -544,7 +532,7 @@ export default function PortfolioScreen() {
       ) : showFetchError ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={COLOR_ACCENT_LIME} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={tokens.accent} />}
         >
           <Pressable style={styles.errorBox} onPress={() => loadData()}>
             <Text style={styles.errorText}>Couldn't load your positions. Please try again.</Text>
@@ -554,7 +542,7 @@ export default function PortfolioScreen() {
       ) : displayedHoldings.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={COLOR_ACCENT_LIME} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={tokens.accent} />}
         >
           <Text style={styles.emptyTitle}>
             {filterTab === 'sold' ? 'No sold positions yet.' : 'No portfolio positions yet.'}
@@ -571,7 +559,7 @@ export default function PortfolioScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={COLOR_ACCENT_LIME} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={tokens.accent} />}
         />
       )}
 
@@ -605,13 +593,13 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. RELIANCE, TCS, INFY, AYMSYNTEX"
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 value={addSymbol}
                 onChangeText={handleSymbolSearch}
                 autoCapitalize="characters"
                 autoCorrect={false}
               />
-              {isSearchingSymbol && <ActivityIndicator size="small" color={COLOR_ACCENT_LIME} style={{ alignSelf: 'flex-start', marginVertical: 4 }} />}
+              {isSearchingSymbol && <ActivityIndicator size="small" color={tokens.accent} style={{ alignSelf: 'flex-start', marginVertical: 4 }} />}
 
               {symbolSuggestions.length > 0 && (
                 <View style={styles.suggestionBox}>
@@ -627,7 +615,7 @@ export default function PortfolioScreen() {
                         }}
                       >
                         <Text style={styles.suggestionSymbol}>{item.symbol}</Text>
-                        <Text style={[styles.suggestionScore, { color: BAND_COLOR[band] }]}>
+                        <Text style={[styles.suggestionScore, { color: bandColor(band, tokens) }]}>
                           Score: {Math.round(item.overall_score)}
                         </Text>
                       </Pressable>
@@ -641,7 +629,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 10"
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 keyboardType="numeric"
                 value={addQty}
                 onChangeText={setAddQty}
@@ -652,7 +640,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 254.00"
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 keyboardType="decimal-pad"
                 value={addAvgPrice}
                 onChangeText={setAddAvgPrice}
@@ -677,7 +665,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="YYYY-MM-DD (defaults to Today)"
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 value={addDate}
                 onChangeText={setAddDate}
               />
@@ -715,7 +703,7 @@ export default function PortfolioScreen() {
                   <TextInput
                     style={styles.modalInput}
                     placeholder="e.g. 290.00"
-                    placeholderTextColor={COLOR_TEXT_TERTIARY}
+                    placeholderTextColor={tokens.textTertiary}
                     keyboardType="decimal-pad"
                     value={addSoldPrice}
                     onChangeText={setAddSoldPrice}
@@ -725,7 +713,7 @@ export default function PortfolioScreen() {
                   <TextInput
                     style={styles.modalInput}
                     placeholder="YYYY-MM-DD (defaults to Today)"
-                    placeholderTextColor={COLOR_TEXT_TERTIARY}
+                    placeholderTextColor={tokens.textTertiary}
                     value={addSoldDate}
                     onChangeText={setAddSoldDate}
                   />
@@ -743,7 +731,7 @@ export default function PortfolioScreen() {
                 disabled={isSubmittingAdd}
               >
                 {isSubmittingAdd ? (
-                  <ActivityIndicator color={COLOR_CANVAS} />
+                  <ActivityIndicator color={tokens.onAccent} />
                 ) : (
                   <Text style={styles.modalSubmitText}>Save Position</Text>
                 )}
@@ -800,7 +788,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder={`Max ${selectedHoldingForSell?.quantity}`}
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 keyboardType="numeric"
                 value={sellQty}
                 onChangeText={setSellQty}
@@ -811,7 +799,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 290.00"
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 keyboardType="decimal-pad"
                 value={sellPrice}
                 onChangeText={setSellPrice}
@@ -830,7 +818,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="YYYY-MM-DD (defaults to Today)"
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 value={sellDate}
                 onChangeText={setSellDate}
               />
@@ -847,7 +835,7 @@ export default function PortfolioScreen() {
                 disabled={isSubmittingSell}
               >
                 {isSubmittingSell ? (
-                  <ActivityIndicator color={COLOR_CANVAS} />
+                  <ActivityIndicator color={tokens.onAccent} />
                 ) : (
                   <Text style={styles.modalSubmitText}>Confirm Sale</Text>
                 )}
@@ -879,7 +867,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="Quantity"
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 keyboardType="numeric"
                 value={editQty}
                 onChangeText={setEditQty}
@@ -890,7 +878,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="Average Price"
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 keyboardType="decimal-pad"
                 value={editAvgPrice}
                 onChangeText={setEditAvgPrice}
@@ -901,7 +889,7 @@ export default function PortfolioScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={COLOR_TEXT_TERTIARY}
+                placeholderTextColor={tokens.textTertiary}
                 value={editDate}
                 onChangeText={setEditDate}
               />
@@ -933,7 +921,7 @@ export default function PortfolioScreen() {
                 disabled={isSubmittingEdit}
               >
                 {isSubmittingEdit ? (
-                  <ActivityIndicator color={COLOR_CANVAS} />
+                  <ActivityIndicator color={tokens.onAccent} />
                 ) : (
                   <Text style={styles.modalSubmitText}>Save Changes</Text>
                 )}
@@ -947,17 +935,18 @@ export default function PortfolioScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(tokens: ThemeTokens) {
+  return StyleSheet.create({
   pressedOpacity: {
     opacity: 0.7,
   },
   safeArea: {
     flex: 1,
-    backgroundColor: COLOR_CANVAS,
+    backgroundColor: tokens.canvas,
   },
   container: {
     flex: 1,
-    backgroundColor: COLOR_CANVAS,
+    backgroundColor: tokens.canvas,
     paddingHorizontal: 20,
   },
   topHeader: {
@@ -966,11 +955,11 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 30,
     fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
+    color: tokens.textPrimary,
   },
   pageSubtitle: {
     fontSize: 13,
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     marginTop: 2,
   },
   summaryBlock: {
@@ -978,13 +967,13 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 13,
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     marginBottom: 4,
   },
   investedValue: {
     fontSize: 46,
     fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
+    color: tokens.textPrimary,
     fontVariant: ['tabular-nums'],
   },
   pnlRow: {
@@ -995,7 +984,7 @@ const styles = StyleSheet.create({
   },
   pnlLabel: {
     fontSize: 13,
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
   },
   pnlValue: {
     fontSize: 15,
@@ -1014,11 +1003,11 @@ const styles = StyleSheet.create({
   },
   healthLinkText: {
     fontSize: 15,
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
     borderRadius: 12,
     padding: 4,
     marginBottom: 16,
@@ -1031,15 +1020,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   segmentSelected: {
-    backgroundColor: COLOR_ACCENT_LIME,
+    backgroundColor: tokens.accent,
   },
   segmentText: {
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     fontSize: 13,
     fontWeight: '600',
   },
   segmentTextSelected: {
-    color: COLOR_CANVAS,
+    color: tokens.onAccent,
   },
   emptyContainer: {
     flexGrow: 1,
@@ -1050,30 +1039,30 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 19,
     fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
+    color: tokens.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   errorBox: {
     padding: 20,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
     borderRadius: 14,
     alignItems: 'center',
   },
   errorText: {
-    color: COLOR_NEGATIVE,
+    color: tokens.negative,
     fontSize: 14,
     marginBottom: 8,
     textAlign: 'center',
   },
   retryText: {
-    color: COLOR_ACCENT_LIME,
+    color: tokens.accent,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1084,7 +1073,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderRadius: 16,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1095,7 +1084,7 @@ const styles = StyleSheet.create({
   ticker: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLOR_TEXT_PRIMARY,
+    color: tokens.textPrimary,
   },
   statusPill: {
     paddingHorizontal: 8,
@@ -1103,20 +1092,20 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   statusPillHeld: {
-    backgroundColor: withAlpha(COLOR_ACCENT_LIME, '26'),
+    backgroundColor: withAlpha(tokens.accent, '26'),
   },
   statusPillSold: {
-    backgroundColor: COLOR_SURFACE_SECONDARY,
+    backgroundColor: tokens.secondarySurface,
   },
   statusPillText: {
     fontSize: 11,
     fontWeight: '700',
   },
   statusPillTextHeld: {
-    color: COLOR_ACCENT_LIME,
+    color: tokens.accent,
   },
   statusPillTextSold: {
-    color: COLOR_TEXT_TERTIARY,
+    color: tokens.textTertiary,
   },
   metricsRow: {
     marginBottom: 10,
@@ -1126,10 +1115,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   metricLabelInline: {
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
   },
   metricValueInline: {
-    color: COLOR_TEXT_PRIMARY,
+    color: tokens.textPrimary,
     fontWeight: '600',
   },
   cardMetaRow: {
@@ -1140,16 +1129,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
+    backgroundColor: tokens.secondarySurface,
   },
   periodTagText: {
     fontSize: 10,
     fontWeight: '600',
-    color: COLOR_TEXT_TERTIARY,
+    color: tokens.textTertiary,
   },
   cardDivider: {
     borderTopWidth: 1,
-    borderTopColor: COLOR_DIVIDER,
+    borderTopColor: tokens.dividerSubtle,
     marginTop: 12,
   },
   dateRow: {
@@ -1157,7 +1146,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 12,
-    color: COLOR_TEXT_TERTIARY,
+    color: tokens.textTertiary,
   },
   cardActions: {
     flexDirection: 'row',
@@ -1169,29 +1158,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
+    backgroundColor: tokens.secondarySurface,
   },
   actionBtnPressed: {
     opacity: 0.7,
   },
   sellBtn: {
-    backgroundColor: withAlpha(COLOR_POSITIVE, '22'),
+    backgroundColor: withAlpha(tokens.positive, '22'),
   },
   sellBtnText: {
-    color: COLOR_POSITIVE,
+    color: tokens.positive,
     fontWeight: '600',
     fontSize: 13,
   },
   deleteBtn: {
-    backgroundColor: withAlpha(COLOR_NEGATIVE, '22'),
+    backgroundColor: withAlpha(tokens.negative, '22'),
   },
   actionBtnText: {
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     fontWeight: '600',
     fontSize: 13,
   },
   deleteBtnText: {
-    color: COLOR_NEGATIVE,
+    color: tokens.negative,
     fontWeight: '600',
     fontSize: 13,
   },
@@ -1199,19 +1188,19 @@ const styles = StyleSheet.create({
     width: 72,
     height: 16,
     borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
+    backgroundColor: tokens.secondarySurface,
   },
   skeletonPill: {
     width: 44,
     height: 18,
     borderRadius: 6,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
+    backgroundColor: tokens.secondarySurface,
   },
   skeletonMetricsLine: {
     width: '80%',
     height: 14,
     borderRadius: 4,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
+    backgroundColor: tokens.secondarySurface,
     marginBottom: 10,
   },
   skeletonMetaRow: {
@@ -1221,13 +1210,13 @@ const styles = StyleSheet.create({
     width: 56,
     height: 16,
     borderRadius: 6,
-    backgroundColor: COLOR_SURFACE_SECONDARY,
+    backgroundColor: tokens.secondarySurface,
   },
   fab: {
     position: 'absolute',
     bottom: 24,
     right: 20,
-    backgroundColor: COLOR_ACCENT_LIME,
+    backgroundColor: tokens.accent,
     paddingHorizontal: 22,
     paddingVertical: 14,
     borderRadius: 30,
@@ -1236,7 +1225,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   fabText: {
-    color: COLOR_CANVAS,
+    color: tokens.onAccent,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -1246,7 +1235,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: COLOR_SURFACE_SECONDARY,
+    backgroundColor: tokens.secondarySurface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -1262,16 +1251,16 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 19,
     fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
+    color: tokens.textPrimary,
   },
   closeBtn: {
     fontSize: 20,
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     padding: 4,
   },
   modalError: {
-    backgroundColor: withAlpha(COLOR_NEGATIVE, '22'),
-    color: COLOR_NEGATIVE,
+    backgroundColor: withAlpha(tokens.negative, '22'),
+    color: tokens.negative,
     padding: 10,
     borderRadius: 8,
     marginBottom: 12,
@@ -1280,18 +1269,18 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLOR_TEXT_TERTIARY,
+    color: tokens.textTertiary,
     marginBottom: 6,
     marginTop: 10,
   },
   modalInput: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
     borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
+    borderColor: tokens.dividerSubtle,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: COLOR_TEXT_PRIMARY,
+    color: tokens.textPrimary,
     fontSize: 15,
   },
   quickDateRow: {
@@ -1303,21 +1292,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
     borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
+    borderColor: tokens.dividerSubtle,
   },
   quickDateText: {
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     fontSize: 12,
     fontWeight: '600',
   },
   suggestionBox: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
     borderRadius: 10,
     marginTop: 4,
     borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
+    borderColor: tokens.dividerSubtle,
     maxHeight: 160,
     overflow: 'hidden',
   },
@@ -1326,10 +1315,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLOR_DIVIDER,
+    borderBottomColor: tokens.dividerSubtle,
   },
   suggestionSymbol: {
-    color: COLOR_TEXT_PRIMARY,
+    color: tokens.textPrimary,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -1348,35 +1337,35 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     borderRadius: 8,
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
     borderWidth: 1,
-    borderColor: COLOR_DIVIDER,
+    borderColor: tokens.dividerSubtle,
   },
   periodPillActive: {
-    backgroundColor: COLOR_ACCENT_LIME,
-    borderColor: COLOR_ACCENT_LIME,
+    backgroundColor: tokens.accent,
+    borderColor: tokens.accent,
   },
   periodPillText: {
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     fontWeight: '600',
     fontSize: 12,
   },
   periodPillTextActive: {
-    color: COLOR_CANVAS,
+    color: tokens.onAccent,
     fontWeight: '700',
   },
   soldToggleCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
     padding: 14,
     borderRadius: 10,
     marginTop: 8,
     marginBottom: 8,
   },
   soldToggleTitle: {
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
@@ -1387,37 +1376,37 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: COLOR_TEXT_TERTIARY,
+    borderColor: tokens.textTertiary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toggleCheckboxChecked: {
-    backgroundColor: COLOR_ACCENT_LIME,
-    borderColor: COLOR_ACCENT_LIME,
+    backgroundColor: tokens.accent,
+    borderColor: tokens.accent,
   },
   checkmarkText: {
-    color: COLOR_CANVAS,
+    color: tokens.onAccent,
     fontWeight: '700',
     fontSize: 13,
   },
   soldFieldsBlock: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
     padding: 12,
     borderRadius: 10,
     marginBottom: 10,
   },
   modalSubmitBtn: {
-    backgroundColor: COLOR_ACCENT_LIME,
+    backgroundColor: tokens.accent,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 14,
   },
   sellSubmitBtn: {
-    backgroundColor: COLOR_POSITIVE,
+    backgroundColor: tokens.positive,
   },
   modalSubmitText: {
-    color: COLOR_CANVAS,
+    color: tokens.onAccent,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -1425,7 +1414,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   infoBanner: {
-    backgroundColor: COLOR_SURFACE_ELEVATED,
+    backgroundColor: tokens.elevatedSurface,
     padding: 12,
     borderRadius: 10,
     flexDirection: 'row',
@@ -1433,11 +1422,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   infoBannerText: {
-    color: COLOR_TEXT_SECONDARY,
+    color: tokens.textSecondary,
     fontSize: 13,
   },
   infoBannerValue: {
     fontWeight: '700',
-    color: COLOR_TEXT_PRIMARY,
+    color: tokens.textPrimary,
   },
-});
+  });
+}

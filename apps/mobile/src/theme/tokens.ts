@@ -12,6 +12,7 @@ export interface ThemeTokens {
   textSecondary: string;
   textTertiary: string;
   accent: string;
+  onAccent: string;
   positive: string;
   negative: string;
   warning: string;
@@ -27,6 +28,7 @@ export const darkTheme: ThemeTokens = {
   textSecondary: '#A4AAA3',
   textTertiary: '#6F766F',
   accent: '#C7FF3D',
+  onAccent: '#090B0A',
   positive: '#B8F35A',
   negative: '#FF6B67',
   warning: '#FFB84D',
@@ -42,6 +44,7 @@ export const lightTheme: ThemeTokens = {
   textSecondary: '#524C39',
   textTertiary: '#655D46',
   accent: '#5C6B2E',
+  onAccent: '#EEEEEE',
   positive: '#3F7D4A',
   negative: '#B3413A',
   warning: '#BD722A',
