@@ -2,7 +2,7 @@ import { useFonts } from 'expo-font';
 import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { View, ActivityIndicator, Alert } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initSupabase, AuthProvider, useAuth } from '@finwerse/shared';
@@ -127,44 +127,15 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function checkUpdates() {
-      // Temporary, unconditional diagnostic pass: the previous version of this
-      // effect returned silently on __DEV__ and on a successful "nothing to
-      // update" result, so a report of "no popup, no change" was ambiguous
-      // between several different root causes. This version reports its own
-      // state every single launch so the next failure is actually diagnosable
-      // instead of requiring another build-and-reinstall round. Dial back to
-      // error-only alerts once OTA is confirmed working end-to-end.
-      const diag = [
-        `__DEV__: ${__DEV__}`,
-        `isEnabled: ${Updates.isEnabled}`,
-        `channel: ${Updates.channel}`,
-        `runtimeVersion: ${Updates.runtimeVersion}`,
-        `updateId: ${Updates.updateId}`,
-        `createdAt: ${Updates.createdAt}`,
-      ].join('\n');
-
-      if (__DEV__) {
-        Alert.alert('OTA check skipped (__DEV__)', diag);
-        return;
-      }
-      if (!Updates.isEnabled) {
-        Alert.alert('OTA disabled', `Updates.isEnabled is false on this build — the native updates config did not take effect.\n\n${diag}`);
-        return;
-      }
+      if (__DEV__ || !Updates.isEnabled) return;
       try {
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
-          Alert.alert('Update found — applying', `${diag}\n\nmanifest id: ${(update.manifest as any)?.id ?? 'n/a'}`);
           await Updates.fetchUpdateAsync();
           await Updates.reloadAsync();
-        } else {
-          Alert.alert('No update available', diag);
         }
       } catch (e) {
-        // Was previously a silent console.log — invisible on an installed build with
-        // no attached debugger. Surfaced so a failed update check is actually
-        // reportable instead of just "the new screen wasn't there."
-        Alert.alert('Update check failed', `${String(e instanceof Error ? e.message : e)}\n\n${diag}`);
+        console.warn('OTA update check failed', e);
       }
     }
     checkUpdates();
