@@ -1,27 +1,51 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TextInput, 
-  TouchableOpacity, 
-  Linking, 
-  ActivityIndicator,
-  RefreshControl 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  Linking,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSentimentStore, Article } from '../../src/store/sentimentStore';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 
+// Design System — Mobile Redesign tokens (spec/ui.md → "Design System — Mobile Redesign")
+// Duplicated locally (same values as app/(tabs)/index.tsx) rather than importing from that
+// screen, to keep this a self-contained single-file redesign per the build instructions.
+const COLOR_CANVAS = '#090B0A';
+const COLOR_SURFACE_ELEVATED = '#131613';
+const COLOR_DIVIDER = '#1A1E1A';
+const COLOR_TEXT_PRIMARY = '#F5F7F2';
+const COLOR_TEXT_SECONDARY = '#A4AAA3';
+const COLOR_TEXT_TERTIARY = '#6F766F';
+const COLOR_ACCENT_LIME = '#C7FF3D';
+const COLOR_POSITIVE = '#B8F35A';
+const COLOR_NEGATIVE = '#FF6B67';
+const COLOR_WARNING = '#FFB84D';
+
+const SKELETON_ROWS = [0, 1, 2, 3, 4, 5];
+
+// Adds an alpha channel to a 6-digit hex token, for badge tints derived from the
+// Positive/Negative/Warning tokens above (spec/ui.md's badge-restyle instruction).
+function withAlpha(hex: string, alpha: number): string {
+  const clamped = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
+  return `${hex}${clamped.toString(16).padStart(2, '0')}`;
+}
+
 export default function SentimentFeedScreen() {
-  const { articles, isLoading, fetchMarketNews, fetchPortfolioSentiment, searchSentiment } = useSentimentStore();
+  const { articles, isLoading, error, fetchMarketNews, fetchPortfolioSentiment, searchSentiment } =
+    useSentimentStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'portfolio'>('all');
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadNews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const loadNews = async () => {
@@ -32,13 +56,17 @@ export default function SentimentFeedScreen() {
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
+  const reload = async () => {
     if (searchQuery.trim()) {
       await searchSentiment(searchQuery);
     } else {
       await loadNews();
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await reload();
     setRefreshing(false);
   };
 
@@ -57,19 +85,19 @@ export default function SentimentFeedScreen() {
 
   const getPolarityBadge = (polarity: number) => {
     if (polarity > 0.15) {
-      return { label: 'Bullish', bg: 'rgba(52, 199, 89, 0.15)', text: '#34C759', border: 'rgba(52, 199, 89, 0.3)' };
+      return { label: 'Bullish', color: COLOR_POSITIVE };
     }
     if (polarity < -0.15) {
-      return { label: 'Bearish', bg: 'rgba(255, 69, 58, 0.15)', text: '#FF453A', border: 'rgba(255, 69, 58, 0.3)' };
+      return { label: 'Bearish', color: COLOR_NEGATIVE };
     }
-    return { label: 'Neutral', bg: 'rgba(255, 149, 0, 0.15)', text: '#FF9500', border: 'rgba(255, 149, 0, 0.3)' };
+    return { label: 'Neutral', color: COLOR_WARNING };
   };
 
   const extractHeadline = (url: string) => {
     try {
       const parsed = new URL(url);
       const pathname = parsed.pathname;
-      const parts = pathname.split('/').filter(p => p.length > 0);
+      const parts = pathname.split('/').filter((p) => p.length > 0);
       const lastPart = parts[parts.length - 1] || '';
       const cleaned = lastPart
         .replace(/\.html?$/i, '')
@@ -97,15 +125,17 @@ export default function SentimentFeedScreen() {
     const badge = getPolarityBadge(item.polarity);
     const domain = extractDomain(item.source_url);
     const headline = extractHeadline(item.source_url);
-    const dateStr = item.article_date ? new Date(item.article_date).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    }) : 'Recent';
+    const dateStr = item.article_date
+      ? new Date(item.article_date).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })
+      : 'Recent';
 
     return (
-      <TouchableOpacity 
-        style={styles.articleCard}
+      <TouchableOpacity
+        style={styles.articleRow}
         onPress={() => Linking.openURL(item.source_url)}
         activeOpacity={0.7}
       >
@@ -113,73 +143,112 @@ export default function SentimentFeedScreen() {
           <View style={styles.symbolBadge}>
             <Text style={styles.symbolText}>{item.stock_symbol}</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-            <View style={[styles.badgeDot, { backgroundColor: badge.text }]} />
-            <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
+          <View
+            style={[
+              styles.sentimentBadge,
+              { backgroundColor: withAlpha(badge.color, 0.15), borderColor: withAlpha(badge.color, 0.35) },
+            ]}
+          >
+            <View style={[styles.badgeDot, { backgroundColor: badge.color }]} />
+            <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
           </View>
         </View>
 
-        <Text style={styles.headline} numberOfLines={3}>{headline}</Text>
+        <Text style={styles.headline} numberOfLines={3}>
+          {headline}
+        </Text>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.sourceText}>🌐 {domain}</Text>
+          <Text style={styles.sourceText} numberOfLines={1}>
+            {domain}
+          </Text>
           <Text style={styles.dateText}>{dateStr}</Text>
         </View>
       </TouchableOpacity>
     );
   };
 
+  const showSkeleton = isLoading && !refreshing;
+  const showError = !showSkeleton && !!error && articles.length === 0;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header row */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Market News</Text>
         <Text style={styles.headerSubtitle}>Real-time financial sentiment & corporate coverage</Text>
       </View>
 
-      {/* Mode Switcher */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'all' && styles.tabButtonActive]}
-          onPress={() => { setActiveTab('all'); setSearchQuery(''); }}
+      {/* Mode switcher */}
+      <View style={styles.segmentedControl}>
+        <TouchableOpacity
+          style={[styles.segment, activeTab === 'all' && styles.segmentSelected]}
+          onPress={() => {
+            setActiveTab('all');
+            setSearchQuery('');
+          }}
         >
-          <Text style={[styles.tabButtonText, activeTab === 'all' && styles.tabButtonTextActive]}>
+          <Text style={[styles.segmentText, activeTab === 'all' && styles.segmentTextSelected]}>
             All Market News
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'portfolio' && styles.tabButtonActive]}
-          onPress={() => { setActiveTab('portfolio'); setSearchQuery(''); }}
+        <TouchableOpacity
+          style={[styles.segment, activeTab === 'portfolio' && styles.segmentSelected]}
+          onPress={() => {
+            setActiveTab('portfolio');
+            setSearchQuery('');
+          }}
         >
-          <Text style={[styles.tabButtonText, activeTab === 'portfolio' && styles.tabButtonTextActive]}>
+          <Text style={[styles.segmentText, activeTab === 'portfolio' && styles.segmentTextSelected]}>
             My Portfolio News
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <IconSymbol name="magnifyingglass" size={18} color="#777" style={styles.searchIcon} />
+      {/* Search field */}
+      <View style={styles.searchField}>
+        <IconSymbol name="magnifyingglass" size={18} color={COLOR_TEXT_TERTIARY} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by symbol or company (e.g. INFY, ZOMATO)..."
-          placeholderTextColor="#666"
+          placeholderTextColor={COLOR_TEXT_TERTIARY}
           value={searchQuery}
           onChangeText={setSearchQuery}
           onSubmitEditing={handleSearch}
           returnKeyType="search"
           autoCapitalize="characters"
+          autoCorrect={false}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={clearSearch} style={styles.clearBtn}>
-            <IconSymbol name="xmark.circle.fill" size={18} color="#777" />
+            <IconSymbol name="xmark.circle.fill" size={18} color={COLOR_TEXT_TERTIARY} />
           </TouchableOpacity>
         )}
       </View>
 
-      {isLoading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#B8F567" />
-          <Text style={styles.loadingText}>Fetching Latest News & Sentiment...</Text>
+      {showSkeleton ? (
+        <View style={styles.listContent}>
+          {SKELETON_ROWS.map((i) => (
+            <View key={i} style={styles.articleRow}>
+              <View style={styles.cardHeader}>
+                <View style={styles.skeletonSymbolBadge} />
+                <View style={styles.skeletonSentimentBadge} />
+              </View>
+              <View style={styles.skeletonHeadlineLineFull} />
+              <View style={styles.skeletonHeadlineLineShort} />
+              <View style={styles.cardFooter}>
+                <View style={styles.skeletonFooterLine} />
+                <View style={styles.skeletonFooterLineShort} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : showError ? (
+        <View style={styles.listContent}>
+          <TouchableOpacity style={styles.errorBox} onPress={reload}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.retryText}>Tap to Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -188,14 +257,16 @@ export default function SentimentFeedScreen() {
           renderItem={renderArticle}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B8F567" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLOR_ACCENT_LIME} />
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <IconSymbol name="newspaper" size={40} color="#555" />
+              <IconSymbol name="newspaper.fill" size={40} color={COLOR_TEXT_TERTIARY} />
               <Text style={styles.emptyTitle}>No Articles Found</Text>
               <Text style={styles.emptyText}>
-                {searchQuery ? `No news recorded matching "${searchQuery}".` : 'Pull down to refresh latest market news.'}
+                {searchQuery
+                  ? `No news recorded matching "${searchQuery}".`
+                  : 'Pull down to refresh latest market news.'}
               </Text>
             </View>
           }
@@ -206,34 +277,98 @@ export default function SentimentFeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0D0D0D' },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#FFF' },
-  headerSubtitle: { fontSize: 13, color: '#888', marginTop: 3 },
-  tabBar: { flexDirection: 'row', paddingHorizontal: 16, marginBottom: 12, gap: 8 },
-  tabButton: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#1A1A1A', alignItems: 'center', borderWidth: 1, borderColor: '#2A2A2A' },
-  tabButtonActive: { backgroundColor: '#B8F567', borderColor: '#B8F567' },
-  tabButtonText: { fontSize: 13, fontWeight: '700', color: '#AAA' },
-  tabButtonTextActive: { color: '#0D0D0D' },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161616', marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 12, borderRadius: 10, height: 44, borderWidth: 1, borderColor: '#262626' },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#FFF' },
+  container: { flex: 1, backgroundColor: COLOR_CANVAS },
+  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10 },
+  headerTitle: { fontSize: 30, fontWeight: '700', color: COLOR_TEXT_PRIMARY },
+  headerSubtitle: { fontSize: 13, color: COLOR_TEXT_SECONDARY, marginTop: 3 },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 12,
+    padding: 4,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+  },
+  segmentSelected: { backgroundColor: COLOR_ACCENT_LIME },
+  segmentText: { fontSize: 13, fontWeight: '600', color: COLOR_TEXT_SECONDARY },
+  segmentTextSelected: { color: COLOR_CANVAS },
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  searchInput: { flex: 1, color: COLOR_TEXT_PRIMARY, paddingVertical: 14, fontSize: 15 },
   clearBtn: { padding: 4 },
-  listContent: { paddingHorizontal: 16, paddingBottom: 40 },
-  articleCard: { backgroundColor: '#161616', padding: 16, borderRadius: 14, marginBottom: 12, borderWidth: 1, borderColor: '#262626' },
+  listContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  articleRow: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLOR_DIVIDER,
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  symbolBadge: { backgroundColor: '#222', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#333' },
-  symbolText: { fontSize: 13, fontWeight: '800', color: '#FFF', letterSpacing: 0.5 },
-  badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, gap: 5 },
+  symbolBadge: {
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  symbolText: { fontSize: 13, fontWeight: '700', color: COLOR_TEXT_PRIMARY, letterSpacing: 0.5 },
+  sentimentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 5,
+  },
   badgeDot: { width: 6, height: 6, borderRadius: 3 },
-  badgeText: { fontSize: 11, fontWeight: '700' },
-  headline: { fontSize: 15, fontWeight: '600', color: '#DDD', lineHeight: 21, marginBottom: 12 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#222', paddingTop: 10 },
-  sourceText: { fontSize: 12, color: '#888', fontWeight: '500' },
-  dateText: { fontSize: 12, color: '#666' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#888', marginTop: 12, fontSize: 13 },
+  badgeText: { fontSize: 11, fontWeight: '600' },
+  headline: { fontSize: 15, fontWeight: '600', color: COLOR_TEXT_PRIMARY, lineHeight: 21, marginBottom: 12 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  sourceText: { fontSize: 12.5, color: COLOR_TEXT_TERTIARY, fontWeight: '500', flexShrink: 1 },
+  dateText: { fontSize: 12.5, color: COLOR_TEXT_TERTIARY },
+  errorBox: {
+    padding: 20,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  errorText: { color: COLOR_NEGATIVE, fontSize: 14, marginBottom: 8, textAlign: 'center' },
+  retryText: { color: COLOR_ACCENT_LIME, fontSize: 14, fontWeight: '600' },
   emptyState: { padding: 40, alignItems: 'center', marginTop: 30 },
-  emptyTitle: { color: '#FFF', fontSize: 16, fontWeight: '700', marginTop: 12 },
-  emptyText: { color: '#888', fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18 }
+  emptyTitle: { color: COLOR_TEXT_PRIMARY, fontSize: 16, fontWeight: '700', marginTop: 12 },
+  emptyText: { color: COLOR_TEXT_SECONDARY, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18 },
+  // Skeleton loading state (item 5, spec/ui.md → Screen: Market News) — matches populated row shape.
+  skeletonSymbolBadge: { width: 56, height: 22, borderRadius: 8, backgroundColor: COLOR_SURFACE_ELEVATED },
+  skeletonSentimentBadge: { width: 72, height: 22, borderRadius: 8, backgroundColor: COLOR_SURFACE_ELEVATED },
+  skeletonHeadlineLineFull: {
+    width: '100%',
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    marginBottom: 8,
+  },
+  skeletonHeadlineLineShort: {
+    width: '60%',
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: COLOR_SURFACE_ELEVATED,
+    marginBottom: 12,
+  },
+  skeletonFooterLine: { width: 90, height: 10, borderRadius: 4, backgroundColor: COLOR_SURFACE_ELEVATED },
+  skeletonFooterLineShort: { width: 60, height: 10, borderRadius: 4, backgroundColor: COLOR_SURFACE_ELEVATED },
 });
