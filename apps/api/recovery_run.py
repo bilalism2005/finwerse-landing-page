@@ -17,7 +17,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import httpx
 import pandas as pd
-from sqlalchemy import text
 
 sys.path.insert(0, r'c:\Users\bilal\OneDrive\Pictures\Screenshots\finwerse\apps\api')
 
@@ -207,13 +206,18 @@ def process_single_stock(symbol, angel_token):
         score_record.overall_score_long = overall_long
         score_record.computed_at = datetime.now(timezone.utc)
 
-        # Delete existing historical scores for the stock first
-        db.execute(
-            text("DELETE FROM stock_historical_scores WHERE stock_symbol = :sym"),
-            {"sym": symbol}
-        )
+        # Append-only (spec/capabilities/impulse-analyzer.md requires
+        # stock_historical_scores to be dated, append-only history): skip
+        # dates that already have a row instead of deleting and reinserting
+        # this stock's entire history.
+        existing_dates = {
+            to_utc_naive(d[0])
+            for d in db.query(models.StockHistoricalScore.date).filter(
+                models.StockHistoricalScore.stock_symbol == symbol
+            ).all()
+        }
 
-        # Prepare bulk insert mappings
+        # Prepare bulk insert mappings for genuinely new dates only
         mappings = [
             {
                 'stock_symbol': symbol,
@@ -223,6 +227,7 @@ def process_single_stock(symbol, angel_token):
                 'technical_score_long': hs['long']
             }
             for hs in hist_scores
+            if to_utc_naive(hs['date']) not in existing_dates
         ]
 
         if mappings:

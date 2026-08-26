@@ -1,8 +1,10 @@
 """
 fix_all_zero_scores.py
 -----------------------
-Optimized bulk re-scorer that deletes stale historical scores and bulk-inserts
-new ones to achieve >100x speedup (less than 0.2 seconds per stock).
+Optimized bulk re-scorer that bulk-inserts missing historical scores (skipping
+dates that already have a row, per spec/capabilities/impulse-analyzer.md's
+append-only requirement) to achieve >100x speedup (less than 0.2 seconds per
+stock).
 """
 
 import sys
@@ -22,6 +24,7 @@ load_dotenv(r'c:\Users\bilal\OneDrive\Pictures\Screenshots\finwerse\apps\api\.en
 from database import SessionLocal, engine
 import models
 from services.scoring import compute_historical_technical_scores
+from services.batch_processor import to_utc_naive
 
 logging.basicConfig(
     level=logging.INFO,
@@ -100,13 +103,18 @@ def fix_stock(db: Session, symbol: str, conn) -> bool:
         medium = latest['medium'] if latest['medium'] is not None else 0.0
         long_  = latest['long']   if latest['long']   is not None else 0.0
 
-        # Delete existing historical scores for the stock first
-        db.execute(
-            text("DELETE FROM stock_historical_scores WHERE stock_symbol = :sym"),
-            {"sym": symbol}
-        )
+        # Append-only (spec/capabilities/impulse-analyzer.md requires
+        # stock_historical_scores to be dated, append-only history): skip
+        # dates that already have a row instead of deleting and reinserting
+        # this stock's entire history.
+        existing_dates = {
+            to_utc_naive(d[0])
+            for d in db.query(models.StockHistoricalScore.date).filter(
+                models.StockHistoricalScore.stock_symbol == symbol
+            ).all()
+        }
 
-        # Prepare bulk insert mappings
+        # Prepare bulk insert mappings for genuinely new dates only
         mappings = [
             {
                 'stock_symbol': symbol,
@@ -116,6 +124,7 @@ def fix_stock(db: Session, symbol: str, conn) -> bool:
                 'technical_score_long': hs['long']
             }
             for hs in hist_scores
+            if to_utc_naive(hs['date']) not in existing_dates
         ]
 
         # Bulk insert
