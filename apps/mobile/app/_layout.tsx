@@ -5,18 +5,20 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initSupabase, AuthProvider, useAuth } from '@finwerse/shared';
 import { useThemeTokens, useThemeStore } from '../src/store/themeStore';
+import { secureStorage } from '../src/secureStorage';
 
-// Initialise the Supabase client once at app boot with AsyncStorage for
-// session persistence (React Native has no localStorage).
+// Initialise the Supabase client once at app boot. Session storage uses the
+// iOS Keychain / Android Keystore (via expo-secure-store) instead of
+// AsyncStorage, since the session contains the access + refresh token pair
+// and AsyncStorage is unencrypted on-disk storage.
 initSupabase(
   process.env.EXPO_PUBLIC_SUPABASE_URL!,
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
   {
     auth: {
-      storage: AsyncStorage,
+      storage: secureStorage,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false, // must be false on native

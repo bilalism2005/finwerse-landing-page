@@ -4190,6 +4190,11 @@ expo-router@~57.0.8:
     standard-navigation "^0.0.5"
     vaul "^1.1.2"
 
+expo-secure-store@~57.0.1:
+  version "57.0.1"
+  resolved "https://registry.npmjs.org/expo-secure-store/-/expo-secure-store-57.0.1.tgz"
+  integrity sha512-tLa1VmSadOq19mA/dwkl99RbHyjLE0T1qqBYMY3/OsguZTI+rlrDy/DDJjupqlVtmr95hD7o1pYqx5aL+B4YMA==
+
 expo-server@^57.0.3:
   version "57.0.3"
   resolved "https://registry.npmjs.org/expo-server/-/expo-server-57.0.3.tgz"
