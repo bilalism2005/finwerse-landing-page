@@ -12,6 +12,14 @@ node_modules_old
 dist
 dist-ssr
 *.local
+
+# bun.lock has been deliberately removed from this repo twice before (see
+# commits 3798262, 001e891) -- its presence at the root makes Vercel/EAS Build
+# auto-detect bun as the package manager, which breaks both (root package.json
+# has no "build" script, and EAS's frozen-lockfile install fails on drift).
+# This repo standardizes on package-lock.json/yarn.lock at the root instead.
+bun.lock
+bun.lockb
 .env
 .env.*
 !**/.env.example
