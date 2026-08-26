@@ -12,7 +12,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useChatStore } from '../../src/store/chatStore';
+import { useChatStore, CHAT_ERROR_MESSAGE } from '../../src/store/chatStore';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 import { useThemeTokens, useThemeStore } from '../../src/store/themeStore';
 import type { ThemeTokens } from '../../src/theme/tokens';
@@ -23,11 +23,6 @@ const SUGGESTIONS = [
   "What changed in ZOMATO?",
   "Which holdings need attention?",
 ];
-
-// Matches useChatStore.sendMessage's catch-block copy exactly (src/store/chatStore.ts) —
-// used only to detect an in-thread error response for the Negative-tinted error text
-// (spec/ui.md → "Screen: Ask AI", item 7). No store changes; presentation-only.
-const ERROR_MESSAGE_COPY = 'Sorry, I encountered an error. Please try again.';
 
 // Dot-pulse typing indicator (spec/ui.md → "Screen: Ask AI", item 4). Spec confirms neither
 // Home nor Stock Detail has a shipped dot-pulse pattern to reuse today — this is a fresh
@@ -107,7 +102,7 @@ export default function ChatScreen() {
     const isUser = item.role === 'user';
     const isAssistant = item.role === 'assistant';
     const isLoading = isStreaming && isAssistant && !item.content;
-    const isErrorMessage = isAssistant && !isLoading && item.content === ERROR_MESSAGE_COPY;
+    const isErrorMessage = isAssistant && !isLoading && item.content === CHAT_ERROR_MESSAGE;
 
     if (isUser) {
       return (

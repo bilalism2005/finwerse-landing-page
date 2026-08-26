@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import apiClient from '../api/client';
 
+// Exported so the chat screen can detect this exact error response (to apply
+// Negative-tinted error styling) without hardcoding a second copy of this
+// string that could silently drift out of sync with this one.
+export const CHAT_ERROR_MESSAGE = 'Sorry, I encountered an error. Please try again.';
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -72,7 +77,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set((state) => ({
         messages: state.messages.map(msg => 
           msg.id === assistantMessageId 
-            ? { ...msg, content: 'Sorry, I encountered an error. Please try again.' }
+            ? { ...msg, content: CHAT_ERROR_MESSAGE }
             : msg
         ),
         isStreaming: false
