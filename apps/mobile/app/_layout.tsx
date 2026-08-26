@@ -34,6 +34,7 @@ SplashScreen.preventAutoHideAsync();
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import apiClient from '../src/api/client';
 
@@ -70,7 +71,12 @@ async function registerForPushNotificationsAsync() {
       console.log('Failed to get push token for push notification!');
       return;
     }
-    token = (await Notifications.getExpoPushTokenAsync({ projectId: 'your-project-id' })).data;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) {
+      console.log('Missing EAS projectId in app config -- cannot register for push notifications');
+      return;
+    }
+    token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
   } else {
     console.log('Must use physical device for Push Notifications');
   }

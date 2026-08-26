@@ -23,7 +23,10 @@ def get_top_stocks(
     if score_type == "sentiment":
         query = query.filter(order_col != "Not Available")
         
-    stocks = query.order_by(order_col.desc()).limit(limit).all()
+    # Postgres defaults to NULLS FIRST on DESC, which would float stocks with
+    # a missing/unscored value (RATE_LIMITED/FAILED for the day) to the very
+    # top of the ranked list -- the opposite of the intended behavior.
+    stocks = query.order_by(order_col.desc().nullslast()).limit(limit).all()
     
     return [{
         "symbol": s.stock_symbol,
