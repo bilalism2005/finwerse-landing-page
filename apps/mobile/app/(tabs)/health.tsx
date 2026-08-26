@@ -9,11 +9,8 @@ import { useChatStore } from '@/src/store/chatStore';
 import { useThemeTokens } from '@/src/store/themeStore';
 import type { ThemeTokens } from '@/src/theme/tokens';
 import { getBand, getBandColor, Band } from '@/src/theme/score-band';
+import { withAlphaHex as withAlpha } from '@/src/theme/color';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-
-function withAlpha(hex: string, alphaHex: string): string {
-  return `${hex}${alphaHex}`;
-}
 
 const HORIZON_LABELS: Record<HoldingPeriod, string> = {
   short: 'Short',

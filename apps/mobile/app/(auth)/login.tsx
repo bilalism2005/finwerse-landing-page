@@ -14,19 +14,11 @@ import { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } from '@
 import { useAuth } from '@finwerse/shared';
 import { useThemeTokens } from '../../src/store/themeStore';
 import type { ThemeTokens } from '../../src/theme/tokens';
+import { withAlphaFraction as withAlpha } from '../../src/theme/color';
 
 // Google's real brand blue for the "G" glyph — exempt from the theme-token system,
 // same as sector-identity colors elsewhere (spec/ui.md Login §8).
 const COLOR_GOOGLE_BLUE = '#4285F4';
-
-// Adds an alpha channel to a 6-digit hex token, for the inline-error callout's low-opacity
-// Negative-tinted fill (spec/ui.md Login §5). The base hex is passed in per-call from the live
-// theme tokens (tokens.negative), not a module-level constant, so the derived tint updates when
-// the theme switches. Same helper shape as app/(tabs)/news.tsx's withAlpha.
-function withAlpha(hex: string, alpha: number): string {
-  const clamped = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
-  return `${hex}${clamped.toString(16).padStart(2, '0')}`;
-}
 
 // Configure Google Sign-In with your Web Client ID
 GoogleSignin.configure({

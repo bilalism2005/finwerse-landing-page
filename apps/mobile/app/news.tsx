@@ -14,17 +14,9 @@ import { useSentimentStore, Article } from '../src/store/sentimentStore';
 import { IconSymbol } from '../components/ui/IconSymbol';
 import { useThemeTokens } from '../src/store/themeStore';
 import type { ThemeTokens } from '../src/theme/tokens';
+import { withAlphaFraction as withAlpha } from '../src/theme/color';
 
 const SKELETON_ROWS = [0, 1, 2, 3, 4, 5];
-
-// Adds an alpha channel to a 6-digit hex token, for badge tints derived from the
-// Positive/Negative/Warning tokens (spec/ui.md's badge-restyle instruction). The base hex is
-// passed in per-call from the live theme tokens (tokens.positive/negative/warning), not a
-// module-level constant, so the derived tint updates when the theme switches.
-function withAlpha(hex: string, alpha: number): string {
-  const clamped = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
-  return `${hex}${clamped.toString(16).padStart(2, '0')}`;
-}
 
 export default function SentimentFeedScreen() {
   const tokens = useThemeTokens();

@@ -8,6 +8,7 @@ import { IconSymbol } from '../../components/ui/IconSymbol';
 import { useThemeTokens } from '../../src/store/themeStore';
 import type { ThemeTokens } from '../../src/theme/tokens';
 import { getBand, getBandColor, Band } from '../../src/theme/score-band';
+import { withAlphaHex as withAlpha } from '../../src/theme/color';
 
 type PillarKey = 'technical' | 'safety' | 'sentiment';
 
@@ -56,10 +57,6 @@ function isNotAvailable(value: number | string | null | undefined): boolean {
 
 function progressBarWidthPercent(score: number): number {
   return Math.max(0, Math.min(100, (score + 100) / 2));
-}
-
-function withAlpha(hex: string, alphaHex: string): string {
-  return `${hex}${alphaHex}`;
 }
 
 export default function StockDetailScreen() {

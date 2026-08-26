@@ -1,6 +1,4 @@
-export function withAlpha(hex: string, alphaHex: string): string {
-  return `${hex}${alphaHex}`;
-}
+export { withAlphaHex as withAlpha } from '@/src/theme/color';
 
 export function formatRupees(amount: number): string {
   return `₹${Math.round(amount).toLocaleString('en-IN')}`;

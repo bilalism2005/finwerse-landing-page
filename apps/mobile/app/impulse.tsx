@@ -14,6 +14,7 @@ import { useAnalyzerStore, CustomTradeInput, ImpulseTrade } from '../src/store/a
 import { IconSymbol } from '../components/ui/IconSymbol';
 import { useThemeTokens } from '../src/store/themeStore';
 import type { ThemeTokens } from '../src/theme/tokens';
+import { withAlphaHex as withAlpha } from '../src/theme/color';
 
 interface EditableTrade {
   id: string;
@@ -408,11 +409,6 @@ export default function ImpulseScreen() {
   );
 }
 
-// Derives a translucent tint of a token color for a subtle background/border wash — same
-// convention as apps/mobile/app/(tabs)/portfolio.tsx's local `withAlpha` helper.
-function withAlpha(hex: string, alphaHex: string): string {
-  return `${hex}${alphaHex}`;
-}
 
 function createStyles(tokens: ThemeTokens) {
   return StyleSheet.create({
