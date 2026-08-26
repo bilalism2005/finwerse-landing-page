@@ -2,6 +2,20 @@ import { create } from 'zustand';
 import { getSupabase } from '@finwerse/shared';
 import { apiClient } from '../api/client';
 
+// Most actions here try a direct Supabase call FIRST (sub-50ms, no FastAPI
+// round trip), falling back to apps/api/routers/portfolio.py only if that
+// fails. sellHolding is the exception: it tries the API first (since a
+// partial sell's "split into two rows" logic lives only there) and falls
+// back to direct Supabase for a full sell only.
+//
+// The direct-Supabase path bypasses portfolio.py's application-level
+// validation and its .with_for_update() sell-race lock entirely -- it isn't
+// just a faster mirror of the API, it's a different code path with weaker
+// guarantees. quantity/avg_price/sold_quantity/sold_price are backstopped by
+// DB CheckConstraints on PortfolioHolding (apps/api/models.py) specifically
+// because this path exists and needed a guarantee no application code could
+// be bypassed.
+
 export type HoldingPeriod = 'short' | 'medium' | 'long';
 export type HoldingStatus = 'held' | 'sold';
 
