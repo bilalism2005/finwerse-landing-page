@@ -149,6 +149,15 @@ class PortfolioHolding(Base):
     __table_args__ = (
         CheckConstraint("status IN ('held', 'sold')", name='chk_holding_status'),
         CheckConstraint("intended_holding_period IN ('short', 'medium', 'long')", name='chk_holding_period'),
+        # apps/mobile/src/store/portfolioStore.ts writes directly to Supabase
+        # before falling back to the API, bypassing portfolio.py's
+        # application-level validation entirely on that primary path. These
+        # constraints are the backstop that holds regardless of which write
+        # path (direct Supabase, the API, or any future one) is used.
+        CheckConstraint("quantity > 0", name='chk_holding_quantity_positive'),
+        CheckConstraint("avg_price > 0", name='chk_holding_avg_price_positive'),
+        CheckConstraint("sold_quantity IS NULL OR sold_quantity > 0", name='chk_holding_sold_quantity_positive'),
+        CheckConstraint("sold_price IS NULL OR sold_price >= 0", name='chk_holding_sold_price_non_negative'),
         Index('ix_portfolio_user_status', 'user_id', 'status'),
     )
 
