@@ -67,3 +67,9 @@ A view that only handles state 4 is half-built.
 ## Verification
 
 Before calling a UI change done: walk the primary path live (not just unit tests), confirm all 4 states render correctly for at least one view you touched, and confirm an error path renders human copy — not a stack trace, not a raw JSON error body.
+
+---
+
+## Design Review Skill (`/design-review`)
+
+For a deeper, platform-grounded pass beyond this file's rules — touch-target sizing, precise contrast ratios, platform navigation conventions, motion/gesture conventions — invoke the `design-review` skill (`.claude/skills/design-review/`, vendored from `github.com/dickwu/apple-design-skill`). It's auto-invoked per `CLAUDE.md`'s Skills table for design audits and any UI/visual change to `apps/mobile`/`apps/web`. **This file wins wherever the two disagree** — `design-review`'s guidelines are generalized from Apple's HIG and occasionally won't fit a finwerse-specific pattern (e.g. the fixed score color bands); use judgment, don't apply it as gospel over a documented finwerse decision.
