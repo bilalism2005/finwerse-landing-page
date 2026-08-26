@@ -8,19 +8,11 @@ import { HoldingPeriod } from '@/src/store/portfolioStore';
 import { useChatStore } from '@/src/store/chatStore';
 import { useThemeTokens } from '@/src/store/themeStore';
 import type { ThemeTokens } from '@/src/theme/tokens';
+import { getBand, getBandColor, Band } from '@/src/theme/score-band';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
 function withAlpha(hex: string, alphaHex: string): string {
   return `${hex}${alphaHex}`;
-}
-
-type Band = 'green' | 'amber' | 'red';
-
-// Standing Platform Rule 2 / spec/ui.md Cross-Cutting UI Rules: Red <40, Amber 41-65, Green 66-100
-function getBand(score: number): Band {
-  if (score < 40) return 'red';
-  if (score <= 65) return 'amber';
-  return 'green';
 }
 
 const HORIZON_LABELS: Record<HoldingPeriod, string> = {
@@ -77,9 +69,9 @@ export default function HealthScreen() {
   const tokens = useThemeTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const BAND_COLOR: Record<Band, string> = {
-    green: tokens.positive,
-    amber: tokens.warning,
-    red: tokens.negative,
+    green: getBandColor(tokens, 'green'),
+    amber: getBandColor(tokens, 'amber'),
+    red: getBandColor(tokens, 'red'),
   };
 
   useEffect(() => {

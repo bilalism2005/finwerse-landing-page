@@ -7,8 +7,8 @@ import { getStockDetailScore, StockScoreDetail } from '../../src/api/stockServic
 import { IconSymbol } from '../../components/ui/IconSymbol';
 import { useThemeTokens } from '../../src/store/themeStore';
 import type { ThemeTokens } from '../../src/theme/tokens';
+import { getBand, getBandColor, Band } from '../../src/theme/score-band';
 
-type Band = 'green' | 'amber' | 'red';
 type PillarKey = 'technical' | 'safety' | 'sentiment';
 
 const HORIZON_LABELS: Record<Timeframe, string> = {
@@ -16,17 +16,6 @@ const HORIZON_LABELS: Record<Timeframe, string> = {
   medium: 'Medium',
   long: 'Long',
 };
-
-// Standing Platform Rule 2 / spec/ui.md Cross-Cutting UI Rules: Red <40, Amber 41-65, Green 66-100
-function getBand(score: number): Band {
-  if (score < 40) return 'red';
-  if (score <= 65) return 'amber';
-  return 'green';
-}
-
-function getBandColor(tokens: ThemeTokens, band: Band): string {
-  return { green: tokens.positive, amber: tokens.warning, red: tokens.negative }[band];
-}
 
 // spec/ui.md Score hero: 3-way status pill mapping
 const BAND_STATUS_WORD: Record<Band, string> = {

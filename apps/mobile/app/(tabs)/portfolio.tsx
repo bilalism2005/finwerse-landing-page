@@ -25,21 +25,7 @@ import { searchStocks } from '@/src/api/stockService';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useThemeTokens } from '../../src/store/themeStore';
 import type { ThemeTokens } from '../../src/theme/tokens';
-
-type Band = 'green' | 'amber' | 'red';
-
-// Standing Platform Rule 2 / spec/ui.md Cross-Cutting UI Rules: Red <40, Amber 41-65, Green 66-100
-function getBand(score: number): Band {
-  if (score < 40) return 'red';
-  if (score <= 65) return 'amber';
-  return 'green';
-}
-
-function bandColor(band: Band, tokens: ThemeTokens): string {
-  if (band === 'green') return tokens.accent;
-  if (band === 'amber') return tokens.warning;
-  return tokens.negative;
-}
+import { getBand, getBandColor } from '../../src/theme/score-band';
 
 function withAlpha(hex: string, alphaHex: string): string {
   return `${hex}${alphaHex}`;
@@ -615,7 +601,7 @@ export default function PortfolioScreen() {
                         }}
                       >
                         <Text style={styles.suggestionSymbol}>{item.symbol}</Text>
-                        <Text style={[styles.suggestionScore, { color: bandColor(band, tokens) }]}>
+                        <Text style={[styles.suggestionScore, { color: getBandColor(tokens, band) }]}>
                           Score: {Math.round(item.overall_score)}
                         </Text>
                       </Pressable>
