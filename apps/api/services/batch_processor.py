@@ -1,5 +1,6 @@
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
@@ -113,9 +114,14 @@ class BatchProcessor:
     def process_stock(self, mapping: models.SymbolMapping):
         logger.info(f"Processing {mapping.stock_symbol}...")
         data_status = "SUCCESS"
-        
+        # Tracks whether any external API was actually called this run, so the
+        # end-of-function rate-limit pause isn't paid on stocks served entirely
+        # from cache (no missing trading days, fundamentals still fresh).
+        did_external_fetch = False
+
         # 1. Fetch/Update Daily Candle Data in Database Cache
         if not self.angel_client.jwt_token:
+            did_external_fetch = True
             self.angel_client.login()
             
         now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
@@ -146,6 +152,7 @@ class BatchProcessor:
                     from_date_str = from_date_obj.strftime("%Y-%m-%d %H:%M")
                     
                     logger.info(f"Fetching candles from {from_date_str} to {to_date_str}...")
+                    did_external_fetch = True
                     daily_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
                     
                     if not daily_data or len(daily_data) == 0:
@@ -220,6 +227,7 @@ class BatchProcessor:
                     to_date_str = now.strftime("%Y-%m-%d %H:%M")
                     
                     logger.info(f"Fetching incremental candles (Missing trading days: {missing_trading_days}) from {from_date_str} to {to_date_str}...")
+                    did_external_fetch = True
                     recent_data = self.fetch_angel_candles(mapping.angel_token, "ONE_DAY", from_date_str, to_date_str)
                 
                 if recent_data:
@@ -283,9 +291,15 @@ class BatchProcessor:
         except RateLimitException as re:
             data_status = "RATE_LIMITED"
             logger.warning(f"Angel One rate limit exception for {mapping.stock_symbol}: {re}")
+            self.db.rollback()
         except Exception as e:
             data_status = "FAILED"
             logger.error(f"Angel One candle fetch failed for {mapping.stock_symbol}: {e}")
+            # Without this, a DB-level error here (e.g. a failed INSERT) leaves the
+            # session's transaction aborted -- every subsequent query in this same
+            # process_stock call (starting with db_candles just below) would raise
+            # "current transaction is aborted" instead of the real error.
+            self.db.rollback()
 
         # Load ALL daily candles from the database to build weekly/monthly and compute scores
         db_candles = self.db.query(models.StockCandle).filter(
@@ -352,34 +366,33 @@ class BatchProcessor:
                 # Skip saving if it's before the affected date range
                 if affected_from_date and hs['date'] < affected_from_date:
                     continue
-                    
+
                 hs_date_utc = to_utc_naive(hs['date'])
-                exists_score = existing_score_map.get(hs_date_utc)
-                
-                if not exists_score:
-                    db_hist_score = models.StockHistoricalScore(
-                        stock_symbol=mapping.stock_symbol,
-                        date=hs['date'],
-                        technical_score_short=hs['short'],
-                        technical_score_medium=hs['medium'],
-                        technical_score_long=hs['long']
-                    )
-                    score_inserts.append(db_hist_score)
-                    saved_count += 1
-                else:
-                    # Only update if the values are actually different to prevent dirty tracking updates
-                    if (exists_score.technical_score_short != hs['short'] or
-                        exists_score.technical_score_medium != hs['medium'] or
-                        exists_score.technical_score_long != hs['long']):
-                        exists_score.technical_score_short = hs['short']
-                        exists_score.technical_score_medium = hs['medium']
-                        exists_score.technical_score_long = hs['long']
-                        saved_count += 1
-                    
+
+                # Append-only (spec/capabilities/impulse-analyzer.md: "Requires
+                # stock_historical_scores to be dated, append-only history" --
+                # shared with the chatbot's planned backtest tool). A date's
+                # score is computed once and frozen; silently revising it on a
+                # later run would let a trade's Impulse-Analyzer verdict flip
+                # with no trade activity involved. Skip dates that already
+                # have a row instead of updating them in place.
+                if hs_date_utc in existing_score_map:
+                    continue
+
+                db_hist_score = models.StockHistoricalScore(
+                    stock_symbol=mapping.stock_symbol,
+                    date=hs['date'],
+                    technical_score_short=hs['short'],
+                    technical_score_medium=hs['medium'],
+                    technical_score_long=hs['long']
+                )
+                score_inserts.append(db_hist_score)
+                saved_count += 1
+
             if score_inserts:
                 self.db.bulk_save_objects(score_inserts)
             self.db.commit()
-            logger.info(f"Saved/updated {saved_count} historical scores for {mapping.stock_symbol}.")
+            logger.info(f"Saved {saved_count} new historical scores for {mapping.stock_symbol}.")
             
             # --- Save Raw Indicator Values ---
             logger.info(f"Saving exact indicator values to database...")
@@ -467,24 +480,33 @@ class BatchProcessor:
         if should_fetch_fundamentals:
             try:
                 logger.info(f"Fetching fundamental data for {mapping.stock_symbol}...")
+                did_external_fetch = True
                 time.sleep(INDIANAPI_DELAY)
-                ratios_data = self.indianapi_client.get_ratios(mapping.stock_symbol)
-                
-                time.sleep(INDIANAPI_DELAY)
-                stock_data = self.indianapi_client.get_stock_details(mapping.stock_symbol)
-    
-                time.sleep(INDIANAPI_DELAY)
-                quarter_data = self.indianapi_client.get_quarterly_results(mapping.stock_symbol)
-    
-                time.sleep(INDIANAPI_DELAY)
-                yoy_data = self.indianapi_client.get_yoy_results(mapping.stock_symbol)
-    
-                time.sleep(INDIANAPI_DELAY)
-                balance_data = self.indianapi_client.get_balancesheet(mapping.stock_symbol)
-    
-                time.sleep(INDIANAPI_DELAY)
-                shareholding_data = self.indianapi_client.get_shareholding_pattern(mapping.stock_symbol)
-                
+
+                # These 6 IndianAPI endpoints are independent lookups for the same
+                # stock (no data dependency between them), but used to run one
+                # after another with a fixed delay between each -- ~3s of pure
+                # sequential wait per stock. Bounding concurrency to 3 in-flight
+                # requests keeps within the documented "2-3 requests per second"
+                # IndianAPI limit while roughly halving that wall time. Each
+                # future's exception (if any) surfaces from .result() exactly as
+                # it would have from a direct call, so the except blocks below
+                # see the same exception types/attributes as before.
+                with ThreadPoolExecutor(max_workers=3) as pool:
+                    fut_ratios = pool.submit(self.indianapi_client.get_ratios, mapping.stock_symbol)
+                    fut_details = pool.submit(self.indianapi_client.get_stock_details, mapping.stock_symbol)
+                    fut_quarter = pool.submit(self.indianapi_client.get_quarterly_results, mapping.stock_symbol)
+                    fut_yoy = pool.submit(self.indianapi_client.get_yoy_results, mapping.stock_symbol)
+                    fut_balance = pool.submit(self.indianapi_client.get_balancesheet, mapping.stock_symbol)
+                    fut_shareholding = pool.submit(self.indianapi_client.get_shareholding_pattern, mapping.stock_symbol)
+
+                    ratios_data = fut_ratios.result()
+                    stock_data = fut_details.result()
+                    quarter_data = fut_quarter.result()
+                    yoy_data = fut_yoy.result()
+                    balance_data = fut_balance.result()
+                    shareholding_data = fut_shareholding.result()
+
                 df_daily_dict = None
                 if 'df_daily' in locals() and df_daily is not None:
                     df_daily_dict = df_daily
@@ -551,6 +573,7 @@ class BatchProcessor:
             # Avoid fetching if from_date is equal to to_date and it's already fetched? 
             # EODHD accepts same date for from and to, it just fetches that day.
             try:
+                did_external_fetch = True
                 news_data = self.fetch_eodhd_news(eodhd_news_symbol, from_date_news, to_date_news)
                 if isinstance(news_data, list):
                     # Cache articles in DB with duplicate URL safety
@@ -623,6 +646,11 @@ class BatchProcessor:
                     logger.info(f"Computed database-cached sentiment scores for {mapping.stock_symbol}: {sentiment_scores}")
             except Exception as e:
                 logger.error(f"Error calculating sentiment from database cache for {mapping.stock_symbol}: {e}")
+                # If the query above (not just the in-memory scoring) is what failed,
+                # the session's transaction is left aborted; every subsequent query
+                # in this call (starting with the StockScore lookup below) would
+                # otherwise raise "current transaction is aborted".
+                self.db.rollback()
 
         # 4. Overall Scores
         overall_short = compute_overall_score(tech_scores['short'], safety_scores['scores']['short'], sentiment_scores['short'] if sentiment_scores['short'] != "Not Available" else None, 'short')
@@ -654,7 +682,11 @@ class BatchProcessor:
         
         # 6. Save Fundamentals to DB (Only if we actually fetched them)
         if should_fetch_fundamentals:
-            fund_record = self.db.query(models.StockFundamental).filter(models.StockFundamental.stock_symbol == mapping.stock_symbol).first()
+            # Reuse the fund_record already looked up above (step 2) instead of
+            # re-querying the same row for the same stock a second time -- the
+            # object may be expired (e.g. by a rollback earlier in this call) but
+            # SQLAlchemy transparently refreshes an expired object on next access,
+            # so reuse is still correct.
             if not fund_record:
                 fund_record = models.StockFundamental(stock_symbol=mapping.stock_symbol)
                 self.db.add(fund_record)
@@ -672,24 +704,34 @@ class BatchProcessor:
             fund_record.fii_holding_pct = safe_float(metrics.get('fii_holding_pct'))
         
         self.db.commit()
-        logger.info(f"Successfully processed {mapping.stock_symbol}. Sleeping 3s to respect API rate limits...")
-        time.sleep(3.0)
+        if did_external_fetch:
+            logger.info(f"Successfully processed {mapping.stock_symbol}. Sleeping 3s to respect API rate limits...")
+            time.sleep(3.0)
+        else:
+            logger.info(f"Successfully processed {mapping.stock_symbol} entirely from cache -- no external API calls made, skipping rate-limit pause.")
 
 
     def run(self, skip_computed_today: bool = True):
         logger.info("Starting Batch Processing Loop...")
         mappings = self.db.query(models.SymbolMapping).all()
         logger.info(f"Found {len(mappings)} total stocks in symbol_mapping.")
-        
+
+        # Batch-load every stock's last computed_at once instead of issuing one
+        # query per mapping inside the loop below. Each mapping is only ever
+        # checked against this map once (before its own processing would
+        # update it), so a single upfront snapshot is correct, not stale.
+        computed_at_map = {}
+        if skip_computed_today:
+            computed_at_map = dict(
+                self.db.query(models.StockScore.stock_symbol, models.StockScore.computed_at).all()
+            )
+
         for idx, mapping in enumerate(mappings, 1):
             try:
                 if skip_computed_today:
                     cutoff = datetime.now(timezone.utc) - timedelta(hours=20)
-                    existing_score = self.db.query(models.StockScore.computed_at).filter(
-                        models.StockScore.stock_symbol == mapping.stock_symbol
-                    ).first()
-                    if existing_score and existing_score[0]:
-                        score_time = existing_score[0]
+                    score_time = computed_at_map.get(mapping.stock_symbol)
+                    if score_time:
                         if score_time.tzinfo is None:
                             score_time = score_time.replace(tzinfo=timezone.utc)
                         if score_time >= cutoff:
