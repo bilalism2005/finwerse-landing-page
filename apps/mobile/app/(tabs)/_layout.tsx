@@ -35,6 +35,12 @@ export default function TabLayout() {
   return (
     <TopTabs
       tabBar={(props: any) => <CustomTabBar {...props} />}
+      // react-native-tab-view's <TabView> (which expo-router's TopTabs/MaterialTopTabView
+      // renders under the hood) defaults tabBarPosition to 'top'. Neither MaterialTopTabNavigator
+      // nor MaterialTopTabView consume/destructure this prop — both spread it through untouched
+      // via `...rest` — so it reaches TabView as-is. Force it to 'bottom' so CustomTabBar renders
+      // at the bottom of the screen instead of overlapping the status bar.
+      tabBarPosition="bottom"
       screenOptions={{
         swipeEnabled: !reduceMotionEnabled,
         animationEnabled: !reduceMotionEnabled,
