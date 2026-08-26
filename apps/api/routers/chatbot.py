@@ -6,14 +6,27 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from groq import AsyncGroq
 from database import get_db
-from routers.health import get_groq_client
 import auth
 from services import tools
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chatbot", tags=["chatbot"])
+
+# FIX 4: Dedicated async Groq client for this router — the Groq SDK's AsyncGroq class
+# natively supports `await`, so every completion call here can run without blocking
+# the FastAPI event loop (unlike the sync `Groq` client used elsewhere, e.g. health.py).
+_async_groq_client = None
+def get_async_groq_client():
+    global _async_groq_client
+    if _async_groq_client is None:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="GROQ_API_KEY environment variable not set on server.")
+        _async_groq_client = AsyncGroq(api_key=api_key)
+    return _async_groq_client
 
 class ChatMessage(BaseModel):
     role: str
@@ -207,7 +220,7 @@ async def ask_chatbot(
     current_user_id: str = Depends(auth.get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    client = get_groq_client()
+    client = get_async_groq_client()
 
     messages = [{"role": "system", "content": NODE_1_SYSTEM_PROMPT}]
     for msg in request.history[-4:]:  # Last 4 turns max to save tokens
@@ -220,7 +233,7 @@ async def ask_chatbot(
     
     for candidate_model in node1_candidates:
         try:
-            node1_response = client.chat.completions.create(
+            node1_response = await client.chat.completions.create(
                 model=candidate_model,
                 messages=messages,
                 tools=groq_tools,
@@ -251,7 +264,7 @@ async def ask_chatbot(
         # Retry with required to force a tool call if length or empty
         for candidate_model in node1_candidates:
             try:
-                node1_response = client.chat.completions.create(
+                node1_response = await client.chat.completions.create(
                     model=candidate_model,
                     messages=messages,
                     tools=groq_tools,
@@ -264,7 +277,10 @@ async def ask_chatbot(
             except Exception as e2:
                 logger.warning(f"Node 1 forced retry on {candidate_model} failed: {e2}")
                 continue
-            logger.error(f"Node 1 retry failed: {e2}")
+        else:
+            # Loop exhausted all candidates without a `break` (either every candidate
+            # raised, or every candidate returned a response with no tool_calls).
+            logger.error("All Node 1 retry candidates failed to produce a tool call")
             async def fallback_stream():
                 yield "I'm having trouble routing your question. Please try rephrasing it."
             return StreamingResponse(fallback_stream(), media_type="text/plain")
@@ -305,9 +321,6 @@ async def ask_chatbot(
 
     for tool_call in tool_calls:
         func_name = tool_call.function.name
-        if func_name in executed_funcs:
-            continue
-        executed_funcs.add(func_name)
 
         try:
             args = json.loads(tool_call.function.arguments or "{}")
@@ -315,6 +328,14 @@ async def ask_chatbot(
             args = {}
 
         stock_sym = args.get("stock_symbol", "")
+
+        # FIX 3: Dedup key includes the stock symbol (not just func_name) so that
+        # multi-symbol comparisons (e.g. "compare X and Y") aren't collapsed into a
+        # single call. Portfolio calls have no symbol, so they still dedup on func_name alone.
+        dedup_key = (func_name, stock_sym.strip().upper() if stock_sym else "")
+        if dedup_key in executed_funcs:
+            continue
+        executed_funcs.add(dedup_key)
 
         if func_name in ["tool_comprehensive_stock_analysis", "tool_stock_data"]:
             tasks.append(tools.tool_comprehensive_stock_analysis(db, stock_sym))
@@ -358,14 +379,14 @@ async def ask_chatbot(
     async def stream_synthesis():
         for model_id in NODE_2_CANDIDATES:
             try:
-                stream = client.chat.completions.create(
+                stream = await client.chat.completions.create(
                     model=model_id,
                     messages=synthesis_messages,
                     temperature=0.3,
                     max_tokens=1500,
                     stream=True
                 )
-                for chunk in stream:
+                async for chunk in stream:
                     if chunk.choices and chunk.choices[0].delta.content:
                         yield chunk.choices[0].delta.content
                 return  # Success — don't try fallback

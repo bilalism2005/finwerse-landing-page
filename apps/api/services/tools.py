@@ -1,4 +1,5 @@
 import os
+import asyncio
 import difflib
 import httpx
 import logging
@@ -351,7 +352,7 @@ async def tool_twitter_sentiment(stock_symbol: str):
     Fetches real-time investor tweets and community discussion from Twitter/X.
     Use for: social sentiment, retail chatter, trending narratives around a stock.
     """
-    api_key = os.getenv("TWITTER_API_KEY") or "new1_b43898c1acb6453f9ffe8946722ab2f8"
+    api_key = os.getenv("TWITTER_API_KEY")
     if not api_key:
         return {"error": "Twitter API key not configured on server. Please set TWITTER_API_KEY in environment."}
 
@@ -453,24 +454,25 @@ async def tool_comprehensive_stock_analysis(db: Session, stock_symbol: str):
     queried_as = stock_symbol
     symbol = resolve_symbol(db, stock_symbol)
 
-    try:
-        stock_data_res = await tool_stock_data(db, symbol)
-    except Exception as e:
-        stock_data_res = {"error": str(e)}
+    stock_data_res, news_res, twitter_res, filings_res = await asyncio.gather(
+        tool_stock_data(db, symbol),
+        tool_news_sentiment(db, symbol),
+        tool_twitter_sentiment(symbol),
+        tool_nse_filings_rag(db, symbol),
+        return_exceptions=True
+    )
 
-    try:
-        news_res = await tool_news_sentiment(db, symbol)
-    except Exception as e:
+    # return_exceptions=True means a failed pillar surfaces here as a raw Exception
+    # instance instead of raising — convert each to the same error-dict shape this
+    # function's own internal try/except previously produced, so one failed pillar
+    # still never blocks the other 3.
+    if isinstance(stock_data_res, Exception):
+        stock_data_res = {"error": str(stock_data_res)}
+    if isinstance(news_res, Exception):
         news_res = {"result": "No news available"}
-
-    try:
-        twitter_res = await tool_twitter_sentiment(symbol)
-    except Exception as e:
+    if isinstance(twitter_res, Exception):
         twitter_res = {"result": "No twitter data"}
-
-    try:
-        filings_res = await tool_nse_filings_rag(db, symbol)
-    except Exception as e:
+    if isinstance(filings_res, Exception):
         filings_res = {"result": "No filings available"}
 
     return {

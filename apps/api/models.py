@@ -19,13 +19,13 @@ class StockScore(Base):
     computed_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     data_status = Column(String, nullable=True, server_default="SUCCESS")  # SUCCESS, RATE_LIMITED, FAILED
     
-    technical_score_short = Column(Float, nullable=True)
-    technical_score_medium = Column(Float, nullable=True)
-    technical_score_long = Column(Float, nullable=True)
-    
-    safety_score_short = Column(Float, nullable=True)
-    safety_score_medium = Column(Float, nullable=True)
-    safety_score_long = Column(Float, nullable=True)
+    technical_score_short = Column(Float, nullable=True, index=True)
+    technical_score_medium = Column(Float, nullable=True, index=True)
+    technical_score_long = Column(Float, nullable=True, index=True)
+
+    safety_score_short = Column(Float, nullable=True, index=True)
+    safety_score_medium = Column(Float, nullable=True, index=True)
+    safety_score_long = Column(Float, nullable=True, index=True)
     
     sentiment_score_short = Column(String, nullable=True) # Stored as string to handle "Not Available"
     sentiment_score_medium = Column(String, nullable=True)
