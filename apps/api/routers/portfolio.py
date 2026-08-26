@@ -11,6 +11,8 @@ from auth import get_current_user
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
+VALID_HOLDING_PERIODS = {"short", "medium", "long"}
+
 # Pydantic Schemas
 class PortfolioHoldingBase(BaseModel):
     stock_symbol: str
@@ -49,13 +51,30 @@ def create_holding(
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user)
 ):
+    if holding.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+    if holding.avg_price <= 0:
+        raise HTTPException(status_code=400, detail="Average buy price must be greater than 0")
+    if holding.intended_holding_period not in VALID_HOLDING_PERIODS:
+        raise HTTPException(status_code=400, detail="Invalid intended_holding_period")
+
+    # Normalize case before lookup/storage -- SymbolMapping.stock_symbol is
+    # stored uppercase, and every other query in this API matches on the
+    # uppercase form (see stocks.py's symbol.upper()). Without this, a caller
+    # sending lowercase would either fail the mapping lookup, or (if it
+    # somehow matched) store a differently-cased row than every other write
+    # path produces, breaking later exact-match filters on stock_symbol.
+    symbol = holding.stock_symbol.strip().upper()
+
     # Verify stock symbol exists in mapping (fuzzy search resolved on frontend, but validate here)
-    mapping = db.query(models.SymbolMapping).filter(models.SymbolMapping.stock_symbol == holding.stock_symbol).first()
+    mapping = db.query(models.SymbolMapping).filter(models.SymbolMapping.stock_symbol == symbol).first()
     if not mapping:
         raise HTTPException(status_code=400, detail="Invalid stock symbol")
-        
+
+    holding_data = holding.model_dump()
+    holding_data["stock_symbol"] = symbol
     db_holding = models.PortfolioHolding(
-        **holding.model_dump(),
+        **holding_data,
         user_id=user_id,
         status="held"
     )
@@ -90,11 +109,18 @@ def update_holding(
     
     if not db_holding:
         raise HTTPException(status_code=404, detail="Holding not found")
-        
+
     update_data = holding_update.model_dump(exclude_unset=True)
+    if "quantity" in update_data and update_data["quantity"] <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+    if "avg_price" in update_data and update_data["avg_price"] <= 0:
+        raise HTTPException(status_code=400, detail="Average buy price must be greater than 0")
+    if "intended_holding_period" in update_data and update_data["intended_holding_period"] not in VALID_HOLDING_PERIODS:
+        raise HTTPException(status_code=400, detail="Invalid intended_holding_period")
+
     for key, value in update_data.items():
         setattr(db_holding, key, value)
-        
+
     db.commit()
     db.refresh(db_holding)
     return db_holding
@@ -124,18 +150,30 @@ def sell_holding(
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user)
 ):
+    if sell_data.sold_quantity <= 0:
+        raise HTTPException(status_code=400, detail="Sell quantity must be greater than 0")
+    if sell_data.sold_price < 0:
+        raise HTTPException(status_code=400, detail="Selling price must be valid")
+
+    # Row-level lock: without this, two concurrent sell requests for the same
+    # holding (e.g. a double-tap before the UI disables the button) could both
+    # read the same pre-sale quantity, both pass the "not selling more than
+    # held" check below, and both commit -- overselling the position or
+    # crashing on a second delete of an already-deleted row. FOR UPDATE makes
+    # the second request block until the first commits, then re-read the
+    # row's post-sale state (status='sold' or reduced quantity).
     db_holding = db.query(models.PortfolioHolding).filter(
         models.PortfolioHolding.id == holding_id,
         models.PortfolioHolding.user_id == user_id,
         models.PortfolioHolding.status == "held"
-    ).first()
-    
+    ).with_for_update().first()
+
     if not db_holding:
         raise HTTPException(status_code=404, detail="Held position not found")
-        
+
     if sell_data.sold_quantity > db_holding.quantity:
         raise HTTPException(status_code=400, detail="Cannot sell more than held quantity")
-        
+
     if sell_data.sold_quantity == db_holding.quantity:
         # Full sell
         db_holding.status = "sold"
