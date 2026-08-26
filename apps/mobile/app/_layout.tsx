@@ -111,7 +111,19 @@ function AuthGate() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: tokens.canvas, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 10,
+          backgroundColor: tokens.canvas,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <ActivityIndicator size="large" color={tokens.accent} />
       </View>
     );
@@ -167,7 +179,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ contentStyle: { backgroundColor: tokens.canvas } }}>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="stock/[symbol]" options={{ headerTitle: 'Stock Detail', headerBackTitle: 'Back' }} />
+          <Stack.Screen name="stock/[symbol]" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
           <Stack.Screen name="+not-found" />
         </Stack>
