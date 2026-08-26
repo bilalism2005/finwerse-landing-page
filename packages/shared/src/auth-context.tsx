@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { flushSync } from "react-dom";
 import { Session } from "@supabase/supabase-js";
 import { getSupabase } from "./supabase";
 
@@ -24,10 +23,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+    }).catch((err) => {
+      // A rejected getSession() (e.g. network failure on cold start) previously left
+      // `loading: true` forever, hanging AuthGate's splash screen indefinitely.
+      console.warn("getSession failed", err);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      flushSync(() => setSession(session));
+      setSession(session);
     });
 
     return () => subscription.unsubscribe();
