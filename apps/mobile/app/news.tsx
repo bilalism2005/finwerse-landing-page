@@ -10,10 +10,10 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSentimentStore, Article } from '../../src/store/sentimentStore';
-import { IconSymbol } from '../../components/ui/IconSymbol';
-import { useThemeTokens } from '../../src/store/themeStore';
-import type { ThemeTokens } from '../../src/theme/tokens';
+import { useSentimentStore, Article } from '../src/store/sentimentStore';
+import { IconSymbol } from '../components/ui/IconSymbol';
+import { useThemeTokens } from '../src/store/themeStore';
+import type { ThemeTokens } from '../src/theme/tokens';
 
 const SKELETON_ROWS = [0, 1, 2, 3, 4, 5];
 

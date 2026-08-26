@@ -11,13 +11,13 @@ interface MoreRow {
   key: string;
   label: string;
   icon: IconSymbolName;
-  route: '/(tabs)/alerts' | '/(tabs)/impulse' | '/(tabs)/news';
+  route: '/alerts' | '/impulse' | '/news';
 }
 
 const ROWS: MoreRow[] = [
-  { key: 'alerts', label: 'Alerts', icon: 'bell.fill', route: '/(tabs)/alerts' },
-  { key: 'impulse', label: 'Impulse Analyzer', icon: 'chart.line.down.right', route: '/(tabs)/impulse' },
-  { key: 'news', label: 'Market News', icon: 'newspaper.fill', route: '/(tabs)/news' },
+  { key: 'alerts', label: 'Alerts', icon: 'bell.fill', route: '/alerts' },
+  { key: 'impulse', label: 'Impulse Analyzer', icon: 'chart.line.down.right', route: '/impulse' },
+  { key: 'news', label: 'Market News', icon: 'newspaper.fill', route: '/news' },
 ];
 
 const APPEARANCE_OPTIONS: { value: ThemeMode; label: string }[] = [

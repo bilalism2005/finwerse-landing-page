@@ -10,10 +10,10 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAnalyzerStore, CustomTradeInput, ImpulseTrade } from '../../src/store/analyzerStore';
-import { IconSymbol } from '../../components/ui/IconSymbol';
-import { useThemeTokens } from '../../src/store/themeStore';
-import type { ThemeTokens } from '../../src/theme/tokens';
+import { useAnalyzerStore, CustomTradeInput, ImpulseTrade } from '../src/store/analyzerStore';
+import { IconSymbol } from '../components/ui/IconSymbol';
+import { useThemeTokens } from '../src/store/themeStore';
+import type { ThemeTokens } from '../src/theme/tokens';
 
 interface EditableTrade {
   id: string;

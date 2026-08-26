@@ -3,6 +3,7 @@ import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initSupabase, AuthProvider, useAuth } from '@finwerse/shared';
@@ -172,18 +173,31 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: tokens.canvas }}>
-      <StatusBar style={mode === 'light' ? 'dark' : 'light'} backgroundColor={tokens.canvas} />
-      <AuthProvider>
-        <AuthGate />
-        <Stack screenOptions={{ contentStyle: { backgroundColor: tokens.canvas } }}>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="stock/[symbol]" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-      </AuthProvider>
-    </View>
+    // Required by react-native-gesture-handler (which react-native-tab-view's swipeable
+    // pager depends on, per spec/ui.md "Tab Navigation — Swipe Gestures") — must wrap the
+    // whole app at the root for gestures to work correctly anywhere below it.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: tokens.canvas }}>
+        <StatusBar style={mode === 'light' ? 'dark' : 'light'} backgroundColor={tokens.canvas} />
+        <AuthProvider>
+          <AuthGate />
+          <Stack screenOptions={{ contentStyle: { backgroundColor: tokens.canvas } }}>
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="stock/[symbol]" options={{ headerShown: false }} />
+            {/* Alerts/Impulse/News — moved out of the (tabs) swipeable pager entirely
+                (spec/ui.md "Tab Navigation — Swipe Gestures": a route registered under a
+                swipeable pager can be physically swiped onto, regardless of tab-bar
+                visibility, so these 3 must live as sibling Stack routes instead). Each
+                screen builds its own complete internal header, same as stock/[symbol]. */}
+            <Stack.Screen name="alerts" options={{ headerShown: false }} />
+            <Stack.Screen name="impulse" options={{ headerShown: false }} />
+            <Stack.Screen name="news" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+        </AuthProvider>
+      </View>
+    </GestureHandlerRootView>
   );
 }
