@@ -111,20 +111,25 @@ export default function HomeScreen() {
     let cancelled = false;
     setSearchLoading(true);
 
-    searchStocks(trimmedQuery, selectedTimeframe)
-      .then((results) => {
-        if (!cancelled) setSearchResults(results);
-      })
-      .catch((e) => {
-        console.error('Search failed:', e);
-        if (!cancelled) setSearchResults([]);
-      })
-      .finally(() => {
-        if (!cancelled) setSearchLoading(false);
-      });
+    // Debounce: wait for the user to pause typing before firing a request,
+    // instead of hitting the API on every keystroke.
+    const timer = setTimeout(() => {
+      searchStocks(trimmedQuery, selectedTimeframe)
+        .then((results) => {
+          if (!cancelled) setSearchResults(results);
+        })
+        .catch((e) => {
+          console.error('Search failed:', e);
+          if (!cancelled) setSearchResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearchLoading(false);
+        });
+    }, 300);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [trimmedQuery, selectedTimeframe]);
 

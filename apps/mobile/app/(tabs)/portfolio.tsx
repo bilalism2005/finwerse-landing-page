@@ -133,22 +133,41 @@ export default function PortfolioScreen() {
   );
 
   // Symbol Autocomplete Search
-  const handleSymbolSearch = async (text: string) => {
+  const handleSymbolSearch = (text: string) => {
     setAddSymbol(text.toUpperCase());
-    if (text.trim().length >= 2) {
-      setIsSearchingSymbol(true);
-      try {
-        const results = await searchStocks(text, 'medium');
-        setSymbolSuggestions(results);
-      } catch {
-        setSymbolSuggestions([]);
-      } finally {
-        setIsSearchingSymbol(false);
-      }
-    } else {
-      setSymbolSuggestions([]);
-    }
   };
+
+  useEffect(() => {
+    const trimmed = addSymbol.trim();
+    if (trimmed.length < 2) {
+      setSymbolSuggestions([]);
+      setIsSearchingSymbol(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsSearchingSymbol(true);
+
+    // Debounce: wait for the user to pause typing before firing a request,
+    // and guard against a slower earlier request clobbering a later one.
+    const timer = setTimeout(() => {
+      searchStocks(trimmed, 'medium')
+        .then((results) => {
+          if (!cancelled) setSymbolSuggestions(results);
+        })
+        .catch(() => {
+          if (!cancelled) setSymbolSuggestions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setIsSearchingSymbol(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [addSymbol]);
 
   // Helper for quick date chips
   const setQuickDate = (type: 'today' | '1w' | '1m' | '3m' | '6m' | '1y', target: 'purchase' | 'sold' | 'sellModal' | 'edit') => {
