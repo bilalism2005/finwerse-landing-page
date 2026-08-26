@@ -34,9 +34,9 @@ Lets a user search or browse any tracked NSE stock and see its four precomputed 
 - [x] `GET /stocks/{symbol}/score` returns all 4 scores for the requested timeframe or 404s cleanly
 - [ ] AI Summary icon on StockDetail correctly pre-loads chatbot context (not verified during this migration — confirm against `apps/web`/`apps/mobile` UI code)
 
-## Known Gaps / Future Work (mobile Stock Detail redesign, 2026-08-25)
+## Known Gaps / Future Work (mobile Stock Detail redesign, 2026-08-25; stub sections removed 2026-08-26)
 
-`apps/mobile`'s Stock Detail screen (`spec/ui.md` → "Screen: Stock Detail") was redesigned presentation-only against the existing `GET /stocks/{symbol}/score` response. Three sections are spec'd as honest visual stubs, not new features — each needs real data/wiring before it can leave stub state:
+`apps/mobile`'s Stock Detail screen (`spec/ui.md` → "Screen: Stock Detail") was redesigned presentation-only against the existing `GET /stocks/{symbol}/score` response. Three sections were spec'd 2026-08-25 as honest "coming soon" visual stubs; the user rejected that treatment and, as of 2026-08-26, the spec removes all three sections entirely instead — no placeholder copy or disabled controls render anywhere on the screen today. The three ideas below remain real, tracked future work — each would need real data/wiring before it could be added back as an actual (not stubbed) feature:
 
 - **Price + interactive chart** — no OHLCV/price-history endpoint exists anywhere in `spec/api.md`; would need a new data source (market data provider) and endpoint, plus a batch or on-demand ingestion decision, before this can render real data. Not scoped as part of this redesign pass.
 - **Signal drivers** (Momentum / Trend strength / Volume confirmation / Financial safety, per-driver evidence) — no per-driver breakdown is currently computed or stored anywhere in `spec/data.md`'s score tables; would need new batch-computed fields, not a live computation (per Standing Platform Rule 5), before this can show real values.

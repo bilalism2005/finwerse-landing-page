@@ -61,18 +61,6 @@ const PILLAR_ROWS: { key: PillarKey; label: string }[] = [
   { key: 'sentiment', label: 'Sentiment' },
 ];
 
-const SIGNAL_DRIVER_ROWS = ['Momentum', 'Trend strength', 'Volume confirmation', 'Financial safety'];
-
-const MORE_ON_STOCK_ROWS = [
-  'Fundamentals',
-  'Earnings & financials',
-  'News & sentiment',
-  'Peer comparison',
-  'Score history',
-];
-
-const CHART_RANGE_SEGMENTS = ['1D', '1W', '1M', '3M', '1Y'];
-
 function isNotAvailable(value: number | string | null | undefined): boolean {
   return value === 'Not Available' || value === null || value === undefined;
 }
@@ -96,7 +84,6 @@ export default function StockDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
-  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     fetchScore(timeframe);
@@ -121,10 +108,6 @@ export default function StockDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleRow = (index: number) => {
-    setExpandedRows((prev) => ({ ...prev, [index]: !prev[index] }));
   };
 
   return (
@@ -234,22 +217,6 @@ export default function StockDetailScreen() {
             })()}
           </View>
 
-          {/* Price + chart — STUB (no OHLCV/price-history endpoint exists today) */}
-          <View style={styles.priceStubSection}>
-            <Text style={styles.priceStubText}>Price data coming soon</Text>
-            <View style={styles.chartStubBox}>
-              <IconSymbol name="chart.line.uptrend.xyaxis" size={32} color={tokens.textTertiary} />
-              <Text style={styles.chartStubText}>Chart coming soon</Text>
-            </View>
-            <View style={styles.chartRangeRow}>
-              {CHART_RANGE_SEGMENTS.map((label) => (
-                <View key={label} style={styles.chartRangeSegment}>
-                  <Text style={styles.chartRangeSegmentText}>{label}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
           {/* Why this score? */}
           <Text style={styles.sectionTitle}>Why this score?</Text>
           <View style={styles.pillarSection}>
@@ -287,55 +254,6 @@ export default function StockDetailScreen() {
           </View>
         </>
       )}
-
-      {/* Signal drivers — STUB (no per-driver breakdown computed/stored today) */}
-      <Text style={styles.sectionTitle}>Signal drivers</Text>
-      <View style={styles.signalDriversSection}>
-        {SIGNAL_DRIVER_ROWS.map((label, index) => (
-          <View
-            key={label}
-            style={[
-              styles.signalDriverRow,
-              index !== SIGNAL_DRIVER_ROWS.length - 1 && styles.pillarRowDivider,
-            ]}
-          >
-            <Text style={styles.signalDriverLabel}>{label}</Text>
-            <Text style={styles.signalDriverStatus}>Coming soon</Text>
-            <IconSymbol name="chevron.right" size={16} color={tokens.textTertiary} style={styles.chevronDimmed} />
-          </View>
-        ))}
-      </View>
-
-      {/* "More on this stock" — STUB, 5 expandable disclosure rows */}
-      <Text style={styles.moreOnStockHeading}>MORE ON THIS STOCK</Text>
-      <View style={styles.moreOnStockSection}>
-        {MORE_ON_STOCK_ROWS.map((label, index) => {
-          const isExpanded = !!expandedRows[index];
-          return (
-            <View key={label} style={index !== MORE_ON_STOCK_ROWS.length - 1 ? styles.pillarRowDivider : undefined}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${label}, ${isExpanded ? 'expanded' : 'collapsed'}`}
-                onPress={() => toggleRow(index)}
-                style={({ pressed }) => [styles.disclosureRow, pressed && styles.headerIconButtonPressed]}
-              >
-                <Text style={styles.disclosureLabel}>{label}</Text>
-                <IconSymbol
-                  name="chevron.down"
-                  size={18}
-                  color={tokens.textSecondary}
-                  style={isExpanded ? styles.chevronExpanded : undefined}
-                />
-              </Pressable>
-              {isExpanded && (
-                <View style={styles.disclosureBody}>
-                  <Text style={styles.disclosureBodyText}>Coming soon — this section isn't available yet</Text>
-                </View>
-              )}
-            </View>
-          );
-        })}
-      </View>
     </ScrollView>
     </SafeAreaView>
   );
@@ -511,42 +429,6 @@ function createStyles(tokens: ThemeTokens) {
       fontSize: 13,
       fontWeight: '600',
     },
-    priceStubSection: {
-      marginBottom: 24,
-    },
-    priceStubText: {
-      fontSize: 14,
-      color: tokens.textTertiary,
-      textAlign: 'center',
-      marginBottom: 12,
-    },
-    chartStubBox: {
-      height: 140,
-      borderRadius: 16,
-      backgroundColor: tokens.elevatedSurface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-    },
-    chartStubText: {
-      fontSize: 13,
-      color: tokens.textTertiary,
-    },
-    chartRangeRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 12,
-      opacity: 0.4,
-    },
-    chartRangeSegment: {
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-    },
-    chartRangeSegmentText: {
-      fontSize: 12,
-      color: tokens.textTertiary,
-      fontWeight: '600',
-    },
     sectionTitle: {
       fontSize: 19,
       fontWeight: '700',
@@ -594,60 +476,6 @@ function createStyles(tokens: ThemeTokens) {
       height: 3,
       borderRadius: 2,
       backgroundColor: tokens.accent,
-    },
-    signalDriversSection: {
-      marginBottom: 24,
-    },
-    signalDriverRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 14,
-      gap: 8,
-    },
-    signalDriverLabel: {
-      flex: 1,
-      fontSize: 15,
-      color: tokens.textPrimary,
-    },
-    signalDriverStatus: {
-      fontSize: 13,
-      color: tokens.textTertiary,
-    },
-    chevronDimmed: {
-      opacity: 0.4,
-    },
-    moreOnStockHeading: {
-      fontSize: 12,
-      fontWeight: '700',
-      letterSpacing: 1,
-      color: tokens.textTertiary,
-      marginBottom: 8,
-    },
-    moreOnStockSection: {
-      backgroundColor: tokens.elevatedSurface,
-      borderRadius: 14,
-      paddingHorizontal: 16,
-      marginBottom: 8,
-    },
-    disclosureRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 16,
-    },
-    disclosureLabel: {
-      fontSize: 15,
-      color: tokens.textPrimary,
-    },
-    chevronExpanded: {
-      transform: [{ rotate: '180deg' }],
-    },
-    disclosureBody: {
-      paddingBottom: 16,
-    },
-    disclosureBodyText: {
-      fontSize: 13,
-      color: tokens.textSecondary,
     },
   });
 }
