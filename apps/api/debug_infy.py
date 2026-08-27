@@ -3,7 +3,7 @@ import models
 from services.batch_processor import BatchProcessor
 import pandas as pd
 from datetime import datetime, timedelta
-from services.scoring import compute_technical_scores, cci, sma, rsi, macd, calculate_candles_since_crossover, get_decay_score
+from services.scoring import cci, sma, rsi, macd, calculate_candles_since_crossover, get_decay_score
 
 db = SessionLocal()
 processor = BatchProcessor(db)

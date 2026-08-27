@@ -458,8 +458,7 @@ def compute_safety_scores(ratios, stock, quarter, yoy, balance, shareholding, df
     if not shareholding: shareholding = {}
 
     reusable = stock.get("stockDetailsReusableData", {})
-    key_metrics = stock.get("keyMetrics", {})
-    
+
     scores = {}
     
     # 1. RVOL (Relative Volume)

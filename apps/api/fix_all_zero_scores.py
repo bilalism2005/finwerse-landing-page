@@ -10,7 +10,6 @@ stock).
 import sys
 import logging
 import time
-from datetime import timezone
 
 import pandas as pd
 from sqlalchemy import text

@@ -10,7 +10,7 @@ import httpx
 import models
 from services.data_fetcher import AngelOneClient, IndianAPIClient, EODHDClient
 from config.holidays import get_trading_days_between
-from services.scoring import compute_technical_scores, compute_overall_score, compute_safety_scores, safe_float, compute_timeframe_sentiment, validate_article_for_stock, compute_historical_technical_scores
+from services.scoring import compute_overall_score, compute_safety_scores, safe_float, compute_timeframe_sentiment, validate_article_for_stock, compute_historical_technical_scores
 logger = logging.getLogger(__name__)
 
 def parse_date(date_str):

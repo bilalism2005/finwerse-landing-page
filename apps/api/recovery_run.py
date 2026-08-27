@@ -9,13 +9,11 @@ Usage: venv\Scripts\python.exe recovery_run.py
 """
 
 import sys
-import os
 import logging
 import time
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import httpx
 import pandas as pd
 
 sys.path.insert(0, r'c:\Users\bilal\OneDrive\Pictures\Screenshots\finwerse\apps\api')
@@ -23,7 +21,7 @@ sys.path.insert(0, r'c:\Users\bilal\OneDrive\Pictures\Screenshots\finwerse\apps\
 from dotenv import load_dotenv
 load_dotenv(r'c:\Users\bilal\OneDrive\Pictures\Screenshots\finwerse\apps\api\.env')
 
-from database import SessionLocal, engine
+from database import SessionLocal
 import models
 from services.data_fetcher import AngelOneClient
 from services.scoring import (

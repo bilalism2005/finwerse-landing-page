@@ -1,8 +1,6 @@
-import os
 import httpx
 import logging
 import fitz  # PyMuPDF
-from io import BytesIO
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sentence_transformers import SentenceTransformer
