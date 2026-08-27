@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSentimentStore, Article } from '../src/store/sentimentStore';
 import { IconSymbol } from '../components/ui/IconSymbol';
-import { useThemeTokens } from '../src/store/themeStore';
+import { useThemeStore, useThemeTokens } from '../src/store/themeStore';
 import type { ThemeTokens } from '../src/theme/tokens';
 import { withAlphaFraction as withAlpha } from '../src/theme/color';
 
@@ -20,6 +20,7 @@ const SKELETON_ROWS = [0, 1, 2, 3, 4, 5];
 
 export default function SentimentFeedScreen() {
   const tokens = useThemeTokens();
+  const mode = useThemeStore((s) => s.mode);
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const { articles, isLoading, error, fetchMarketNews, fetchPortfolioSentiment, searchSentiment } =
     useSentimentStore();
@@ -155,7 +156,16 @@ export default function SentimentFeedScreen() {
           <View
             style={[
               styles.sentimentBadge,
-              { backgroundColor: withAlpha(badge.color, 0.15), borderColor: withAlpha(badge.color, 0.35) },
+              {
+                // Bearish (tokens.negative) in dark mode: 0.15 alpha over canvas computes to
+                // 4.30:1 against the badge's own bright-coral text (verified via WCAG math),
+                // just under the 4.5:1 this 11px/600-weight text needs. A lower alpha pulls
+                // the tint closer to the (darker) canvas instead of the bright text, which
+                // raises contrast here -- but would LOWER it for the light-theme badges (a
+                // lighter canvas there), so this is scoped to dark-mode Bearish specifically.
+                backgroundColor: withAlpha(badge.color, badge.label === 'Bearish' && mode === 'dark' ? 0.118 : 0.15),
+                borderColor: withAlpha(badge.color, 0.35),
+              },
             ]}
           >
             <View style={[styles.badgeDot, { backgroundColor: badge.color }]} />

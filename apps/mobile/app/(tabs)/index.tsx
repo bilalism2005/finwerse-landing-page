@@ -161,13 +161,12 @@ export default function HomeScreen() {
       {/* Header row */}
       <View style={styles.headerRow}>
         <Text style={styles.wordmark}>Finwerse</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Notifications"
-          style={({ pressed }) => [styles.headerIconButton, pressed && styles.headerIconButtonPressed]}
-        >
+        {/* Not a Pressable: no notifications feature exists yet to navigate to (design
+            audit, 2026-08-27) -- it previously dimmed on press like a real button while
+            doing nothing, visually promising functionality that isn't built. */}
+        <View style={styles.headerIconButton}>
           <IconSymbol name="bell.fill" size={18} color={tokens.textPrimary} />
-        </Pressable>
+        </View>
       </View>
 
       {/* Search field */}
@@ -192,7 +191,7 @@ export default function HomeScreen() {
             <Pressable
               key={value}
               onPress={() => setTimeframe(value)}
-              style={[styles.segment, isSelected && styles.segmentSelected]}
+              style={({ pressed }) => [styles.segment, isSelected && styles.segmentSelected, pressed && styles.segmentPressed]}
             >
               <Text style={[styles.segmentText, isSelected && styles.segmentTextSelected]}>
                 {HORIZON_LABELS[value]}
@@ -301,7 +300,7 @@ export default function HomeScreen() {
                   <Text style={styles.rank}>{String(index + 1).padStart(2, '0')}</Text>
                   <View style={styles.rowMiddle}>
                     <Text style={styles.ticker}>{stock.symbol}</Text>
-                    {stock.sector ? <Text style={styles.descriptor}>{stock.sector}</Text> : null}
+                    {stock.sector ? <Text style={styles.descriptor} numberOfLines={1}>{stock.sector}</Text> : null}
                     <View style={styles.signalBarTrack}>
                       <View style={[styles.signalBarFill, { width: `${barWidth}%` }]} />
                     </View>
@@ -351,13 +350,10 @@ function createStyles(tokens: ThemeTokens) {
     headerIconButton: {
       width: 38,
       height: 38,
-      borderRadius: 19,
+      borderRadius: 999,
       backgroundColor: tokens.elevatedSurface,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    headerIconButtonPressed: {
-      opacity: 0.7,
     },
     searchField: {
       flexDirection: 'row',
@@ -390,6 +386,9 @@ function createStyles(tokens: ThemeTokens) {
     },
     segmentSelected: {
       backgroundColor: tokens.accent,
+    },
+    segmentPressed: {
+      opacity: 0.7,
     },
     segmentText: {
       color: tokens.textSecondary,

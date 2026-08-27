@@ -268,7 +268,7 @@ function createStyles(tokens: ThemeTokens) {
     headerIconButton: {
       width: 38,
       height: 38,
-      borderRadius: 19,
+      borderRadius: 999,
       backgroundColor: tokens.elevatedSurface,
       alignItems: 'center',
       justifyContent: 'center',

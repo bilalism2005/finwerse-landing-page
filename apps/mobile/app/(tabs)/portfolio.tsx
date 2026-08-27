@@ -185,7 +185,7 @@ export default function PortfolioScreen() {
       <View style={styles.segmentedControl}>
         <Pressable
           onPress={() => setFilterTab('all')}
-          style={[styles.segment, filterTab === 'all' && styles.segmentSelected]}
+          style={({ pressed }) => [styles.segment, filterTab === 'all' && styles.segmentSelected, pressed && styles.segmentPressed]}
         >
           <Text style={[styles.segmentText, filterTab === 'all' && styles.segmentTextSelected]}>
             All ({holdings.length})
@@ -193,7 +193,7 @@ export default function PortfolioScreen() {
         </Pressable>
         <Pressable
           onPress={() => setFilterTab('held')}
-          style={[styles.segment, filterTab === 'held' && styles.segmentSelected]}
+          style={({ pressed }) => [styles.segment, filterTab === 'held' && styles.segmentSelected, pressed && styles.segmentPressed]}
         >
           <Text style={[styles.segmentText, filterTab === 'held' && styles.segmentTextSelected]}>
             Held ({heldCount})
@@ -201,7 +201,7 @@ export default function PortfolioScreen() {
         </Pressable>
         <Pressable
           onPress={() => setFilterTab('sold')}
-          style={[styles.segment, filterTab === 'sold' && styles.segmentSelected]}
+          style={({ pressed }) => [styles.segment, filterTab === 'sold' && styles.segmentSelected, pressed && styles.segmentPressed]}
         >
           <Text style={[styles.segmentText, filterTab === 'sold' && styles.segmentTextSelected]}>
             Sold ({soldCount})
@@ -377,6 +377,9 @@ function createStyles(tokens: ThemeTokens) {
   },
   segmentSelected: {
     backgroundColor: tokens.accent,
+  },
+  segmentPressed: {
+    opacity: 0.7,
   },
   segmentText: {
     color: tokens.textSecondary,

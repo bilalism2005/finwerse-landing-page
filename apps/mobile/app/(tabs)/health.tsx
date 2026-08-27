@@ -128,7 +128,7 @@ export default function HealthScreen() {
         <Pressable
           key={t}
           onPress={() => setTimeframe(t)}
-          style={[styles.segment, timeframe === t && styles.segmentSelected]}
+          style={({ pressed }) => [styles.segment, timeframe === t && styles.segmentSelected, pressed && styles.segmentPressed]}
         >
           <Text style={[styles.segmentText, timeframe === t && styles.segmentTextSelected]}>
             {HORIZON_LABELS[t]}
@@ -372,6 +372,9 @@ function createStyles(tokens: ThemeTokens) {
     },
     segmentSelected: {
       backgroundColor: tokens.accent,
+    },
+    segmentPressed: {
+      opacity: 0.7,
     },
     segmentText: {
       color: tokens.textSecondary,
