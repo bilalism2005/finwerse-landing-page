@@ -5,10 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore, Timeframe } from '../../src/store';
 import { getStockDetailScore, StockScoreDetail } from '../../src/api/stockService';
 import { IconSymbol } from '../../components/ui/IconSymbol';
-import { useThemeTokens } from '../../src/store/themeStore';
+import { useThemeStore, useThemeTokens } from '../../src/store/themeStore';
 import type { ThemeTokens } from '../../src/theme/tokens';
-import { getBand, getBandColor, Band } from '../../src/theme/score-band';
-import { withAlphaHex as withAlpha } from '../../src/theme/color';
+import { getBand, getBandColor, getBadgeBackground, Band } from '../../src/theme/score-band';
 
 type PillarKey = 'technical' | 'safety' | 'sentiment';
 
@@ -61,6 +60,7 @@ function progressBarWidthPercent(score: number): number {
 
 export default function StockDetailScreen() {
   const tokens = useThemeTokens();
+  const mode = useThemeStore((s) => s.mode);
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const router = useRouter();
@@ -195,7 +195,7 @@ export default function StockDetailScreen() {
               const band = getBand(data.overall);
               const color = getBandColor(tokens, band);
               return (
-                <View style={[styles.statusPill, { backgroundColor: withAlpha(color, '26') }]}>
+                <View style={[styles.statusPill, { backgroundColor: getBadgeBackground(tokens, band, mode) }]}>
                   <View style={[styles.statusDot, { backgroundColor: color }]} />
                   <Text style={[styles.statusPillText, { color }]}>{BAND_STATUS_WORD[band]} momentum</Text>
                 </View>

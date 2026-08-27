@@ -6,10 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHealthStore, StockHealthInfo, SectorInfo } from '@/src/store/healthStore';
 import { HoldingPeriod } from '@/src/store/portfolioStore';
 import { useChatStore } from '@/src/store/chatStore';
-import { useThemeTokens } from '@/src/store/themeStore';
+import { useThemeStore, useThemeTokens } from '@/src/store/themeStore';
 import type { ThemeTokens } from '@/src/theme/tokens';
-import { getBand, getBandColor, Band } from '@/src/theme/score-band';
-import { withAlphaHex as withAlpha } from '@/src/theme/color';
+import { getBand, getBandColor, getBadgeBackground, Band } from '@/src/theme/score-band';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
 const HORIZON_LABELS: Record<HoldingPeriod, string> = {
@@ -64,6 +63,7 @@ export default function HealthScreen() {
   const { healthData, fetchHealth, loading, error, clearBottleneckReport } = useHealthStore();
   const [timeframe, setTimeframe] = useState<HoldingPeriod>('medium');
   const tokens = useThemeTokens();
+  const mode = useThemeStore((s) => s.mode);
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const BAND_COLOR: Record<Band, string> = {
     green: getBandColor(tokens, 'green'),
@@ -102,7 +102,7 @@ export default function HealthScreen() {
       <View key={item.stock_symbol} style={[styles.holdingRow, !isLast && styles.rowDivider]}>
         <View style={styles.holdingHeaderRow}>
           <Text style={styles.holdingSymbol}>{item.stock_symbol}</Text>
-          <View style={[styles.scoreBadge, { backgroundColor: band ? withAlpha(BAND_COLOR[band], '26') : tokens.secondarySurface }]}>
+          <View style={[styles.scoreBadge, { backgroundColor: band ? getBadgeBackground(tokens, band, mode) : tokens.secondarySurface }]}>
             <Text style={[styles.scoreBadgeText, { color: band ? BAND_COLOR[band] : tokens.textTertiary }]}>
               {item.overall_score !== null ? Math.round(item.overall_score) : 'N/A'}
             </Text>
