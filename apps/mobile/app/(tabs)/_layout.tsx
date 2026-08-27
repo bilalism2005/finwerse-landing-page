@@ -42,7 +42,12 @@ export default function TabLayout() {
       // at the bottom of the screen instead of overlapping the status bar.
       tabBarPosition="bottom"
       screenOptions={{
-        swipeEnabled: !reduceMotionEnabled,
+        // Reduce Motion (design audit, 2026-08-27) suppresses autoplaying/parallax-style
+        // animation -- it isn't meant to remove a direct-manipulation gesture the user's
+        // own finger is driving 1:1, which is closer to a slider thumb than an animation.
+        // Only animationEnabled (the momentum/snap transition) is tied to the setting;
+        // swipeEnabled stays on unconditionally so Reduce Motion users keep the gesture.
+        swipeEnabled: true,
         animationEnabled: !reduceMotionEnabled,
         // All 5 scenes stay mounted (default — not opting into `lazy`) so an adjacent tab is
         // never a blank/loading frame mid-drag (spec/ui.md's "No blank mid-swipe frames").

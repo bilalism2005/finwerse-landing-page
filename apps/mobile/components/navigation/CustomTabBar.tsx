@@ -128,6 +128,11 @@ export function CustomTabBar({ state, navigation, position }: any) {
                 ambient JSX namespace, producing a spurious structural mismatch (not a real
                 type error) unrelated to this feature. */}
             {renderIcon ? (renderIcon(color) as any) : null}
+            {/* Selected state was color-only (design audit, 2026-08-27) -- same glyph, no
+                shape change, nothing for a color-blind user to key off. Dot fades in sync
+                with the same `distance` value already driving the icon tint, so it tracks
+                mid-drag instead of snapping. */}
+            <View style={[styles.selectedDot, { opacity: distance, backgroundColor: tokens.accent }]} />
           </Pressable>
         );
       })}
@@ -149,6 +154,12 @@ function createStyles(tokens: ThemeTokens) {
       justifyContent: 'center',
       paddingTop: 8,
       paddingBottom: 4,
+    },
+    selectedDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      marginTop: 4,
     },
   });
 }
