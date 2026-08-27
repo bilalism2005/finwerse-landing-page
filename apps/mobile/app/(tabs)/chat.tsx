@@ -259,11 +259,11 @@ function createStyles(tokens: ThemeTokens) {
     headerSubtitle: {
       fontSize: 13,
       color: tokens.textTertiary,
-      marginTop: 2,
+      marginTop: 4,
     },
     clearButton: {
       paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingVertical: 8,
       borderRadius: 10,
       backgroundColor: tokens.secondarySurface,
     },
@@ -317,7 +317,7 @@ function createStyles(tokens: ThemeTokens) {
     dotPulseRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 8,
       paddingVertical: 4,
       backgroundColor: 'transparent',
     },
@@ -361,7 +361,7 @@ function createStyles(tokens: ThemeTokens) {
       alignItems: 'center',
       backgroundColor: 'transparent',
       paddingVertical: 15,
-      paddingHorizontal: 2,
+      paddingHorizontal: 4,
       borderBottomWidth: 1,
       borderBottomColor: tokens.dividerSubtle,
     },
@@ -377,7 +377,7 @@ function createStyles(tokens: ThemeTokens) {
     composer: {
       flexDirection: 'row',
       alignItems: 'flex-end',
-      gap: 10,
+      gap: 12,
       paddingHorizontal: 16,
       paddingVertical: 12,
       backgroundColor: tokens.canvas,

@@ -234,7 +234,7 @@ function createStyles(tokens: ThemeTokens) {
       backgroundColor: tokens.elevatedSurface,
       borderRadius: 22,
       padding: 24,
-      gap: 14,
+      gap: 16,
     },
     // Tab toggle — segmented control nested inside the Elevated card, so its track uses
     // Secondary surface (not Elevated) for contrast against the parent card (spec/ui.md Login §3).
@@ -247,7 +247,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     tab: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: 12,
       alignItems: 'center',
       borderRadius: 8,
     },
@@ -268,7 +268,7 @@ function createStyles(tokens: ThemeTokens) {
       backgroundColor: tokens.secondarySurface,
       borderRadius: 12,
       paddingHorizontal: 16,
-      paddingVertical: 14,
+      paddingVertical: 16,
       color: tokens.textPrimary,
       fontSize: 15,
     },
@@ -277,7 +277,7 @@ function createStyles(tokens: ThemeTokens) {
     errorBox: {
       backgroundColor: withAlpha(tokens.negative, 0.12),
       borderRadius: 10,
-      paddingVertical: 10,
+      paddingVertical: 12,
       paddingHorizontal: 12,
     },
     errorText: {
@@ -289,7 +289,7 @@ function createStyles(tokens: ThemeTokens) {
     btn: {
       backgroundColor: tokens.accent,
       borderRadius: 12,
-      paddingVertical: 14,
+      paddingVertical: 16,
       alignItems: 'center',
       marginTop: 4,
     },
@@ -304,7 +304,7 @@ function createStyles(tokens: ThemeTokens) {
     dividerRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 12,
       marginVertical: 4,
     },
     divider: {
@@ -324,8 +324,8 @@ function createStyles(tokens: ThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tokens.secondarySurface,
       borderRadius: 12,
-      paddingVertical: 14,
-      gap: 10,
+      paddingVertical: 16,
+      gap: 12,
     },
     googleIcon: {
       color: COLOR_GOOGLE_BLUE,

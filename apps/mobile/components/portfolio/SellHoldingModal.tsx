@@ -268,7 +268,7 @@ function createStyles(tokens: ThemeTokens) {
     modalError: {
       backgroundColor: withAlpha(tokens.negative, '22'),
       color: tokens.negative,
-      padding: 10,
+      padding: 12,
       borderRadius: 8,
       marginBottom: 12,
       fontSize: 13,
@@ -277,15 +277,15 @@ function createStyles(tokens: ThemeTokens) {
       fontSize: 12,
       fontWeight: '600',
       color: tokens.textTertiary,
-      marginBottom: 6,
-      marginTop: 10,
+      marginBottom: 8,
+      marginTop: 12,
     },
     modalInput: {
       backgroundColor: tokens.elevatedSurface,
       borderWidth: 1,
       borderColor: tokens.dividerSubtle,
       borderRadius: 10,
-      paddingHorizontal: 14,
+      paddingHorizontal: 16,
       paddingVertical: 12,
       color: tokens.textPrimary,
       fontSize: 15,
@@ -296,7 +296,7 @@ function createStyles(tokens: ThemeTokens) {
       marginBottom: 8,
     },
     quickDateChip: {
-      paddingHorizontal: 10,
+      paddingHorizontal: 12,
       paddingVertical: 4,
       borderRadius: 6,
       backgroundColor: tokens.elevatedSurface,
@@ -311,9 +311,9 @@ function createStyles(tokens: ThemeTokens) {
     modalSubmitBtn: {
       backgroundColor: tokens.accent,
       borderRadius: 12,
-      paddingVertical: 14,
+      paddingVertical: 16,
       alignItems: 'center',
-      marginTop: 14,
+      marginTop: 16,
     },
     sellSubmitBtn: {
       backgroundColor: tokens.positive,

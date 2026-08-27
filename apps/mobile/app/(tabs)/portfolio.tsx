@@ -316,7 +316,7 @@ function createStyles(tokens: ThemeTokens) {
   pageSubtitle: {
     fontSize: 13,
     color: tokens.textSecondary,
-    marginTop: 2,
+    marginTop: 4,
   },
   summaryBlock: {
     marginBottom: 16,
@@ -370,7 +370,7 @@ function createStyles(tokens: ThemeTokens) {
   },
   segment: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
     borderRadius: 10,
     backgroundColor: 'transparent',
@@ -440,7 +440,7 @@ function createStyles(tokens: ThemeTokens) {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   skeletonTicker: {
     width: 72,
@@ -459,7 +459,7 @@ function createStyles(tokens: ThemeTokens) {
     height: 14,
     borderRadius: 4,
     backgroundColor: tokens.secondarySurface,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   skeletonMetaRow: {
     flexDirection: 'row',
@@ -475,8 +475,8 @@ function createStyles(tokens: ThemeTokens) {
     bottom: 24,
     right: 20,
     backgroundColor: tokens.accent,
-    paddingHorizontal: 22,
-    paddingVertical: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     borderRadius: 30,
   },
   fabPressed: {

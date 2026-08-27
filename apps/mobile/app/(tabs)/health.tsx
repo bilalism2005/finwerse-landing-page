@@ -365,7 +365,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     segment: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: 12,
       alignItems: 'center',
       borderRadius: 10,
       backgroundColor: 'transparent',
@@ -480,14 +480,14 @@ function createStyles(tokens: ThemeTokens) {
     gaugeScoreSuffix: {
       fontSize: 13,
       color: tokens.textTertiary,
-      marginBottom: 6,
+      marginBottom: 8,
     },
 
     splitScoresRow: {
       flexDirection: 'row',
       gap: 24,
       justifyContent: 'center',
-      marginBottom: 28,
+      marginBottom: 24,
     },
     splitBox: {
       alignItems: 'center',
@@ -504,10 +504,10 @@ function createStyles(tokens: ThemeTokens) {
     },
 
     evidenceSection: {
-      marginBottom: 28,
+      marginBottom: 24,
     },
     evidenceRow: {
-      paddingVertical: 14,
+      paddingVertical: 16,
     },
     rowDivider: {
       borderBottomWidth: 1,
@@ -533,7 +533,7 @@ function createStyles(tokens: ThemeTokens) {
       borderRadius: 2,
       backgroundColor: tokens.dividerSubtle,
       overflow: 'hidden',
-      marginTop: 10,
+      marginTop: 12,
     },
     evidenceBarFill: {
       height: 3,
@@ -541,7 +541,7 @@ function createStyles(tokens: ThemeTokens) {
     },
 
     section: {
-      marginBottom: 28,
+      marginBottom: 24,
     },
     sectionHeaderRow: {
       flexDirection: 'row',
@@ -611,13 +611,13 @@ function createStyles(tokens: ThemeTokens) {
       paddingHorizontal: 16,
     },
     holdingRow: {
-      paddingVertical: 14,
+      paddingVertical: 16,
     },
     holdingHeaderRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 6,
+      marginBottom: 8,
     },
     holdingSymbol: {
       fontSize: 15,
@@ -625,7 +625,7 @@ function createStyles(tokens: ThemeTokens) {
       color: tokens.textPrimary,
     },
     scoreBadge: {
-      paddingHorizontal: 10,
+      paddingHorizontal: 12,
       paddingVertical: 4,
       borderRadius: 100,
     },

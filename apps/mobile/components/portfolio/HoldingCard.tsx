@@ -124,7 +124,7 @@ function createStyles(tokens: ThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 10,
+      marginBottom: 12,
     },
     ticker: {
       fontSize: 16,
@@ -153,7 +153,7 @@ function createStyles(tokens: ThemeTokens) {
       color: tokens.textTertiary,
     },
     metricsRow: {
-      marginBottom: 10,
+      marginBottom: 12,
     },
     metricsLine: {
       fontSize: 15,
@@ -187,7 +187,7 @@ function createStyles(tokens: ThemeTokens) {
       marginTop: 12,
     },
     dateRow: {
-      paddingTop: 10,
+      paddingTop: 12,
     },
     dateText: {
       fontSize: 12,
@@ -196,12 +196,12 @@ function createStyles(tokens: ThemeTokens) {
     cardActions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
-      gap: 10,
-      paddingTop: 10,
+      gap: 12,
+      paddingTop: 12,
     },
     actionBtn: {
-      paddingHorizontal: 14,
-      paddingVertical: 6,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
       borderRadius: 8,
       backgroundColor: tokens.secondarySurface,
     },

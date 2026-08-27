@@ -361,13 +361,13 @@ function createStyles(tokens: ThemeTokens) {
       gap: 8,
       backgroundColor: tokens.elevatedSurface,
       borderRadius: 12,
-      paddingHorizontal: 14,
+      paddingHorizontal: 16,
       marginBottom: 16,
     },
     searchInput: {
       flex: 1,
       color: tokens.textPrimary,
-      paddingVertical: 14,
+      paddingVertical: 16,
       fontSize: 15,
     },
     segmentedControl: {
@@ -379,7 +379,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     segment: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: 12,
       alignItems: 'center',
       borderRadius: 10,
       backgroundColor: 'transparent',
@@ -410,10 +410,10 @@ function createStyles(tokens: ThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 10,
+      gap: 12,
       backgroundColor: tokens.secondarySurface,
       borderRadius: 10,
-      paddingVertical: 10,
+      paddingVertical: 12,
       paddingHorizontal: 12,
       marginBottom: 12,
     },
@@ -457,7 +457,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     rowMiddle: {
       flex: 1,
-      gap: 6,
+      gap: 8,
     },
     ticker: {
       fontSize: 16,
@@ -473,7 +473,7 @@ function createStyles(tokens: ThemeTokens) {
       borderRadius: 2,
       backgroundColor: tokens.dividerSubtle,
       overflow: 'hidden',
-      marginTop: 2,
+      marginTop: 4,
     },
     signalBarFill: {
       height: 3,
@@ -493,7 +493,7 @@ function createStyles(tokens: ThemeTokens) {
     statusLabel: {
       fontSize: 11,
       fontWeight: '600',
-      marginTop: 2,
+      marginTop: 4,
     },
     hintText: {
       fontSize: 15,
@@ -504,7 +504,7 @@ function createStyles(tokens: ThemeTokens) {
     searchLoadingRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 12,
       paddingVertical: 24,
       justifyContent: 'center',
     },

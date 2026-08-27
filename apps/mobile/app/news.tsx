@@ -317,7 +317,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     segment: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: 12,
       alignItems: 'center',
       borderRadius: 10,
       backgroundColor: 'transparent',
@@ -332,10 +332,10 @@ function createStyles(tokens: ThemeTokens) {
       backgroundColor: tokens.elevatedSurface,
       marginHorizontal: 20,
       marginBottom: 12,
-      paddingHorizontal: 14,
+      paddingHorizontal: 16,
       borderRadius: 12,
     },
-    searchInput: { flex: 1, color: tokens.textPrimary, paddingVertical: 14, fontSize: 15 },
+    searchInput: { flex: 1, color: tokens.textPrimary, paddingVertical: 16, fontSize: 15 },
     clearBtn: { padding: 4 },
     listContent: { paddingHorizontal: 20, paddingBottom: 40 },
     articleRow: {
@@ -346,7 +346,7 @@ function createStyles(tokens: ThemeTokens) {
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     symbolBadge: {
       backgroundColor: tokens.elevatedSurface,
-      paddingHorizontal: 10,
+      paddingHorizontal: 12,
       paddingVertical: 4,
       borderRadius: 8,
     },
@@ -377,7 +377,7 @@ function createStyles(tokens: ThemeTokens) {
     retryText: { color: tokens.accent, fontSize: 15, fontWeight: '600' },
     emptyState: { padding: 40, alignItems: 'center', marginTop: 30 },
     emptyTitle: { color: tokens.textPrimary, fontSize: 16, fontWeight: '700', marginTop: 12 },
-    emptyText: { color: tokens.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 18 },
+    emptyText: { color: tokens.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 18 },
     // Skeleton loading state (item 5, spec/ui.md → Screen: Market News) — matches populated row shape.
     skeletonSymbolBadge: { width: 56, height: 22, borderRadius: 8, backgroundColor: tokens.elevatedSurface },
     skeletonSentimentBadge: { width: 72, height: 22, borderRadius: 8, backgroundColor: tokens.elevatedSurface },

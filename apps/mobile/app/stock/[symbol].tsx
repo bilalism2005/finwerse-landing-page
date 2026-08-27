@@ -287,7 +287,7 @@ function createStyles(tokens: ThemeTokens) {
     descriptor: {
       fontSize: 13,
       color: tokens.textSecondary,
-      marginTop: 2,
+      marginTop: 4,
     },
     segmentedControl: {
       flexDirection: 'row',
@@ -298,7 +298,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     segment: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: 12,
       alignItems: 'center',
       borderRadius: 10,
       backgroundColor: 'transparent',
@@ -327,7 +327,7 @@ function createStyles(tokens: ThemeTokens) {
       height: 28,
       borderRadius: 999,
       backgroundColor: tokens.elevatedSurface,
-      marginTop: 10,
+      marginTop: 12,
     },
     skeletonSectionTitle: {
       width: 140,
@@ -353,7 +353,7 @@ function createStyles(tokens: ThemeTokens) {
       height: 12.5,
       borderRadius: 4,
       backgroundColor: tokens.elevatedSurface,
-      marginTop: 6,
+      marginTop: 8,
     },
     skeletonPillarBarFill: {
       width: '100%',
@@ -395,16 +395,16 @@ function createStyles(tokens: ThemeTokens) {
     heroScoreSuffix: {
       fontSize: 16,
       color: tokens.textTertiary,
-      marginBottom: 6,
+      marginBottom: 8,
     },
     statusPill: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 8,
       paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingVertical: 8,
       borderRadius: 999,
-      marginTop: 10,
+      marginTop: 12,
     },
     statusDot: {
       width: 6,
@@ -425,7 +425,7 @@ function createStyles(tokens: ThemeTokens) {
       marginBottom: 24,
     },
     pillarRow: {
-      paddingVertical: 14,
+      paddingVertical: 16,
     },
     pillarRowDivider: {
       borderBottomWidth: 1,
@@ -456,7 +456,7 @@ function createStyles(tokens: ThemeTokens) {
       borderRadius: 2,
       backgroundColor: tokens.dividerSubtle,
       overflow: 'hidden',
-      marginTop: 10,
+      marginTop: 12,
     },
     pillarBarFill: {
       height: 3,

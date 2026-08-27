@@ -429,7 +429,7 @@ function createStyles(tokens: ThemeTokens) {
     emptyState: {
       alignItems: 'center',
       paddingVertical: 64,
-      gap: 10,
+      gap: 12,
     },
     emptyTitle: {
       fontSize: 18,
@@ -461,7 +461,7 @@ function createStyles(tokens: ThemeTokens) {
       fontSize: 15,
       fontWeight: '700',
       color: tokens.textPrimary,
-      marginBottom: 10,
+      marginBottom: 12,
     },
     formSectionTitleSpaced: {
       marginTop: 20,
@@ -486,7 +486,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     chip: {
       paddingVertical: 9,
-      paddingHorizontal: 14,
+      paddingHorizontal: 16,
       borderRadius: 10,
       backgroundColor: tokens.secondarySurface,
     },
@@ -557,7 +557,7 @@ function createStyles(tokens: ThemeTokens) {
       backgroundColor: tokens.elevatedSurface,
       borderRadius: 14,
       padding: 16,
-      marginBottom: 10,
+      marginBottom: 12,
       borderLeftWidth: 3,
       borderLeftColor: tokens.warning,
     },
@@ -565,12 +565,12 @@ function createStyles(tokens: ThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 6,
+      marginBottom: 8,
     },
     statusRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 8,
     },
     statusDot: {
       width: 6,
@@ -607,7 +607,7 @@ function createStyles(tokens: ThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 14,
+      paddingVertical: 16,
       paddingHorizontal: 16,
       gap: 12,
     },
