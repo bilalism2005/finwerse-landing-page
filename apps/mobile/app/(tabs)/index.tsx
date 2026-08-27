@@ -220,7 +220,7 @@ export default function HomeScreen() {
                   <Text
                     style={[
                       styles.statusLabel,
-                      { color: stock.overall_score >= GREEN_BAND_MIN ? tokens.accent : tokens.textSecondary },
+                      { color: stock.overall_score >= GREEN_BAND_MIN ? tokens.positive : tokens.textSecondary },
                     ]}
                   >
                     {stock.overall_score >= GREEN_BAND_MIN ? 'Strong' : 'Building'}
@@ -278,7 +278,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.scoreColumn}>
                     <Text style={styles.score}>{Math.round(stock.score)}</Text>
-                    <Text style={[styles.statusLabel, { color: isStrong ? tokens.accent : tokens.textSecondary }]}>
+                    <Text style={[styles.statusLabel, { color: isStrong ? tokens.positive : tokens.textSecondary }]}>
                       {isStrong ? 'Strong' : 'Building'}
                     </Text>
                   </View>

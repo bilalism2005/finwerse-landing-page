@@ -1,6 +1,15 @@
 // Shared theme token definitions for apps/mobile.
 // Source of truth: spec/ui.md → "Theming — Light Mode" (light) and
 // "Design System — Mobile Redesign" (dark). Pure data, no React.
+//
+// darkTheme.textTertiary/accent and lightTheme.positive/negative/warning were
+// retuned (2026-08-27, design audit) via actual WCAG relative-luminance
+// contrast math against every surface each token sits on as text -- not
+// picked by eye. Before changing any of these five values, recompute contrast
+// against canvas/elevatedSurface/secondarySurface in both themes; several of
+// these previously passed the one surface an audit happened to sample while
+// failing a different one it didn't (e.g. warning against canvas was 2.29:1,
+// worse than the 3.23:1 that was actually flagged).
 
 export interface ThemeTokens {
   canvas: string;
@@ -26,8 +35,8 @@ export const darkTheme: ThemeTokens = {
   dividerStrong: '#4D5258',
   textPrimary: '#EEEEEE',
   textSecondary: '#9EA2A8',
-  textTertiary: '#6A6E74',
-  accent: '#00ADB5',
+  textTertiary: '#94989D',
+  accent: '#00CED7',
   onAccent: '#222831',
   positive: '#B8F35A',
   negative: '#FF6B67',
@@ -45,7 +54,7 @@ export const lightTheme: ThemeTokens = {
   textTertiary: '#655D46',
   accent: '#5C6B2E',
   onAccent: '#EEEEEE',
-  positive: '#3F7D4A',
-  negative: '#B3413A',
-  warning: '#BD722A',
+  positive: '#305F39',
+  negative: '#953630',
+  warning: '#7B4A1B',
 };

@@ -16,6 +16,14 @@ import type { ThemeTokens } from '../../src/theme/tokens';
 // Ask AI → More. Icon choices are unchanged from the previous apps/mobile/app/(tabs)/_layout.tsx.
 type TabRouteName = 'index' | 'portfolio' | 'health' | 'chat' | 'more';
 
+const TAB_LABELS: Record<TabRouteName, string> = {
+  index: 'Home',
+  portfolio: 'Portfolio',
+  health: 'Health',
+  chat: 'Ask AI',
+  more: 'More',
+};
+
 const TAB_ICONS: Record<TabRouteName, (color: string) => JSX.Element> = {
   index: (color) => <IconSymbol size={28} name="house.fill" color={color} />,
   portfolio: (color) => (
@@ -109,6 +117,7 @@ export function CustomTabBar({ state, navigation, position }: any) {
           <Pressable
             key={route.key}
             accessibilityRole="button"
+            accessibilityLabel={`${TAB_LABELS[route.name as TabRouteName] ?? route.name} tab`}
             accessibilityState={isFocused ? { selected: true } : {}}
             onPress={onPress}
             style={styles.tab}

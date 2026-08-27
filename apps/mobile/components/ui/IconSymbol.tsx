@@ -28,6 +28,8 @@ const MAPPING: Record<string, React.ComponentProps<typeof MaterialIcons>['name']
   'star': 'star-border',
   'chart.line.uptrend.xyaxis': 'show-chart',
   'arrow.up': 'arrow-upward',
+  'bolt.fill': 'bolt',
+  'rectangle.portrait.and.arrow.right': 'logout',
 };
 
 export type IconSymbolName = keyof typeof MAPPING;

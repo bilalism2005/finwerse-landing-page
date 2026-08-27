@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@finwerse/shared';
 import { IconSymbol, IconSymbolName } from '../../components/ui/IconSymbol';
 import { useThemeStore, useThemeTokens } from '../../src/store/themeStore';
 import type { ThemeTokens } from '../../src/theme/tokens';
@@ -31,19 +32,21 @@ export default function MoreScreen() {
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
+  const { signOut } = useAuth();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Text style={styles.title}>More</Text>
 
+      <Text style={styles.sectionLabel}>Tools</Text>
       <View style={styles.card}>
-        {ROWS.map((row) => (
+        {ROWS.map((row, index) => (
           <Pressable
             key={row.key}
             onPress={() => router.push(row.route)}
             style={({ pressed }) => [
               styles.row,
-              styles.rowDivider,
+              index < ROWS.length - 1 && styles.rowDivider,
               pressed && styles.rowPressed,
             ]}
           >
@@ -54,7 +57,10 @@ export default function MoreScreen() {
             <IconSymbol name="chevron.right" size={18} color={tokens.textTertiary} />
           </Pressable>
         ))}
+      </View>
 
+      <Text style={styles.sectionLabel}>Preferences</Text>
+      <View style={styles.card}>
         {/* Appearance — not a navigation row: no chevron, no onPress-to-navigate.
             Selecting a segment writes straight to useThemeStore; the whole app
             re-renders under the new theme immediately, no confirmation step. */}
@@ -78,6 +84,19 @@ export default function MoreScreen() {
           </View>
         </View>
       </View>
+
+      <Text style={styles.sectionLabel}>Account</Text>
+      <View style={styles.card}>
+        <Pressable
+          onPress={() => signOut()}
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+        >
+          <View style={styles.rowLeft}>
+            <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={tokens.negative} />
+            <Text style={[styles.rowLabel, { color: tokens.negative }]}>Sign Out</Text>
+          </View>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -95,6 +114,15 @@ function createStyles(tokens: ThemeTokens) {
       color: tokens.textPrimary,
       marginTop: 12,
       marginBottom: 24,
+    },
+    sectionLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: tokens.textTertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+      marginBottom: 8,
+      marginTop: 20,
     },
     card: {
       backgroundColor: tokens.elevatedSurface,
