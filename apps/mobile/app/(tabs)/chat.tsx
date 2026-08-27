@@ -9,6 +9,7 @@ import {
   Platform,
   StyleSheet,
   Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChatStore, CHAT_ERROR_MESSAGE } from '../../src/store/chatStore';
@@ -81,6 +82,17 @@ export default function ChatScreen() {
   const { messages, isStreaming, sendMessage, clearHistory } = useChatStore();
   const flatListRef = useRef<FlatList>(null);
 
+  const handleClearHistory = () => {
+    Alert.alert(
+      'Clear chat history?',
+      "This can't be undone.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear', style: 'destructive', onPress: clearHistory },
+      ]
+    );
+  };
+
   const handleSend = (textToSend?: string) => {
     const text = textToSend || inputText;
     if (text.trim() && !isStreaming) {
@@ -141,7 +153,7 @@ export default function ChatScreen() {
           </View>
           {messages.length > 0 && (
             <Pressable
-              onPress={clearHistory}
+              onPress={handleClearHistory}
               style={({ pressed }) => [styles.clearButton, pressed && styles.clearButtonPressed]}
               accessibilityRole="button"
               accessibilityLabel="Clear chat history"

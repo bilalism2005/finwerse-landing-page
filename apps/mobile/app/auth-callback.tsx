@@ -2,10 +2,12 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getSupabase } from '@finwerse/shared';
+import { useThemeTokens } from '../src/store/themeStore';
 
 export default function AuthCallbackScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
+  const tokens = useThemeTokens();
 
   useEffect(() => {
     async function exchangeCode() {
@@ -40,9 +42,9 @@ export default function AuthCallbackScreen() {
   }, [params.code, router]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0D0D0D', justifyContent: 'center', alignItems: 'center', gap: 16 }}>
-      <ActivityIndicator size="large" color="#B7FF00" />
-      <Text style={{ color: '#F0F0F0', fontSize: 16, fontWeight: '600' }}>Securely logging you in...</Text>
+    <View style={{ flex: 1, backgroundColor: tokens.canvas, justifyContent: 'center', alignItems: 'center', gap: 16 }}>
+      <ActivityIndicator size="large" color={tokens.accent} />
+      <Text style={{ color: tokens.textPrimary, fontSize: 16, fontWeight: '600' }}>Securely logging you in...</Text>
     </View>
   );
 }

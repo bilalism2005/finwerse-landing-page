@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   TextInput,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAnalyzerStore, CustomTradeInput, ImpulseTrade } from '../src/store/analyzerStore';
@@ -38,11 +37,14 @@ function formatRupees(value: number): string {
   return value.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
+const SKELETON_TRADE_ROWS = [0, 1, 2];
+
 export default function ImpulseScreen() {
   const tokens = useThemeTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const { impulseTrades, totalCost, isLoading, error, fetchAnalyzerData, analyzeCustomTrades } = useAnalyzerStore();
   const [activeTab, setActiveTab] = useState<'custom' | 'portfolio'>('custom');
+  const [formError, setFormError] = useState<string | null>(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const priorDateStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -81,7 +83,7 @@ export default function ImpulseScreen() {
 
   const removeTradeRow = (id: string) => {
     if (tradeRows.length === 1) {
-      Alert.alert('Notice', 'You need at least one trade row to analyze.');
+      setFormError('You need at least one trade row to analyze.');
       return;
     }
     setTradeRows((prev) => prev.filter((r) => r.id !== id));
@@ -99,12 +101,13 @@ export default function ImpulseScreen() {
   };
 
   const handleScanImpulse = async () => {
+    setFormError(null);
     const formattedTrades: CustomTradeInput[] = [];
 
     for (let i = 0; i < tradeRows.length; i++) {
       const row = tradeRows[i];
       if (!row.stock_symbol.trim()) {
-        Alert.alert('Validation Error', `Please enter a stock symbol for trade #${i + 1}`);
+        setFormError(`Please enter a stock symbol for trade #${i + 1}`);
         return;
       }
       const buyPrice = parseFloat(row.buy_price);
@@ -112,15 +115,15 @@ export default function ImpulseScreen() {
       const qty = parseInt(row.quantity, 10);
 
       if (isNaN(buyPrice) || buyPrice <= 0) {
-        Alert.alert('Validation Error', `Please enter a valid buy price for ${row.stock_symbol}`);
+        setFormError(`Please enter a valid buy price for ${row.stock_symbol}`);
         return;
       }
       if (isNaN(sellPrice) || sellPrice <= 0) {
-        Alert.alert('Validation Error', `Please enter a valid sell price for ${row.stock_symbol}`);
+        setFormError(`Please enter a valid sell price for ${row.stock_symbol}`);
         return;
       }
       if (isNaN(qty) || qty <= 0) {
-        Alert.alert('Validation Error', `Please enter a valid quantity for ${row.stock_symbol}`);
+        setFormError(`Please enter a valid quantity for ${row.stock_symbol}`);
         return;
       }
 
@@ -198,12 +201,20 @@ export default function ImpulseScreen() {
               </TouchableOpacity>
             </View>
 
+            {formError && <Text style={styles.formError}>{formError}</Text>}
+
             {tradeRows.map((row, idx) => (
               <View key={row.id} style={styles.tradeInputCard}>
                 <View style={styles.rowHeader}>
                   <Text style={styles.rowNumber}>Trade #{idx + 1}</Text>
                   {tradeRows.length > 1 && (
-                    <TouchableOpacity activeOpacity={0.7} onPress={() => removeTradeRow(row.id)}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => removeTradeRow(row.id)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove trade row"
+                    >
                       <IconSymbol name="trash" size={16} color={tokens.negative} />
                     </TouchableOpacity>
                   )}
@@ -302,9 +313,19 @@ export default function ImpulseScreen() {
 
         {/* Results Section */}
         {showFullAreaLoading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={tokens.accent} />
-            <Text style={styles.loadingText}>Analyzing Trades Against Historical Data...</Text>
+          <View style={styles.listContainer}>
+            {SKELETON_TRADE_ROWS.map((i) => (
+              <View key={i} style={styles.tradeCard}>
+                <View style={styles.cardHeader}>
+                  <View>
+                    <View style={styles.skeletonSymbol} />
+                    <View style={styles.skeletonQty} />
+                  </View>
+                  <View style={styles.skeletonCostBadge} />
+                </View>
+                <View style={styles.skeletonComparisonRow} />
+              </View>
+            ))}
           </View>
         ) : showError ? (
           <TouchableOpacity activeOpacity={0.85} style={styles.errorBox} onPress={handleRetry}>
@@ -564,8 +585,18 @@ function createStyles(tokens: ThemeTokens) {
       borderColor: tokens.dividerSubtle,
     },
     noComparisonText: { fontSize: 12.5, color: tokens.textTertiary, textAlign: 'center' },
-    loadingBox: { padding: 40, alignItems: 'center', justifyContent: 'center' },
-    loadingText: { color: tokens.textSecondary, marginTop: 12, fontSize: 13, textAlign: 'center' },
+    skeletonSymbol: { width: 70, height: 17, borderRadius: 4, backgroundColor: tokens.secondarySurface },
+    skeletonQty: { width: 50, height: 12, borderRadius: 4, backgroundColor: tokens.secondarySurface, marginTop: 6 },
+    skeletonCostBadge: { width: 80, height: 30, borderRadius: 6, backgroundColor: tokens.secondarySurface },
+    skeletonComparisonRow: { height: 90, borderRadius: 10, backgroundColor: tokens.secondarySurface },
+    formError: {
+      backgroundColor: withAlpha(tokens.negative, '22'),
+      color: tokens.negative,
+      padding: 10,
+      borderRadius: 8,
+      marginBottom: 12,
+      fontSize: 13,
+    },
     errorBox: {
       padding: 20,
       backgroundColor: tokens.elevatedSurface,

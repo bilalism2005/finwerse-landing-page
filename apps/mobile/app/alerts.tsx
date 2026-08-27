@@ -137,6 +137,7 @@ export default function AlertsScreen() {
           value={stockSymbol}
           onChangeText={setStockSymbol}
           autoCapitalize="characters"
+          autoCorrect={false}
         />
       )}
 
@@ -276,6 +277,7 @@ export default function AlertsScreen() {
                       accessibilityLabel="Delete alert"
                       onPress={() => confirmDeleteAlert(alert.id)}
                       hitSlop={8}
+                      style={({ pressed }) => pressed && styles.pressedOpacity}
                     >
                       <IconSymbol name="trash" size={18} color={tokens.negative} />
                     </Pressable>
@@ -309,6 +311,7 @@ export default function AlertsScreen() {
                           accessibilityLabel="Delete alert"
                           onPress={() => confirmDeleteAlert(alert.id)}
                           hitSlop={8}
+                          style={({ pressed }) => pressed && styles.pressedOpacity}
                         >
                           <IconSymbol name="trash" size={18} color={tokens.negative} />
                         </Pressable>
