@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -32,6 +33,9 @@ export function EditHoldingModal({ visible, holding, onClose, tokens, onSubmit }
   const [period, setPeriod] = useState<HoldingPeriod>('medium');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Tracks whether the user has changed anything from the pre-filled defaults, so
+  // dismissing the modal only confirms when there's actually something to lose.
+  const [isDirty, setIsDirty] = useState(false);
 
   // Pre-fill from the selected holding every time the modal opens, matching
   // the previous handleOpenEditModal behavior (which reset unconditionally
@@ -39,6 +43,11 @@ export function EditHoldingModal({ visible, holding, onClose, tokens, onSubmit }
   // reopening for the SAME holding (same object reference, since nothing
   // refetched in between) wouldn't re-run this effect, leaving whatever the
   // user typed and then dismissed still showing.
+  // Assumes `holding` never gets reassigned by the parent while this modal is
+  // open and dirty (true today -- portfolio.tsx sets selectedHoldingForEdit
+  // once at open time and never re-syncs it from a live refetch). If a future
+  // change adds any background/live holdings update, re-verify this doesn't
+  // silently wipe isDirty and in-progress edits out from under the user.
   useEffect(() => {
     if (!visible || !holding) return;
     setQty(holding.quantity.toString());
@@ -46,7 +55,28 @@ export function EditHoldingModal({ visible, holding, onClose, tokens, onSubmit }
     setDate(holding.purchase_date || '');
     setPeriod(holding.intended_holding_period);
     setError(null);
+    setIsDirty(false);
   }, [holding, visible]);
+
+  const updateQty = (val: string) => { setQty(val); setIsDirty(true); };
+  const updateAvgPrice = (val: string) => { setAvgPrice(val); setIsDirty(true); };
+  const updateDate = (val: string) => { setDate(val); setIsDirty(true); };
+  const updatePeriod = (val: HoldingPeriod) => { setPeriod(val); setIsDirty(true); };
+
+  const handleDismissAttempt = () => {
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    Alert.alert(
+      'Discard changes?',
+      "The values you've entered will be lost.",
+      [
+        { text: 'Keep Editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: onClose },
+      ]
+    );
+  };
 
   const handleSave = async () => {
     if (!holding) return;
@@ -80,12 +110,18 @@ export function EditHoldingModal({ visible, holding, onClose, tokens, onSubmit }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleDismissAttempt}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Edit Position — {holding?.stock_symbol}</Text>
-            <Pressable onPress={onClose} style={({ pressed }) => pressed && styles.pressedOpacity}>
+            <Pressable
+              onPress={handleDismissAttempt}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              hitSlop={10}
+              style={({ pressed }) => pressed && styles.pressedOpacity}
+            >
               <Text style={styles.closeBtn}>✕</Text>
             </Pressable>
           </View>
@@ -100,7 +136,7 @@ export function EditHoldingModal({ visible, holding, onClose, tokens, onSubmit }
               placeholderTextColor={tokens.textTertiary}
               keyboardType="numeric"
               value={qty}
-              onChangeText={setQty}
+              onChangeText={updateQty}
             />
 
             <Text style={styles.inputLabel}>Average Buy Price (₹) *</Text>
@@ -110,7 +146,7 @@ export function EditHoldingModal({ visible, holding, onClose, tokens, onSubmit }
               placeholderTextColor={tokens.textTertiary}
               keyboardType="decimal-pad"
               value={avgPrice}
-              onChangeText={setAvgPrice}
+              onChangeText={updateAvgPrice}
             />
 
             <Text style={styles.inputLabel}>Purchase Date (Optional)</Text>
@@ -119,7 +155,7 @@ export function EditHoldingModal({ visible, holding, onClose, tokens, onSubmit }
               placeholder="YYYY-MM-DD"
               placeholderTextColor={tokens.textTertiary}
               value={date}
-              onChangeText={setDate}
+              onChangeText={updateDate}
             />
 
             <Text style={styles.inputLabel}>Intended Holding Horizon</Text>
@@ -128,7 +164,7 @@ export function EditHoldingModal({ visible, holding, onClose, tokens, onSubmit }
                 <Pressable
                   key={p}
                   style={[styles.periodPill, period === p && styles.periodPillActive]}
-                  onPress={() => setPeriod(p)}
+                  onPress={() => updatePeriod(p)}
                 >
                   <Text style={[styles.periodPillText, period === p && styles.periodPillTextActive]}>
                     {p.toUpperCase()}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -86,6 +87,29 @@ export function AddHoldingModal({ visible, onClose, tokens, onSubmit }: AddHoldi
     };
   }, [symbol]);
 
+  // Dirty-check for confirm-on-dismiss: only the substantive fields a user actually
+  // types matter here -- date/period all have sensible defaults, so reverting those
+  // in isolation isn't "lost work" worth confirming. soldDate defaults to today too,
+  // but IS compared against that default (rather than any-truthy, since it's always
+  // non-empty) -- otherwise editing soldDate without touching soldPrice would silently
+  // discard that edit on dismiss with no warning.
+  const isDirty = !!symbol.trim() || !!qty || !!avgPrice || (isSold && (!!soldPrice || soldDate !== todayISO()));
+
+  const handleDismissAttempt = () => {
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    Alert.alert(
+      'Discard changes?',
+      "The values you've entered will be lost.",
+      [
+        { text: 'Keep Editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: onClose },
+      ]
+    );
+  };
+
   const setQuickDate = (type: 'today' | '1m' | '6m' | '1y', target: 'purchase' | 'sold') => {
     const d = new Date();
     if (type === '1m') d.setMonth(d.getMonth() - 1);
@@ -145,12 +169,18 @@ export function AddHoldingModal({ visible, onClose, tokens, onSubmit }: AddHoldi
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleDismissAttempt}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Add Stock Position</Text>
-            <Pressable onPress={onClose} style={({ pressed }) => pressed && styles.pressedOpacity}>
+            <Pressable
+              onPress={handleDismissAttempt}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              hitSlop={10}
+              style={({ pressed }) => pressed && styles.pressedOpacity}
+            >
               <Text style={styles.closeBtn}>✕</Text>
             </Pressable>
           </View>
