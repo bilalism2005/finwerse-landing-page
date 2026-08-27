@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronUp, ChevronDown, ArrowRight } from "lucide-react";
-import { stocks, holdingPeriods, getScoreColor, getScoreVerdict, getScoreColorClass } from "@/lib/dummyData";
+import { stocks, holdingPeriods, getScoreColor, getScoreVerdict, getScoreColorClass, StockScore } from "@/lib/dummyData";
 
 const parameterScores = ["Technical", "Fundamental", "Sentiment", "External", "Volatility", "Liquidity", "Analyst", "Momentum"] as const;
-const parameterKeys: Record<string, string> = {
+const parameterKeys: Record<(typeof parameterScores)[number], keyof StockScore> = {
   Technical: "technical", Fundamental: "fundamental", Sentiment: "sentiment", External: "external",
   Volatility: "volatility", Liquidity: "liquidity", Analyst: "analyst", Momentum: "momentum",
 };
@@ -68,7 +68,7 @@ const StockDetail = () => {
         <div className="grid grid-cols-2 gap-3">
           {parameterScores.map((param) => {
             const key = parameterKeys[param];
-            const score = (stock.scores as any)[key] ?? 50;
+            const score = stock.scores[key] ?? 50;
             const color = getScoreColor(score);
             const change = Math.floor(Math.random() * 10) - 4;
             return (
