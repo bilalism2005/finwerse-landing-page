@@ -32,6 +32,31 @@ export default function SentimentFeedScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
+  // Type-ahead search, matching Home's pattern (spec/ui.md design-audit finding: News
+  // previously only searched on Enter/submit while Home searched on every keystroke --
+  // same visual affordance, different behavior). onSubmitEditing below still fires
+  // immediately on Enter as a snappier path; this debounce covers everything else,
+  // including backspacing back to empty (reloads the default feed, same as clearSearch).
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      if (trimmed.length === 0) {
+        loadNews();
+      } else if (trimmed.length >= 2) {
+        searchSentiment(trimmed);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
   const loadNews = async () => {
     if (activeTab === 'all') {
       await fetchMarketNews();
@@ -204,7 +229,13 @@ export default function SentimentFeedScreen() {
           autoCorrect={false}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={clearSearch} style={styles.clearBtn}>
+          <TouchableOpacity
+            onPress={clearSearch}
+            style={styles.clearBtn}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+          >
             <IconSymbol name="xmark.circle.fill" size={18} color={tokens.textTertiary} />
           </TouchableOpacity>
         )}

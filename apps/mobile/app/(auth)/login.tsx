@@ -131,6 +131,8 @@ export default function LoginScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            textContentType="emailAddress"
+            autoComplete="email"
             value={email}
             onChangeText={setEmail}
           />
@@ -142,6 +144,8 @@ export default function LoginScreen() {
             placeholderTextColor={tokens.textTertiary}
             secureTextEntry
             autoCapitalize="none"
+            textContentType={tab === 'signin' ? 'password' : 'newPassword'}
+            autoComplete={tab === 'signin' ? 'password' : 'new-password'}
             value={password}
             onChangeText={setPassword}
           />

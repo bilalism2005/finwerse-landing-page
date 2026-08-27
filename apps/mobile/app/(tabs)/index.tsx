@@ -98,7 +98,7 @@ export default function HomeScreen() {
       } catch (e) {
         console.error('Failed to load top stocks:', e);
         if (topStocks.length === 0) {
-          setError('Failed to load stocks. Please pull down to retry.');
+          setError('Failed to load stocks. Please try again.');
         }
       } finally {
         setLoading(false);
