@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@finwerse/shared";
 
 const Index = () => {
-  const { session, loading } = useAuth();
+  const { session } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {

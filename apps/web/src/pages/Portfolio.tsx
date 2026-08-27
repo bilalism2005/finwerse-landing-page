@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { stocks, holdingPeriods, getScoreColor, getScoreVerdict, getScoreBgClass } from "@/lib/dummyData";
+import { stocks, holdingPeriods, getScoreColor, getScoreVerdict } from "@/lib/dummyData";
 
 const Portfolio = () => {
   const [activePeriod, setActivePeriod] = useState("Swing");

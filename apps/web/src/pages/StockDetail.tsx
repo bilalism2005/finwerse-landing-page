@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronUp, ChevronDown, ArrowRight } from "lucide-react";
-import { stocks, holdingPeriods, getScoreColor, getScoreVerdict, getScoreColorClass, StockScore } from "@/lib/dummyData";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { stocks, holdingPeriods, getScoreColor, getScoreVerdict, StockScore } from "@/lib/dummyData";
 
 const parameterScores = ["Technical", "Fundamental", "Sentiment", "External", "Volatility", "Liquidity", "Analyst", "Momentum"] as const;
 const parameterKeys: Record<(typeof parameterScores)[number], keyof StockScore> = {
