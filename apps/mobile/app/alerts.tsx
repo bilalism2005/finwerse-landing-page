@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAlertsStore, Alert } from '../src/store/alertsStore';
 import { IconSymbol } from '../components/ui/IconSymbol';
 import { useThemeTokens } from '../src/store/themeStore';
+import { registerAndSyncPushToken } from '../src/notifications';
 import type { ThemeTokens } from '../src/theme/tokens';
 
 const SKELETON_ROWS = [0, 1, 2];
@@ -68,6 +69,8 @@ export default function AlertsScreen() {
       return;
     }
 
+    const isFirstAlert = alerts.length === 0;
+
     try {
       await createAlert({
         alert_type: alertType,
@@ -80,6 +83,21 @@ export default function AlertsScreen() {
       setShowForm(false);
       setThreshold('');
       setStockSymbol('');
+
+      // Contextual permission request (spec/ui.md): only ask for push access once the
+      // user has done something that makes clear why Finwerse would notify them, with a
+      // one-line rationale shown before the OS dialog -- not blindly at login for every
+      // user regardless of whether they ever open this screen.
+      if (isFirstAlert) {
+        RNAlert.alert(
+          'Enable Notifications?',
+          'Finwerse can notify you when this alert triggers.',
+          [
+            { text: 'Not Now', style: 'cancel' },
+            { text: 'Enable', onPress: () => registerAndSyncPushToken() },
+          ]
+        );
+      }
     } catch (e) {
       RNAlert.alert('Error', 'Could not create alert.');
     }
