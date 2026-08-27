@@ -246,7 +246,7 @@ export default function PortfolioScreen() {
           <Text style={styles.emptySubtitle}>
             {filterTab === 'sold'
               ? 'When you sell positions, they will appear here with realized P&L tracking.'
-              : 'Add your stocks to unlock real-time Portfolio Health analysis.'}
+              : "Add your stocks to unlock real-time Portfolio Health analysis. You'll pick a holding horizon (Short, Medium, or Long) for each — scores and analysis are tuned to that timeframe."}
           </Text>
         </ScrollView>
       ) : (

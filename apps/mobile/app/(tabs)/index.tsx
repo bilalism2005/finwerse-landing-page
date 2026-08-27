@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppStore, Timeframe } from '../../src/store';
 import { getTopStocks, getCachedTopStocks, searchStocks, StockItem } from '../../src/api/stockService';
 import { warmUpBackend } from '../../src/api/client';
@@ -55,6 +56,20 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // First-run guidance (spec/ui.md): the -100..100 score system and Red/Amber/Green
+  // bands are a Finwerse-specific mental model, not self-explanatory from the UI alone.
+  // Shown once, dismissed permanently via AsyncStorage.
+  const [showScoreTip, setShowScoreTip] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem('hasSeenScoreTip').then((seen) => {
+      if (!seen) setShowScoreTip(true);
+    });
+  }, []);
+  const dismissScoreTip = () => {
+    setShowScoreTip(false);
+    AsyncStorage.setItem('hasSeenScoreTip', 'true');
+  };
 
   // Pre-warm backend on startup for background ML/AI readiness
   useEffect(() => {
@@ -232,6 +247,21 @@ export default function HomeScreen() {
         </View>
       ) : (
         <View style={styles.listSection}>
+          {showScoreTip && (
+            <View style={styles.scoreTip}>
+              <Text style={styles.scoreTipText}>
+                Scores run −100 to 100 — green is strong, red is weak.
+              </Text>
+              <Pressable
+                onPress={dismissScoreTip}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss tip"
+                hitSlop={8}
+              >
+                <IconSymbol name="xmark.circle.fill" size={18} color={tokens.textTertiary} />
+              </Pressable>
+            </View>
+          )}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Strongest signals</Text>
             <Text style={styles.sectionMeta}>Score -100 to 100</Text>
@@ -376,6 +406,23 @@ function createStyles(tokens: ThemeTokens) {
     },
     listSection: {
       gap: 0,
+    },
+    scoreTip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+      backgroundColor: tokens.secondarySurface,
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      marginBottom: 12,
+    },
+    scoreTipText: {
+      flex: 1,
+      fontSize: 12.5,
+      color: tokens.textSecondary,
+      lineHeight: 17,
     },
     sectionHeaderRow: {
       flexDirection: 'row',
