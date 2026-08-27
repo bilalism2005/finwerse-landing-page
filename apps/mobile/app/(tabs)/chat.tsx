@@ -302,7 +302,7 @@ function createStyles(tokens: ThemeTokens) {
     userText: {
       color: tokens.textPrimary,
       fontWeight: '600',
-      fontSize: 14.5,
+      fontSize: 15,
       lineHeight: 21,
     },
     botText: {
@@ -335,7 +335,7 @@ function createStyles(tokens: ThemeTokens) {
       backgroundColor: 'transparent',
     },
     emptyTitle: {
-      fontSize: 25,
+      fontSize: 28,
       fontWeight: '600',
       letterSpacing: -0.4,
       lineHeight: 31,
@@ -370,7 +370,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     suggestionText: {
       color: tokens.textPrimary,
-      fontSize: 14.5,
+      fontSize: 15,
       flex: 1,
       marginRight: 8,
     },

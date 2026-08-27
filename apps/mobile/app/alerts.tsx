@@ -416,13 +416,13 @@ function createStyles(tokens: ThemeTokens) {
     },
     errorText: {
       color: tokens.negative,
-      fontSize: 14,
+      fontSize: 15,
       marginBottom: 8,
       textAlign: 'center',
     },
     retryText: {
       color: tokens.accent,
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: '600',
     },
     // Empty state
@@ -583,7 +583,7 @@ function createStyles(tokens: ThemeTokens) {
       color: tokens.warning,
     },
     alertDesc: {
-      fontSize: 14.5,
+      fontSize: 15,
       color: tokens.textSecondary,
       flex: 1,
     },

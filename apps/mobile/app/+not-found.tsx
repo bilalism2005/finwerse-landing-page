@@ -40,7 +40,7 @@ function createStyles(tokens: ThemeTokens) {
       paddingVertical: 15,
     },
     linkText: {
-      fontSize: 14,
+      fontSize: 15,
       color: tokens.accent,
     },
   });

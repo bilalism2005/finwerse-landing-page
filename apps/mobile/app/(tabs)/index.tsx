@@ -392,7 +392,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     segmentText: {
       color: tokens.textSecondary,
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
     },
     segmentTextSelected: {
@@ -419,7 +419,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     scoreTipText: {
       flex: 1,
-      fontSize: 12.5,
+      fontSize: 13,
       color: tokens.textSecondary,
       lineHeight: 17,
     },
@@ -465,7 +465,7 @@ function createStyles(tokens: ThemeTokens) {
       color: tokens.textPrimary,
     },
     descriptor: {
-      fontSize: 12.5,
+      fontSize: 13,
       color: tokens.textTertiary,
     },
     signalBarTrack: {
@@ -496,7 +496,7 @@ function createStyles(tokens: ThemeTokens) {
       marginTop: 2,
     },
     hintText: {
-      fontSize: 14,
+      fontSize: 15,
       color: tokens.textSecondary,
       paddingVertical: 24,
       textAlign: 'center',
@@ -517,13 +517,13 @@ function createStyles(tokens: ThemeTokens) {
     },
     errorText: {
       color: tokens.negative,
-      fontSize: 14,
+      fontSize: 15,
       marginBottom: 8,
       textAlign: 'center',
     },
     retryText: {
       color: tokens.accent,
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: '600',
     },
     skeletonBlockSmall: {

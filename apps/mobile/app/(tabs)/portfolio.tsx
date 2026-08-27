@@ -403,7 +403,7 @@ function createStyles(tokens: ThemeTokens) {
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: tokens.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
@@ -416,13 +416,13 @@ function createStyles(tokens: ThemeTokens) {
   },
   errorText: {
     color: tokens.negative,
-    fontSize: 14,
+    fontSize: 15,
     marginBottom: 8,
     textAlign: 'center',
   },
   retryText: {
     color: tokens.accent,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   list: {

@@ -430,7 +430,7 @@ function createStyles(tokens: ThemeTokens) {
     suggestionSymbol: {
       color: tokens.textPrimary,
       fontWeight: '700',
-      fontSize: 14,
+      fontSize: 15,
     },
     suggestionScore: {
       fontWeight: '600',
@@ -476,7 +476,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     soldToggleTitle: {
       color: tokens.textSecondary,
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: '600',
       flex: 1,
       marginRight: 12,

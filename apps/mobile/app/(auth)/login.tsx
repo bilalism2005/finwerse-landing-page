@@ -257,7 +257,7 @@ function createStyles(tokens: ThemeTokens) {
     tabText: {
       color: tokens.textSecondary,
       fontWeight: '600',
-      fontSize: 14,
+      fontSize: 13,
     },
     tabTextActive: {
       color: tokens.onAccent,
@@ -335,7 +335,7 @@ function createStyles(tokens: ThemeTokens) {
     googleText: {
       color: tokens.textPrimary,
       fontWeight: '600',
-      fontSize: 14,
+      fontSize: 15,
     },
   });
 }

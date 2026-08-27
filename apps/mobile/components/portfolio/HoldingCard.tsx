@@ -156,7 +156,7 @@ function createStyles(tokens: ThemeTokens) {
       marginBottom: 10,
     },
     metricsLine: {
-      fontSize: 14,
+      fontSize: 15,
       lineHeight: 20,
     },
     metricLabelInline: {

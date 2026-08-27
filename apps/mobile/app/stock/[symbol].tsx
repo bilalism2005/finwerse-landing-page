@@ -285,7 +285,7 @@ function createStyles(tokens: ThemeTokens) {
       color: tokens.textPrimary,
     },
     descriptor: {
-      fontSize: 13.5,
+      fontSize: 13,
       color: tokens.textSecondary,
       marginTop: 2,
     },
@@ -308,7 +308,7 @@ function createStyles(tokens: ThemeTokens) {
     },
     segmentText: {
       color: tokens.textSecondary,
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
     },
     segmentTextSelected: {
@@ -370,13 +370,13 @@ function createStyles(tokens: ThemeTokens) {
     },
     errorText: {
       color: tokens.negative,
-      fontSize: 14,
+      fontSize: 15,
       marginBottom: 8,
       textAlign: 'center',
     },
     retryText: {
       color: tokens.accent,
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: '600',
     },
     heroSection: {
@@ -447,7 +447,7 @@ function createStyles(tokens: ThemeTokens) {
       fontVariant: ['tabular-nums'],
     },
     pillarNote: {
-      fontSize: 12.5,
+      fontSize: 13,
       color: tokens.textSecondary,
       marginTop: 4,
     },
