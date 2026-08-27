@@ -215,7 +215,7 @@ export default function ImpulseScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Remove trade row"
                     >
-                      <IconSymbol name="trash" size={16} color={tokens.negative} />
+                      <IconSymbol name="trash" size={18} color={tokens.negative} />
                     </TouchableOpacity>
                   )}
                 </View>

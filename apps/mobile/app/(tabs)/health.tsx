@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -60,7 +60,7 @@ const SECTOR_COLORS = ['#7c6af7', '#b8f567', '#f7a26a', '#4facfe', '#00f2fe', '#
 export default function HealthScreen() {
   const router = useRouter();
   const { sendMessage } = useChatStore();
-  const { healthData, fetchHealth, loading, error, clearBottleneckReport } = useHealthStore();
+  const { healthData, fetchHealth, error, clearBottleneckReport } = useHealthStore();
   const [timeframe, setTimeframe] = useState<HoldingPeriod>('medium');
   const tokens = useThemeTokens();
   const mode = useThemeStore((s) => s.mode);
@@ -138,8 +138,11 @@ export default function HealthScreen() {
     </View>
   );
 
-  // Loading (initial fetch, nothing cached yet) — skeleton matching the gauge + evidence-row shape.
-  if (loading && !healthData) {
+  // Loading (initial fetch, nothing cached yet), and the momentary state before the first
+  // fetch resolves, share one skeleton treatment (design audit, 2026-08-27: these two
+  // previously rendered differently -- a skeleton here, a plain spinner+text below -- for
+  // what's functionally the same "no data yet" condition, styled two ways by timing alone).
+  if (!healthData && !error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -180,21 +183,9 @@ export default function HealthScreen() {
     );
   }
 
-  if (!healthData) {
-    // Momentary state before the first fetch resolves — treat like loading rather than a blank screen.
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {header}
-        {timeframeControl}
-        <View style={styles.gaugeSkeletonWrap}>
-          <ActivityIndicator size="large" color={tokens.accent} />
-          <Text style={styles.loadingText}>Analyzing your portfolio…</Text>
-        </View>
-      </ScrollView>
-      </SafeAreaView>
-    );
-  }
+  // Unreachable given the checks above (healthData is only null when the first check's
+  // skeleton already returned), but needed for TS to narrow healthData to non-null below.
+  if (!healthData) return null;
 
   // Empty portfolio — GET /portfolio/health returns an all-zero response, not an error
   // (spec/capabilities/portfolio-health.md). Render an explanatory state instead of a

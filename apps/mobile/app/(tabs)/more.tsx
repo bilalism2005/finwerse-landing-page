@@ -54,7 +54,7 @@ export default function MoreScreen() {
               <IconSymbol name={row.icon} size={20} color={tokens.textPrimary} />
               <Text style={styles.rowLabel}>{row.label}</Text>
             </View>
-            <IconSymbol name="chevron.right" size={18} color={tokens.textTertiary} />
+            <IconSymbol name="chevron.right" size={16} color={tokens.textTertiary} />
           </Pressable>
         ))}
       </View>

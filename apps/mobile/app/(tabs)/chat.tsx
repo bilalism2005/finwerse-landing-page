@@ -177,7 +177,7 @@ export default function ChatScreen() {
                   onPress={() => handleSend(suggestion)}
                 >
                   <Text style={styles.suggestionText}>{suggestion}</Text>
-                  <IconSymbol name="chevron.right" size={12} color={tokens.textTertiary} />
+                  <IconSymbol name="chevron.right" size={16} color={tokens.textTertiary} />
                 </Pressable>
               ))}
             </View>
