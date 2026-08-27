@@ -24,7 +24,7 @@ interface AlertsState {
   deleteAlert: (id: string) => Promise<void>;
 }
 
-export const useAlertsStore = create<AlertsState>((set, get) => ({
+export const useAlertsStore = create<AlertsState>((set) => ({
   alerts: [],
   isLoading: false,
   error: null,

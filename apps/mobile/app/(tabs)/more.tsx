@@ -37,7 +37,7 @@ export default function MoreScreen() {
       <Text style={styles.title}>More</Text>
 
       <View style={styles.card}>
-        {ROWS.map((row, index) => (
+        {ROWS.map((row) => (
           <Pressable
             key={row.key}
             onPress={() => router.push(row.route)}
