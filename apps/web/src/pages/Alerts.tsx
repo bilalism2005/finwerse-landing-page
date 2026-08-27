@@ -8,10 +8,42 @@ const Alerts = () => {
   const [alertsList, setAlertsList] = useState(initialAlerts.map((a, i) => ({ ...a, id: i })));
   const [showCreate, setShowCreate] = useState(false);
 
+  const [newStock, setNewStock] = useState("");
+  const [newParameter, setNewParameter] = useState("");
+  const [newCondition, setNewCondition] = useState("");
+  const [newValue, setNewValue] = useState("");
+  const [newPeriod, setNewPeriod] = useState("");
+
   const toggleAlert = (id: number) => {
     setAlertsList((prev) =>
       prev.map((a) => (a.id === id ? { ...a, active: !a.active } : a))
     );
+  };
+
+  const resetCreateForm = () => {
+    setNewStock("");
+    setNewParameter("");
+    setNewCondition("");
+    setNewValue("");
+    setNewPeriod("");
+    setShowCreate(false);
+  };
+
+  const isCreateFormComplete = newStock && newParameter && newCondition && newValue && newPeriod;
+
+  const handleCreateAlert = () => {
+    if (!isCreateFormComplete) return;
+    setAlertsList((prev) => [
+      {
+        id: Date.now(),
+        stock: newStock,
+        condition: `${newParameter} ${newCondition.toLowerCase()} ${newValue} on ${newPeriod}`,
+        active: true,
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      },
+      ...prev,
+    ]);
+    resetCreateForm();
   };
 
   return (
@@ -46,28 +78,34 @@ const Alerts = () => {
       {showCreate ? (
         <div className="p-4 rounded-xl bg-[#111111] border border-primary/30 space-y-3">
           <h3 className="text-xs text-[#666] uppercase tracking-wider font-medium">New Alert</h3>
-          <select className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none">
-            <option>Select stock</option>
+          <select value={newStock} onChange={(e) => setNewStock(e.target.value)} className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none">
+            <option value="">Select stock</option>
             <option>RELIANCE</option><option>TATAMOTORS</option><option>ZOMATO</option><option>HDFCBANK</option><option>ADANIPORTS</option>
           </select>
-          <select className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none">
-            <option>Select parameter</option>
+          <select value={newParameter} onChange={(e) => setNewParameter(e.target.value)} className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none">
+            <option value="">Select parameter</option>
             <option>Price</option><option>Overall Score</option><option>Technical</option><option>Fundamental</option>
             <option>Sentiment</option><option>External</option><option>Volatility</option><option>Liquidity</option>
             <option>Analyst</option><option>Momentum</option><option>Pattern</option>
           </select>
-          <select className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none">
-            <option>Select condition</option>
+          <select value={newCondition} onChange={(e) => setNewCondition(e.target.value)} className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none">
+            <option value="">Select condition</option>
             <option>Drops below</option><option>Crosses above</option><option>Equals</option>
           </select>
-          <input type="number" placeholder="Set value" className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none placeholder:text-[#444]" />
-          <select className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none">
-            <option>Select holding period</option>
+          <input type="number" value={newValue} onChange={(e) => setNewValue(e.target.value)} placeholder="Set value" className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none placeholder:text-[#444]" />
+          <select value={newPeriod} onChange={(e) => setNewPeriod(e.target.value)} className="w-full p-2.5 rounded-lg bg-[#0D0D0D] border border-[#1a1a1a] text-sm outline-none">
+            <option value="">Select holding period</option>
             <option>Intraday</option><option>Short-term</option><option>Swing</option><option>Weekly</option><option>Monthly</option><option>Long-term</option>
           </select>
           <div className="flex gap-2">
-            <button onClick={() => setShowCreate(false)} className="flex-1 py-2.5 rounded-lg border border-[#333] text-sm text-[#999]">Cancel</button>
-            <button onClick={() => setShowCreate(false)} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold">Create Alert</button>
+            <button onClick={resetCreateForm} className="flex-1 py-2.5 rounded-lg border border-[#333] text-sm text-[#999]">Cancel</button>
+            <button
+              onClick={handleCreateAlert}
+              disabled={!isCreateFormComplete}
+              className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Create Alert
+            </button>
           </div>
         </div>
       ) : (
