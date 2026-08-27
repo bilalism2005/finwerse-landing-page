@@ -142,7 +142,6 @@ export default function RootLayout() {
             <Stack.Screen name="alerts" options={{ headerShown: false }} />
             <Stack.Screen name="impulse" options={{ headerShown: false }} />
             <Stack.Screen name="news" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
             <Stack.Screen name="+not-found" />
           </Stack>
         </AuthProvider>
