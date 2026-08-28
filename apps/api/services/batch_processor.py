@@ -55,13 +55,51 @@ class RateLimitException(Exception):
 def handle_httpx_errors(retry_state):
     logger.warning(f"Retrying after error: {retry_state.outcome.exception()}")
 
+# After N consecutive per-stock failures against the SAME external API within a
+# single run, treat it as a sustained outage/quota exhaustion rather than
+# per-stock flakiness and stop calling it for the rest of the run. A live
+# EODHD news-endpoint outage once cost ~21s/stock (3 retries x ~7s timeout,
+# paid on every one of ~2440 stocks) and was the direct cause of a cron run
+# blowing past Render's 12h hard kill -- this bounds that tax to
+# threshold x per-attempt-cost regardless of how long the outage lasts.
+CIRCUIT_BREAKER_THRESHOLD = 5
+
+# Render hard-kills any cron run at 12h with no useful signal beyond "Timed
+# out" (https://render.com/docs/cronjobs). Stopping ourselves at 10h30m
+# instead turns that into a clear, diagnosable early exit, and leaves
+# headroom for AlertsProcessor + NSEFilingsScraper, which run after this
+# batch inside the same cron process (scripts/run_daily_batch.py).
+RUN_TIME_BUDGET = timedelta(hours=10, minutes=30)
+
 class BatchProcessor:
     def __init__(self, db: Session):
         self.db = db
         self.angel_client = AngelOneClient()
         self.indianapi_client = IndianAPIClient()
         self.eodhd_client = EODHDClient()
-        
+        self._eodhd_consecutive_failures = 0
+        self._eodhd_circuit_open = False
+        self._indianapi_consecutive_failures = 0
+        self._indianapi_circuit_open = False
+
+    def _note_eodhd_failure(self, symbol: str):
+        self._eodhd_consecutive_failures += 1
+        if not self._eodhd_circuit_open and self._eodhd_consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+            self._eodhd_circuit_open = True
+            logger.error(
+                f"EODHD news fetch failed {self._eodhd_consecutive_failures} times in a row "
+                f"(latest: {symbol}) -- disabling news fetching for the rest of this run."
+            )
+
+    def _note_indianapi_failure(self, symbol: str):
+        self._indianapi_consecutive_failures += 1
+        if not self._indianapi_circuit_open and self._indianapi_consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+            self._indianapi_circuit_open = True
+            logger.error(
+                f"IndianAPI rate-limited {self._indianapi_consecutive_failures} times in a row "
+                f"(latest: {symbol}) -- disabling fundamentals fetching for the rest of this run."
+            )
+
     @retry(
         wait=wait_exponential(multiplier=1, min=2, max=10),
         stop=stop_after_attempt(5),
@@ -477,6 +515,10 @@ class BatchProcessor:
             if days_since_update < 7 and not (now.weekday() == 4 and days_since_update >= 1):
                 should_fetch_fundamentals = False
 
+        if should_fetch_fundamentals and self._indianapi_circuit_open:
+            data_status = "RATE_LIMITED"
+            should_fetch_fundamentals = False
+
         if should_fetch_fundamentals:
             try:
                 logger.info(f"Fetching fundamental data for {mapping.stock_symbol}...")
@@ -521,6 +563,7 @@ class BatchProcessor:
                     df_daily_dict
                 )
                 logger.info(f"Computed 11-indicator safety scores for {mapping.stock_symbol}: {safety_scores}")
+                self._indianapi_consecutive_failures = 0
             except httpx.HTTPStatusError as he:
                 if he.response.status_code == 429:
                     data_status = "RATE_LIMITED"
@@ -528,9 +571,11 @@ class BatchProcessor:
                 else:
                     data_status = "FAILED"
                     logger.error(f"IndianAPI HTTP error {he.response.status_code} for {mapping.stock_symbol}")
+                self._note_indianapi_failure(mapping.stock_symbol)
             except Exception as e:
                 data_status = "FAILED"
                 logger.error(f"Error computing safety scores for {mapping.stock_symbol}: {e}")
+                self._note_indianapi_failure(mapping.stock_symbol)
         else:
             # Use cached scores from DB
             score_record_cache = self.db.query(models.StockScore).filter(models.StockScore.stock_symbol == mapping.stock_symbol).first()
@@ -570,54 +615,61 @@ class BatchProcessor:
                 
             to_date_news = now.strftime("%Y-%m-%d")
             
-            # Avoid fetching if from_date is equal to to_date and it's already fetched? 
+            # Avoid fetching if from_date is equal to to_date and it's already fetched?
             # EODHD accepts same date for from and to, it just fetches that day.
-            try:
-                did_external_fetch = True
-                news_data = self.fetch_eodhd_news(eodhd_news_symbol, from_date_news, to_date_news)
-                if isinstance(news_data, list):
-                    # Cache articles in DB with duplicate URL safety
-                    from sqlalchemy.dialects.postgresql import insert as pg_insert
-                    seen_urls = set()
-                    for art in news_data:
-                        url = art.get("link") or art.get("url") or ""
-                        if not url or url in seen_urls:
-                            continue
-                        seen_urls.add(url)
-                        
-                        # Validate if the article belongs to this company
-                        if not validate_article_for_stock(art, mapping.stock_symbol, company_name):
-                            logger.info(f"Article skipped (mismatch/collision): {art.get('title')} | url: {url}")
-                            continue
+            if self._eodhd_circuit_open:
+                if data_status != "FAILED":
+                    data_status = "RATE_LIMITED"
+            else:
+                try:
+                    did_external_fetch = True
+                    news_data = self.fetch_eodhd_news(eodhd_news_symbol, from_date_news, to_date_news)
+                    self._eodhd_consecutive_failures = 0
+                    if isinstance(news_data, list):
+                        # Cache articles in DB with duplicate URL safety
+                        from sqlalchemy.dialects.postgresql import insert as pg_insert
+                        seen_urls = set()
+                        for art in news_data:
+                            url = art.get("link") or art.get("url") or ""
+                            if not url or url in seen_urls:
+                                continue
+                            seen_urls.add(url)
 
-                        date_str = art.get("date", "")
-                        try:
-                            dt = datetime.fromisoformat(date_str)
-                        except Exception:
-                            dt = now
-                        polarity = safe_float(art.get("sentiment", {}).get("polarity", 0.0))
-                        
-                        # Use PostgreSQL ON CONFLICT DO NOTHING to guarantee idempotency and no crashes
-                        stmt = pg_insert(models.StockNews).values(
-                            stock_symbol=mapping.stock_symbol,
-                            article_date=dt,
-                            polarity=polarity,
-                            source_url=url
-                        ).on_conflict_do_nothing(index_elements=['source_url'])
-                        self.db.execute(stmt)
-                    self.db.commit()
-            except httpx.HTTPStatusError as he:
-                if he.response.status_code == 429:
-                    if data_status != "FAILED":
-                        data_status = "RATE_LIMITED"
-                    logger.warning(f"EODHD rate limit hit (429) for {mapping.stock_symbol}")
-                else:
+                            # Validate if the article belongs to this company
+                            if not validate_article_for_stock(art, mapping.stock_symbol, company_name):
+                                logger.info(f"Article skipped (mismatch/collision): {art.get('title')} | url: {url}")
+                                continue
+
+                            date_str = art.get("date", "")
+                            try:
+                                dt = datetime.fromisoformat(date_str)
+                            except Exception:
+                                dt = now
+                            polarity = safe_float(art.get("sentiment", {}).get("polarity", 0.0))
+
+                            # Use PostgreSQL ON CONFLICT DO NOTHING to guarantee idempotency and no crashes
+                            stmt = pg_insert(models.StockNews).values(
+                                stock_symbol=mapping.stock_symbol,
+                                article_date=dt,
+                                polarity=polarity,
+                                source_url=url
+                            ).on_conflict_do_nothing(index_elements=['source_url'])
+                            self.db.execute(stmt)
+                        self.db.commit()
+                except httpx.HTTPStatusError as he:
+                    if he.response.status_code == 429:
+                        if data_status != "FAILED":
+                            data_status = "RATE_LIMITED"
+                        logger.warning(f"EODHD rate limit hit (429) for {mapping.stock_symbol}")
+                    else:
+                        data_status = "FAILED"
+                        logger.error(f"EODHD HTTP error {he.response.status_code} for {mapping.stock_symbol}")
+                    self._note_eodhd_failure(mapping.stock_symbol)
+                except Exception as e:
                     data_status = "FAILED"
-                    logger.error(f"EODHD HTTP error {he.response.status_code} for {mapping.stock_symbol}")
-            except Exception as e:
-                data_status = "FAILED"
-                logger.error(f"Error fetching and caching news for {mapping.stock_symbol}: {e}")
-                self.db.rollback()
+                    logger.error(f"Error fetching and caching news for {mapping.stock_symbol}: {e}")
+                    self.db.rollback()
+                    self._note_eodhd_failure(mapping.stock_symbol)
 
             # Read cached articles for this stock from DB for the rolling 30-day window
             try:
@@ -713,6 +765,7 @@ class BatchProcessor:
 
     def run(self, skip_computed_today: bool = True):
         logger.info("Starting Batch Processing Loop...")
+        run_started_at = datetime.now(timezone.utc)
         mappings = self.db.query(models.SymbolMapping).all()
         logger.info(f"Found {len(mappings)} total stocks in symbol_mapping.")
 
@@ -726,7 +779,24 @@ class BatchProcessor:
                 self.db.query(models.StockScore.stock_symbol, models.StockScore.computed_at).all()
             )
 
+        processed_count = 0
+        skipped_count = 0
+        critical_error_count = 0
+        time_budget_stopped = False
+
         for idx, mapping in enumerate(mappings, 1):
+            elapsed = datetime.now(timezone.utc) - run_started_at
+            if elapsed >= RUN_TIME_BUDGET:
+                remaining = len(mappings) - idx + 1
+                logger.warning(
+                    f"Time budget of {RUN_TIME_BUDGET} exceeded after {idx - 1}/{len(mappings)} stocks "
+                    f"({elapsed} elapsed) -- stopping early to leave headroom for the alerts/filings "
+                    f"steps and avoid Render's 12h cron hard kill. {remaining} stocks left unprocessed "
+                    f"this run; they'll be first in line next run since they were never computed today."
+                )
+                time_budget_stopped = True
+                break
+
             try:
                 if skip_computed_today:
                     cutoff = datetime.now(timezone.utc) - timedelta(hours=20)
@@ -736,11 +806,21 @@ class BatchProcessor:
                             score_time = score_time.replace(tzinfo=timezone.utc)
                         if score_time >= cutoff:
                             logger.info(f"[{idx}/{len(mappings)}] Skipping {mapping.stock_symbol} (already computed in this batch).")
+                            skipped_count += 1
                             continue
 
                 logger.info(f"[{idx}/{len(mappings)}] Processing {mapping.stock_symbol}...")
                 self.process_stock(mapping)
+                processed_count += 1
             except Exception as e:
+                critical_error_count += 1
                 logger.error(f"Critical error processing {mapping.stock_symbol}: {e}")
                 self.db.rollback()
-        logger.info("Batch Processing Loop Complete.")
+
+        logger.info(
+            f"Batch Processing Loop Complete. "
+            f"processed={processed_count} skipped(cache)={skipped_count} critical_errors={critical_error_count} "
+            f"time_budget_stopped={time_budget_stopped} "
+            f"eodhd_circuit_open={self._eodhd_circuit_open} (consecutive_failures={self._eodhd_consecutive_failures}) "
+            f"indianapi_circuit_open={self._indianapi_circuit_open} (consecutive_failures={self._indianapi_consecutive_failures})"
+        )

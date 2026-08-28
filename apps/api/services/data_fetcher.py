@@ -6,6 +6,13 @@ from fake_useragent import UserAgent
 
 logger = logging.getLogger(__name__)
 
+# Previously unset, so every call fell back to httpx's library default. A
+# stalled/degraded upstream (e.g. an EODHD outage) would then eat the full
+# default timeout on each of the batch job's 3 retry attempts per stock,
+# across thousands of sequential stocks -- explicit and short enough that a
+# genuinely down API fails fast instead of quietly eating the whole run.
+HTTP_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+
 def get_headers():
     ua = UserAgent()
     return {
@@ -43,7 +50,7 @@ class AngelOneClient:
             "password": self.pin,
             "totp": self._generate_totp()
         }
-        response = httpx.post(url, headers=headers, json=payload)
+        response = httpx.post(url, headers=headers, json=payload, timeout=HTTP_TIMEOUT)
         data = response.json()
         if data.get('status'):
             self.jwt_token = data['data']['jwtToken']
@@ -75,7 +82,7 @@ class AngelOneClient:
             "fromdate": from_date,
             "todate": to_date
         }
-        response = httpx.post(url, headers=headers, json=payload)
+        response = httpx.post(url, headers=headers, json=payload, timeout=HTTP_TIMEOUT)
         if response.status_code != 200:
             logger.error(f"Angel One historical data error: HTTP {response.status_code}")
             return {"status": False, "message": f"HTTP {response.status_code}", "data": None}
@@ -94,37 +101,37 @@ class IndianAPIClient:
 
     def get_ratios(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=ratios"
-        response = httpx.get(url, headers=self.headers)
+        response = httpx.get(url, headers=self.headers, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
 
     def get_stock_details(self, symbol):
         url = f"{self.base_url}/stock?name={symbol}"
-        response = httpx.get(url, headers=self.headers)
+        response = httpx.get(url, headers=self.headers, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
 
     def get_quarterly_results(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=quarter_results"
-        response = httpx.get(url, headers=self.headers)
+        response = httpx.get(url, headers=self.headers, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
 
     def get_yoy_results(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=yoy_results"
-        response = httpx.get(url, headers=self.headers)
+        response = httpx.get(url, headers=self.headers, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
 
     def get_balancesheet(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=balancesheet"
-        response = httpx.get(url, headers=self.headers)
+        response = httpx.get(url, headers=self.headers, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
 
     def get_shareholding_pattern(self, symbol):
         url = f"{self.base_url}/historical_stats?stock_name={symbol}&stats=shareholding_pattern_quarterly"
-        response = httpx.get(url, headers=self.headers)
+        response = httpx.get(url, headers=self.headers, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
 
@@ -136,6 +143,6 @@ class EODHDClient:
 
     def get_news(self, symbol, from_date, to_date):
         url = f"{self.base_url}/news?s={symbol}&from={from_date}&to={to_date}&limit=50&api_token={self.api_key}&fmt=json"
-        response = httpx.get(url, headers=self.headers)
+        response = httpx.get(url, headers=self.headers, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
