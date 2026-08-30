@@ -3,7 +3,6 @@ import logging
 import fitz  # PyMuPDF
 from datetime import datetime
 from sqlalchemy.orm import Session
-from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from fake_useragent import UserAgent
 import models
@@ -25,14 +24,19 @@ class NSEFilingsScraper:
         }
         self.client = httpx.Client(headers=self.headers, timeout=30.0)
         
-        # Initialize text splitter and embedding model
+        # Initialize text splitter. No embedding model here -- retrieval
+        # (tool_nse_filings_rag in services/tools.py) is recency-based, not
+        # similarity search, so nothing reads embedding_vector today. Loading
+        # sentence-transformers (pulls in torch) unconditionally on every cron
+        # run for a value that's never computed was a ~300MB dead-weight spike
+        # that OOM-killed finwerse-batch-cron-staging (Render starter plan,
+        # 512MB cap) once the batch loop finally ran long enough to reach this
+        # step. See spec/capabilities/nse-filings-rag.md for the real status.
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
             length_function=len,
         )
-        # Load embedding model locally
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
     def _establish_session(self):
         """Hit the homepage to get the required session cookies."""
