@@ -134,6 +134,7 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="stock/[symbol]" options={{ headerShown: false }} />
+            <Stack.Screen name="article/[id]" options={{ headerShown: false }} />
             {/* Alerts/Impulse/News — moved out of the (tabs) swipeable pager entirely
                 (spec/ui.md "Tab Navigation — Swipe Gestures": a route registered under a
                 swipeable pager can be physically swiped onto, regardless of tab-bar

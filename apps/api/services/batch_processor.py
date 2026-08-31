@@ -778,14 +778,23 @@ class BatchProcessor:
                 # call; fall back to headline+summary if the fetch/extraction
                 # fails, rather than dropping the article entirely.
                 text_for_scoring = f"{headline}. {item.get('summary', '')}".strip()
+                # Persisted to StockNews.full_text only when extraction genuinely
+                # succeeded this run (spec/data.md) -- stays None on any failure
+                # path (fetch error, non-200, short/empty extraction).
+                full_text_to_persist = None
                 try:
                     page = httpx.get(url, timeout=15.0, headers={"User-Agent": "Mozilla/5.0"}, follow_redirects=True)
                     if page.status_code == 200:
                         extracted = trafilatura.extract(page.text)
                         if extracted and len(extracted.strip()) > 50:
                             text_for_scoring = extracted
+                            full_text_to_persist = extracted
                 except Exception as e:
                     logger.warning(f"Full-text fetch failed for {url}, scoring headline+summary only: {e}")
+
+                # StockNews.summary is populated independently of full_text
+                # extraction success, whenever IndianAPI supplied one.
+                summary_to_persist = (item.get("summary") or "").strip() or None
 
                 try:
                     did_external_fetch = True
@@ -814,6 +823,8 @@ class BatchProcessor:
                     polarity=polarity,
                     source_url=url,
                     headline=headline,
+                    full_text=full_text_to_persist,
+                    summary=summary_to_persist,
                 ).on_conflict_do_nothing(index_elements=['source_url'])
                 self.db.execute(stmt)
             self.db.commit()

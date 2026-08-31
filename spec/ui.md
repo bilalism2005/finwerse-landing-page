@@ -260,7 +260,7 @@ Reached via More (not tabs) — same store, same underlying data as before, only
 - Impulse Analyzer (`impulse.tsx`, `useAnalyzerStore`)
 - Market News / Sentiment Feed (`news.tsx`, `useSentimentStore`)
 
-Auth group (`(auth)/login` — **added to the redesign 2026-08-25**, full spec below). Standalone: `stock/[symbol]` (Stock Detail — **redesigned this pass**, full spec below; Home's ranked-row tap target navigates here), `modal`, `auth-callback`.
+Auth group (`(auth)/login` — **added to the redesign 2026-08-25**, full spec below). Standalone: `stock/[symbol]` (Stock Detail — **redesigned this pass**, full spec below; Home's ranked-row tap target navigates here), `article/[id]` (Article Detail — **new 2026-08-31**, full spec below; Market News's card tap target navigates here), `modal`, `auth-callback`.
 
 **`two.tsx` (unmodified Expo template scaffold, "Tab Two" placeholder) has been deleted** — it was confirmed dead code (hidden from the tab bar via `href: null`, unreachable by any user action) and removed as part of the nav restructuring above.
 
@@ -581,35 +581,68 @@ Auth group (`(auth)/login` — **added to the redesign 2026-08-25**, full spec b
 - [ ] Submitting custom trades and switching to Portfolio mode both function exactly as today (same store calls, same validation) — only visual presentation changes.
 - [ ] All 4 states (loading×2, empty, populated) plus the new error/retry state render distinctly and are reachable via a real interaction.
 
-### Screen: Market News (`news.tsx`) — REDESIGNED 2026-08-25 (spec'd, not yet built)
+### Screen: Market News (`news.tsx`) — REDESIGNED 2026-08-25, shipped; article tap behavior updated 2026-08-31
 
 **Purpose:** Let a user browse a sentiment-scored news feed — market-wide or scoped to their portfolio's held stocks — and search across it. A browsable feed in its own right, not just chatbot input. Same underlying feature (Feature 7, Sentiment Feed, `spec/roadmap.md` Build Status row 7); see `spec/capabilities/sentiment-feed.md`.
 
-**Data source — unchanged, no new wiring:** `GET /sentiment-feed/market`, `/portfolio`, `/search` (`spec/api.md`) via `useSentimentStore`. Presentation-only redesign.
+**Data source — unchanged, no new wiring:** `GET /sentiment-feed/market`, `/portfolio`, `/search` (`spec/api.md`) via `useSentimentStore`. Presentation-only redesign; the 2026-08-31 tap-behavior change (below) is the one non-presentation change since the redesign shipped.
 
 **Structure (top to bottom):**
 1. **Header row**, restyled: "Market News" title + subtitle (unchanged copy).
 2. **Mode switcher** (All Market News / My Portfolio News), restyled to the segmented-control token, replacing the current ad hoc pill-tab styling.
-3. **Search field**, restyled to Home's search-field token treatment (elevated surface `#131613`, 12px radius, leading search icon, Text tertiary placeholder). Same real search behavior (`searchSentiment`), unchanged.
-4. **Article feed**, each card restyled: symbol badge (elevated-surface pill, Text primary), sentiment badge (Bullish/Bearish/Neutral, restyled to Positive `#B8F35A` / Negative `#FF6B67` / Warning `#FFB84D` tokens respectively, replacing the current ad hoc RGBA greens/reds/oranges), extracted headline (Body token — `extractHeadline`'s URL-derived heuristic kept exactly as-is; it remains the pragmatic real solution since `StockNews` has no headline field, `spec/data.md`), source domain + date footer (Metadata token, Text tertiary), `#1A1E1A` row divider between cards. Tapping a card still opens the source URL directly via `Linking.openURL` — unchanged, honest behavior.
+3. **Search field**, restyled to Home's search-field token treatment (elevated surface, 12px radius, leading search icon, Text tertiary placeholder). Same real search behavior (`searchSentiment`), unchanged.
+4. **Article feed**, each card restyled: symbol badge (elevated-surface pill, Text primary), sentiment badge (Bullish/Bearish/Neutral, restyled to Positive / Negative / Warning tokens respectively, replacing the current ad hoc RGBA greens/reds/oranges), **real `item.headline` (added 2026-08-31; `extractHeadline`'s URL-slug-guessing heuristic is removed — `StockNews` now has a real `headline` column, `spec/data.md`)**, source domain (`extractDomain`, now a shared helper — see below) + date footer (Metadata token, Text tertiary), row divider between cards. **Tapping a card navigates to the new in-app Article Detail screen below (`router.push('/article/{id}')`) instead of `Linking.openURL` (changed 2026-08-31)** — see `spec/capabilities/sentiment-feed.md` → "In-App Article Reading" for why this is now possible.
 5. **Loading treatment**, restyled from a full-screen spinner to skeleton article cards matching the populated card shape, consistent with Home/Stock Detail's preference for skeletons over spinners for list-shaped content.
 
+**Shared helper (added 2026-08-31):** `extractDomain` moves out of `news.tsx` into a small shared utility (e.g. `apps/mobile/src/utils/url.ts`) so both this screen's card footer and the new Article Detail screen's "Read full article on {domain}" fallback link use the same domain-parsing logic instead of duplicating it — `extractHeadline` is deleted outright (no longer needed, no other caller).
+
 **Removed from design (no fabricated data):**
-- **Market-context strip** (NIFTY 50 / SENSEX / BANK NIFTY live index values) — no market index data exists anywhere (no index-price entity in `spec/data.md`, no index endpoint in `spec/api.md`). Removed entirely — no placeholder row, no "coming soon" stub.
-- **News Detail expanded view** ("Why this matters" / "Market impact" / "Related stocks" / "Explain this news" AI action) — no per-article enrichment data exists anywhere in the schema (`StockNews` has only `stock_symbol, article_date, polarity, source_url`, `spec/data.md`); each of those four sub-sections would require fabricated analysis. Removed entirely; tapping an article keeps the existing direct-open-URL behavior instead of opening any detail view.
+- **Market-context strip** (NIFTY 50 / SENSEX / BANK NIFTY live index values) — no market index data exists anywhere (no index-price entity in `spec/data.md`, no index endpoint in `spec/api.md`). Removed entirely — no placeholder row, no "coming soon" stub. Still open, unrelated to the 2026-08-31 change.
+- ~~**News Detail expanded view**~~ — **superseded 2026-08-31**, see "Screen: Article Detail" below and `spec/capabilities/sentiment-feed.md` → "In-App Article Reading" for what is and isn't now real. The four AI-enrichment sub-sections from the original brief ("Why this matters" / "Market impact" / "Related stocks" / "Explain this news") still have no backing data and remain out of scope.
 
 **States** (per `harness/patterns/ui-ux.md`'s bar):
 - **Loading:** skeleton article cards (item 5 above) while a fetch is in flight and not a pull-to-refresh.
 - **Populated:** real article feed renders per the structure above.
 - **Empty (no results):** existing copy kept, restyled — branches on whether a search query is active ("No news recorded matching '{query}'." vs. "Pull down to refresh latest market news.").
-- **Error/retry:** `useSentimentStore`'s `error` is set — human copy plus tap-to-retry — **new this pass**, the existing screen has an `error` field in the store but never renders it.
+- **Error/retry:** `useSentimentStore`'s `error` is set — human copy plus tap-to-retry.
 
 **Success Criteria**
-- [ ] Header, mode switcher, search field, and article feed all render using only Design System tokens — no ad hoc colors/sizes.
-- [ ] No market-index strip or News Detail expanded view renders anywhere — confirms the Removed items above; tapping an article opens its source URL directly, exactly as today.
-- [ ] Switching between All Market News / My Portfolio News and searching both still call the same real endpoints (`fetchMarketNews`/`fetchPortfolioSentiment`/`searchSentiment`) unchanged.
-- [ ] `extractHeadline`'s URL-derived heuristic is unchanged — still the real, working solution for the missing headline field, not replaced or removed.
-- [ ] All 4 states (loading, populated, empty, error/retry) render distinctly and are reachable via a real interaction.
+- [x] Header, mode switcher, search field, and article feed all render using only Design System tokens — no ad hoc colors/sizes.
+- [x] No market-index strip renders anywhere.
+- [x] Switching between All Market News / My Portfolio News and searching both still call the same real endpoints (`fetchMarketNews`/`fetchPortfolioSentiment`/`searchSentiment`) unchanged.
+- [x] All 4 states (loading, populated, empty, error/retry) render distinctly and are reachable via a real interaction.
+- [ ] `extractHeadline` no longer exists anywhere in `news.tsx`; every card's headline is `item.headline`
+- [ ] Tapping any card navigates to `/article/{id}` (Article Detail); no card calls `Linking.openURL` directly anymore
+
+### Screen: Article Detail (`article/[id].tsx`, new) — ADDED 2026-08-31
+
+**Purpose:** In-app reader for a single Sentiment Feed article — the mobile-side half of "In-App Article Reading" (`spec/capabilities/sentiment-feed.md`). Reached only from Market News's article feed (`router.push('/article/{id}')`); not a tab, not reachable any other way.
+
+**Data source:** `GET /sentiment-feed/article/{id}` (`spec/api.md`, no auth) — a new plain async function (e.g. `getArticleDetail(id)` in a new `apps/mobile/src/api/sentimentService.ts`, mirroring `stockService.ts`'s pattern), called from local component state (`data`/`loading`/`error`, same shape as `stock/[symbol].tsx`'s own fetch pattern) — not a Zustand store, since this is single-article, view-only data with no cross-screen sharing need.
+
+**Navigation shell:** a standalone `Stack.Screen` (registered in `apps/mobile/app/_layout.tsx` alongside `stock/[symbol]`, `alerts`, `impulse`, `news` — `headerShown: false`, screen builds its own internal header), reached via `useLocalSearchParams<{ id: string }>()`. Not part of the 5-tab swipeable pager (`spec/ui.md` → "Tab Navigation — Swipe Gestures") — same structural treatment as Stock Detail.
+
+**Structure (top to bottom):**
+1. **Header**, matching Stock Detail's own in-screen header convention: back chevron (`router.back()`) + stock symbol badge (reusing the list's `symbolBadge` visual treatment).
+2. **Sentiment score.** A numeric score `round(polarity * 100)` (platform -100..100 scale), band-colored via the existing `getBand()`/`getBandColor()`/`getBadgeBackground()` (`apps/mobile/src/theme/score-band.ts`) — same standing color bands as everywhere else in the app (Red <40, Amber 41-65, Green 66-100), reusing Stock Detail's own Strong/Steady/Weak status-word mapping for the accompanying label rather than inventing a new one. This is a separate, standard-scale display from the list's own pre-existing Bullish/Bearish/Neutral badge (a different, unrelated -1..1-threshold scheme that stays as-is on the list).
+3. **Headline** — `item.headline`, large/bold (Section-title-ish size, larger than the list's headline treatment since it's the page's primary content here).
+4. **Metadata row** — article date + source domain (`extractDomain`, shared helper — see Market News entry above).
+5. **Body**, inside a vertical `ScrollView`, per the missing-data table in `spec/capabilities/sentiment-feed.md` → "In-App Article Reading":
+   - `full_text` present: the full extracted body as scrollable Body-token text, plus a small, non-prominent "Source: {domain}" attribution line at the bottom (tappable, opens `source_url` externally, but not styled as a call-to-action).
+   - `full_text` null, `summary` present: the summary text, plus a prominent, clearly-labeled "Read full article on {domain}" button (accent-outlined or filled per the app's existing primary/secondary button language) that calls `Linking.openURL(source_url)` — the correct fallback path, not a regression.
+   - Both null: a short "Full article text isn't available for this story." note, plus the same prominent "Read full article on {domain}" button.
+
+**States** (per `harness/patterns/ui-ux.md`'s bar):
+- **Loading:** skeleton lines matching the populated layout (header metadata + several body lines), same skeleton-over-spinner preference as every other redesigned screen.
+- **Populated:** one of the three body variants above, chosen by `full_text`/`summary` nullability — never a blank screen.
+- **Error/retry:** fetch failure (network error or `404`) — human copy ("Couldn't load this article.") plus tap-to-retry, same pattern as Market News's own error state; no raw error body or status code shown.
+
+**Success Criteria**
+- [ ] All three body variants (full text present / summary-only / neither) render a complete, non-blank screen, verified against real rows in each state
+- [ ] The numeric sentiment score equals `round(polarity * 100)` and its band/color matches `getBand()`'s standard thresholds — no bespoke banding invented for this screen
+- [ ] The "Read full article on {domain}" button, when shown, opens `source_url` via `Linking.openURL` and is labeled with the real domain (via the shared `extractDomain` helper), never a generic "Read more"
+- [ ] Back navigation (`router.back()`) returns to Market News in its prior scroll/search/mode state
+- [ ] Loading and error/retry states render distinctly and are reachable via a real interaction (slow network, invalid/deleted id)
 
 ### Screen: More (`more.tsx`, new) — NEW 2026-08-25
 

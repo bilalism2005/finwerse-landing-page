@@ -87,6 +87,15 @@ class StockNews(Base):
     polarity = Column(Float)
     source_url = Column(String, unique=True, index=True) # Used for deduplication
     headline = Column(String, nullable=True) # For auditability -- spot-checking sentiment-service output against what the article actually said
+    # Genuine trafilatura-extracted article body, persisted only when extraction
+    # succeeded during batch scoring (mirrors the in-memory >50-char success
+    # condition in batch_processor.py). NULL for pre-existing rows or failed
+    # extractions. Must never appear in /sentiment-feed/market|portfolio|search.
+    full_text = Column(Text, nullable=True)
+    # IndianAPI's short recentNews[].summary, persisted independent of full_text
+    # extraction success -- the mobile in-app reader's fallback when full_text
+    # is NULL. Must never appear in /sentiment-feed/market|portfolio|search.
+    summary = Column(Text, nullable=True)
 
 class StockHistoricalScore(Base):
     __tablename__ = "stock_historical_scores"

@@ -6,15 +6,16 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
-  Linking,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useSentimentStore, Article } from '../src/store/sentimentStore';
 import { IconSymbol } from '../components/ui/IconSymbol';
 import { useThemeStore, useThemeTokens } from '../src/store/themeStore';
 import type { ThemeTokens } from '../src/theme/tokens';
 import { withAlphaFraction as withAlpha } from '../src/theme/color';
+import { extractDomain } from '../src/utils/url';
 
 const SKELETON_ROWS = [0, 1, 2, 3, 4, 5];
 
@@ -22,6 +23,7 @@ export default function SentimentFeedScreen() {
   const tokens = useThemeTokens();
   const mode = useThemeStore((s) => s.mode);
   const styles = useMemo(() => createStyles(tokens), [tokens]);
+  const router = useRouter();
   const { articles, isLoading, error, fetchMarketNews, fetchPortfolioSentiment, searchSentiment } =
     useSentimentStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,38 +105,9 @@ export default function SentimentFeedScreen() {
     return { label: 'Neutral', color: tokens.warning };
   };
 
-  const extractHeadline = (url: string) => {
-    try {
-      const parsed = new URL(url);
-      const pathname = parsed.pathname;
-      const parts = pathname.split('/').filter((p) => p.length > 0);
-      const lastPart = parts[parts.length - 1] || '';
-      const cleaned = lastPart
-        .replace(/\.html?$/i, '')
-        .replace(/-\d+$/, '')
-        .split('-')
-        .join(' ');
-      if (cleaned.length > 10) {
-        return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-      }
-      return `Article on ${parsed.hostname.replace('www.', '')}`;
-    } catch {
-      return 'Market Intelligence & Analysis';
-    }
-  };
-
-  const extractDomain = (url: string) => {
-    try {
-      return new URL(url).hostname.replace('www.', '');
-    } catch {
-      return 'News Source';
-    }
-  };
-
   const renderArticle = ({ item }: { item: Article }) => {
     const badge = getPolarityBadge(item.polarity);
     const domain = extractDomain(item.source_url);
-    const headline = extractHeadline(item.source_url);
     const dateStr = item.article_date
       ? new Date(item.article_date).toLocaleDateString('en-IN', {
           day: 'numeric',
@@ -146,7 +119,7 @@ export default function SentimentFeedScreen() {
     return (
       <TouchableOpacity
         style={styles.articleRow}
-        onPress={() => Linking.openURL(item.source_url)}
+        onPress={() => router.push(`/article/${item.id}`)}
         activeOpacity={0.7}
       >
         <View style={styles.cardHeader}>
@@ -174,7 +147,7 @@ export default function SentimentFeedScreen() {
         </View>
 
         <Text style={styles.headline} numberOfLines={3}>
-          {headline}
+          {item.headline}
         </Text>
 
         <View style={styles.cardFooter}>

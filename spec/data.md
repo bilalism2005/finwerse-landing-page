@@ -64,6 +64,8 @@ News articles used for sentiment scoring and the Sentiment Feed.
 | polarity | Float | yes | Sentiment polarity score, -1..1 (FinVADER, escalated to Groq for ambiguous/disagreement cases — see `spec/architecture.md`) |
 | source_url | String | yes | Unique — used for dedup |
 | headline | String | no | Article headline, for auditability (added 2026-08-31) |
+| full_text | Text | no | Genuine extracted article body, from `trafilatura.extract()` during batch scoring — persisted **only** when extraction actually succeeded (matches the existing in-memory success condition in `apps/api/services/batch_processor.py`: non-empty extraction, >50 chars). NULL for every row scored before this column existed, and for any row where the fetch/extraction failed and scoring fell back to headline+summary — see `spec/capabilities/sentiment-feed.md` (In-App Article Reading). Backs `GET /sentiment-feed/article/{id}` only — **must never appear in `/sentiment-feed/market`, `/portfolio`, or `/search` responses** (added 2026-08-31) |
+| summary | Text | no | IndianAPI's short article summary (`recentNews[].summary`), persisted independent of whether `full_text` extraction succeeded — the fallback shown in the mobile in-app reader when `full_text` is NULL. NULL if IndianAPI supplied no summary for that article. Backs `GET /sentiment-feed/article/{id}` only — **must never appear in `/sentiment-feed/market`, `/portfolio`, or `/search` responses** (added 2026-08-31) |
 
 ### Entity: StockHistoricalScore
 Time series of technical scores — backs the Impulse Analyzer's counterfactual lookups.

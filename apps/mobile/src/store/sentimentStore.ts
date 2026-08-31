@@ -7,6 +7,7 @@ export interface Article {
   article_date: string;
   polarity: number;
   source_url: string;
+  headline: string;
 }
 
 interface SentimentState {

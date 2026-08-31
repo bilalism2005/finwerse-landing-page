@@ -104,13 +104,21 @@ Supabase JWT via `Authorization: Bearer <token>` header (`apps/api/auth.py`):
 
 ### `GET /sentiment-feed/market`
 **Purpose:** Latest 50 news articles across all tracked stocks — anonymous-friendly.
+**Response:** list of `{id, stock_symbol, article_date, polarity, source_url, headline}` — deliberately lightweight. **Must NOT include `full_text` or `summary`** (added 2026-08-31, see `spec/data.md`'s `StockNews.full_text`/`summary`); a caller wanting an article's full body calls `GET /sentiment-feed/article/{id}` below instead. Implementation note: since this endpoint returns ORM rows without an explicit field projection, adding `full_text`/`summary` as model columns would otherwise leak them into this response by default — the handler must explicitly project only the lightweight field set (e.g. an explicit dict/schema), not `return` the raw query result as-is.
 
 ### `GET /sentiment-feed/portfolio` (optional auth)
 **Purpose:** News for the caller's held stocks; falls back to the market feed if anonymous or no holdings (screen is never blank).
+**Response:** same lightweight shape and the same `full_text`/`summary` exclusion as `/market` above.
 
 ### `GET /sentiment-feed/search`
 **Purpose:** Search news by stock symbol/company name/keyword, with fuzzy symbol resolution (`resolve_symbol`).
 **Query params:** `q` (required)
+**Response:** same lightweight shape and the same `full_text`/`summary` exclusion as `/market` above.
+
+### `GET /sentiment-feed/article/{id}` (no auth — added 2026-08-31)
+**Purpose:** Fetch-on-tap full detail for a single article — backs the mobile in-app article reader (`spec/capabilities/sentiment-feed.md` → In-App Article Reading). Deliberately a separate endpoint rather than bundled into the list endpoints above, so list payloads stay lightweight.
+**Response:** `{id, stock_symbol, article_date, polarity, source_url, headline, full_text, summary}` — `full_text`/`summary` may both be null (older row, or extraction failed at scoring time and IndianAPI supplied no summary either).
+**Error cases:** `404` if no `StockNews` row exists with that `id`.
 
 ### `POST /chatbot/ask` (optional auth, streaming)
 **Purpose:** The Ask AI Chatbot — see `spec/agent.md` for the full tool-calling design.
