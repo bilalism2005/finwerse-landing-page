@@ -378,9 +378,12 @@ def compute_timeframe_sentiment(articles, timeframe_days, now):
     return raw_sentiment * 100.0
 
 def validate_article_for_stock(article, original_symbol, company_name):
+    # Fail closed, not open: with no company name to match against, there's
+    # no way to tell whether an article is actually about this stock, so
+    # treat it as not relevant rather than letting everything through.
     if not company_name:
-        return True
-        
+        return False
+
     title = article.get("title", "").strip().lower()
     content = article.get("content", "").strip().lower()
     full_text = f"{title} {content}"

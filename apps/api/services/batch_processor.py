@@ -1,17 +1,84 @@
+import os
+import json
 import time
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import pandas as pd
+import trafilatura
+from groq import Groq
+from finvader import finvader
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 from sqlalchemy.orm import Session
 import httpx
 
 import models
-from services.data_fetcher import AngelOneClient, IndianAPIClient, EODHDClient
+from services.data_fetcher import AngelOneClient, IndianAPIClient
 from config.holidays import get_trading_days_between
 from services.scoring import compute_overall_score, compute_safety_scores, safe_float, compute_timeframe_sentiment, validate_article_for_stock, compute_historical_technical_scores
 logger = logging.getLogger(__name__)
+
+# FinVADER (VADER + SentiBignomics + Henry's earnings-press-release word list,
+# all Apache 2.0 / CC BY -- no commercial-license gate like Loughran-McDonald)
+# scores every article for free. It's only escalated to a real Groq call when
+# either (a) its combined score is too close to zero to trust as a real
+# direction, or (b) its two component lexicons meaningfully disagree with
+# each other -- both are real, empirically-observed failure signals: testing
+# showed SentiBignomics alone correctly flags "rising debt/cost" as negative
+# while Henry's alone gets it backwards (treats "increased" as inherently
+# positive regardless of what increased), and SentiBignomics dilutes severe
+# events like fraud that Henry's alone scores correctly. Thresholds below are
+# a reasoned starting point from that test set, not empirically tuned at
+# scale yet -- revisit once real production data accumulates.
+FINVADER_AMBIGUOUS_THRESHOLD = 0.15
+FINVADER_DISAGREEMENT_THRESHOLD = 0.4
+
+GROQ_SENTIMENT_SYSTEM_PROMPT = """You are a financial news impact analyst. Given a news article about a specific company, assess its impact on that company's stock.
+
+Return ONLY a JSON object with these exact fields:
+- "relevant": true/false -- is this article materially about the company itself (not just a passing mention, not an unrelated topic)?
+- "score": an integer from -100 to 100. Sign = direction (positive news vs negative news for the company). Magnitude = how significant/impactful the event is:
+  - 90 to 100: transformative (bankruptcy, major fraud, regulatory ban, landmark M&A)
+  - 60 to 89: significant (large earnings beat/miss, major contract win/loss, rating change, CEO ousted)
+  - 30 to 59: moderate (in-line results with a real surprise, sector news with a clear company angle, new product/partnership)
+  - 1 to 29: minor (passing mention, small operational update, routine corporate action)
+  - 0: not relevant, or genuinely neutral/mixed with no clear net direction
+- "reasoning": one short sentence explaining the score.
+
+Examples:
+Article: "Jio Platforms gets Sebi nod for Rs 35,000 crore IPO, India's biggest potential listing" (about Reliance Industries)
+{"relevant": true, "score": 50, "reasoning": "Large, real IPO approval for a subsidiary -- moderate-significant, not the parent's core business directly."}
+
+Article: "Company disclosed a major accounting fraud investigation and its CEO has resigned amid the scandal."
+{"relevant": true, "score": -90, "reasoning": "Fraud investigation and CEO resignation are transformative, severely negative events."}
+
+Article: "Company held its annual general meeting today as scheduled."
+{"relevant": true, "score": 0, "reasoning": "Routine corporate action with no informational content."}
+"""
+
+_groq_client = None
+def get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY environment variable not set.")
+        _groq_client = Groq(api_key=api_key)
+    return _groq_client
+
+# IndianAPI's recentNews feed mixes in generic market-wide wraps (index-level
+# commentary, multi-stock listicles) alongside genuine company-specific
+# articles. These aren't wrong-company the way EODHD's ticker-collision
+# articles were, but they're not about THIS stock specifically either, so
+# they're excluded before spending a sentiment-service call on them.
+MARKET_WRAP_PREFIXES = (
+    "sensex", "nifty", "gift nifty", "stock market today",
+    "breakout stocks to buy or sell", "stocks to buy today",
+)
+
+def _is_generic_market_wrap(headline: str) -> bool:
+    h = (headline or "").strip().lower()
+    return any(h.startswith(p) for p in MARKET_WRAP_PREFIXES)
 
 def parse_date(date_str):
     try:
@@ -43,11 +110,8 @@ def validate_candle_sanity(symbol, date, open_p, high, low, close, volume):
 # Angel One limits: ~3 requests per second. We use 2.0s delay to be safe and avoid burst limits.
 ANGEL_ONE_DELAY = 2.0
 
-# EODHD limits: 1000 requests per minute -> ~16 requests per second
-EODHD_DELAY = 0.07 
-
 # IndianAPI limits: Assume standard 2-3 requests per second to be safe
-INDIANAPI_DELAY = 0.5 
+INDIANAPI_DELAY = 0.5
 
 class RateLimitException(Exception):
     pass
@@ -76,28 +140,28 @@ class BatchProcessor:
         self.db = db
         self.angel_client = AngelOneClient()
         self.indianapi_client = IndianAPIClient()
-        self.eodhd_client = EODHDClient()
-        self._eodhd_consecutive_failures = 0
-        self._eodhd_circuit_open = False
         self._indianapi_consecutive_failures = 0
         self._indianapi_circuit_open = False
-
-    def _note_eodhd_failure(self, symbol: str):
-        self._eodhd_consecutive_failures += 1
-        if not self._eodhd_circuit_open and self._eodhd_consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
-            self._eodhd_circuit_open = True
-            logger.error(
-                f"EODHD news fetch failed {self._eodhd_consecutive_failures} times in a row "
-                f"(latest: {symbol}) -- disabling news fetching for the rest of this run."
-            )
+        self._groq_sentiment_consecutive_failures = 0
+        self._groq_sentiment_circuit_open = False
 
     def _note_indianapi_failure(self, symbol: str):
         self._indianapi_consecutive_failures += 1
         if not self._indianapi_circuit_open and self._indianapi_consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
             self._indianapi_circuit_open = True
             logger.error(
-                f"IndianAPI rate-limited {self._indianapi_consecutive_failures} times in a row "
-                f"(latest: {symbol}) -- disabling fundamentals fetching for the rest of this run."
+                f"IndianAPI failed/rate-limited {self._indianapi_consecutive_failures} times in a row "
+                f"(latest: {symbol}) -- disabling fundamentals+news fetching for the rest of this run."
+            )
+
+    def _note_groq_sentiment_failure(self, symbol: str):
+        self._groq_sentiment_consecutive_failures += 1
+        if not self._groq_sentiment_circuit_open and self._groq_sentiment_consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+            self._groq_sentiment_circuit_open = True
+            logger.error(
+                f"Groq sentiment scoring failed {self._groq_sentiment_consecutive_failures} times in a row "
+                f"(latest: {symbol}) -- disabling escalated sentiment scoring for the rest of this run "
+                f"(FinVADER's own score is still used for ambiguous/disagreement cases when this is open)."
             )
 
     @retry(
@@ -139,15 +203,62 @@ class BatchProcessor:
     @retry(
         wait=wait_exponential(multiplier=1, min=2, max=10),
         stop=stop_after_attempt(3),
-        retry=retry_if_exception_type((httpx.HTTPError, RateLimitException)),
+        retry=retry_if_exception_type(Exception),
         after=handle_httpx_errors
     )
-    def fetch_eodhd_news(self, symbol, from_date, to_date):
-        time.sleep(EODHD_DELAY)
-        res = self.eodhd_client.get_news(symbol, from_date, to_date)
-        if isinstance(res, dict) and res.get('error'):
-            raise RateLimitException("EODHD Rate Limit Hit")
-        return res
+    def _groq_score_article(self, company_name: str, text: str):
+        """Returns a -1..1 polarity, or None if Groq judges the article not
+        actually relevant (a second opinion beyond our own pre-filter -- only
+        reached for FinVADER's ambiguous/disagreement cases, so the extra
+        reasoning cost is paid on a small fraction of articles, not all of
+        them)."""
+        client = get_groq_client()
+        user_prompt = f"Company: {company_name}\nArticle: {text[:4000]}"
+        completion = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {"role": "system", "content": GROQ_SENTIMENT_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.2,
+            max_tokens=800,
+            response_format={"type": "json_object"},
+        )
+        result = json.loads(completion.choices[0].message.content)
+        if not result.get("relevant", True):
+            return None
+        return safe_float(result.get("score"), 0.0) / 100.0
+
+    def score_sentiment(self, mapping_symbol: str, company_name: str, text: str):
+        """FinVADER (free, in-process, no memory/hosting risk -- VADER's
+        engine plus the Apache-2.0/CC-BY-licensed SentiBignomics and Henry's
+        earnings-press-release lexicons) scores every article. Escalates to
+        a real Groq call only when FinVADER's own signal can't be trusted:
+        either its combined score is too close to zero, or its two component
+        lexicons meaningfully disagree with each other (both are real,
+        empirically-observed failure modes -- see the module-level comment
+        on the threshold constants). Returns a -1..1 polarity, or None if the
+        article should be skipped entirely (Groq's relevance check caught
+        something our own pre-filter didn't).
+        """
+        combined = finvader(text, use_sentibignomics=True, use_henry=True, indicator="compound")
+        senti_only = finvader(text, use_sentibignomics=True, use_henry=False, indicator="compound")
+        henry_only = finvader(text, use_sentibignomics=False, use_henry=True, indicator="compound")
+
+        ambiguous = abs(combined) < FINVADER_AMBIGUOUS_THRESHOLD
+        disagree = (senti_only * henry_only < 0) or (abs(senti_only - henry_only) > FINVADER_DISAGREEMENT_THRESHOLD)
+
+        if (not ambiguous and not disagree) or self._groq_sentiment_circuit_open:
+            return combined
+
+        try:
+            groq_score = self._groq_score_article(company_name, text)
+            self._groq_sentiment_consecutive_failures = 0
+            return groq_score
+        except Exception as e:
+            logger.warning(f"Groq escalation failed for {mapping_symbol}, falling back to FinVADER: {e}")
+            self._note_groq_sentiment_failure(mapping_symbol)
+            return combined
 
     def process_stock(self, mapping: models.SymbolMapping):
         logger.info(f"Processing {mapping.stock_symbol}...")
@@ -591,118 +702,154 @@ class BatchProcessor:
                 }
 
 
-        # Extract company name for dynamic news filtering
-        company_name = ""
-        if stock_data:
-            company_name = stock_data.get("stockDetailsReusableData", {}).get("name", "")
-
-        # 3. Fetch Sentiment from EODHD and Cache in DB
+        # 3. Fetch news via IndianAPI, score via FinVADER (escalating to Groq
+        # for ambiguous/disagreement cases -- see score_sentiment()), cache in
+        # DB. Replaces the old EODHD-based pipeline: EODHD has zero India/NSE
+        # coverage (confirmed live), and its .NSE->.US
+        # ticker-guessing hack was silently pulling wrong-company news for
+        # most stocks it had any data for (e.g. CCL -> Carnival Corp,
+        # TRU -> TransUnion). IndianAPI's /stock endpoint (already called for
+        # fundamentals) returns genuinely India-sourced news, but it's a loose
+        # "trending finance news" feed, not a per-company stream -- still
+        # needs relevance filtering, plus a market-wide-wrap exclusion this
+        # feed specifically needs (it mixes in Sensex/Nifty-level commentary
+        # and multi-stock listicles alongside genuine company news).
+        #
+        # This call happens daily regardless of the 7-day fundamentals-refresh
+        # cache above (news needs checking far more often than fundamentals),
+        # reusing stock_data when it was already fetched fresh this run.
         sentiment_scores = {"short": "Not Available", "medium": "Not Available", "long": "Not Available"}
-        if mapping.eodhd_symbol:
-            # EODHD news API maps Indian tickers to global/US symbols (.US suffix instead of .NSE)
-            eodhd_news_symbol = mapping.eodhd_symbol
-            if eodhd_news_symbol.endswith(".NSE"):
-                eodhd_news_symbol = eodhd_news_symbol.replace(".NSE", ".US")
-                
-            # Delta-based fetching for EODHD: check max article_date in DB
-            max_news = self.db.query(models.StockNews).filter(models.StockNews.stock_symbol == mapping.stock_symbol).order_by(models.StockNews.article_date.desc()).first()
-            if max_news and max_news.article_date:
-                # Fetch from the last recorded article date
-                from_date_news = max_news.article_date.strftime("%Y-%m-%d")
-            else:
-                # If no existing news, fetch last 30 days
-                from_date_news = (now - timedelta(days=30)).strftime("%Y-%m-%d")
-                
-            to_date_news = now.strftime("%Y-%m-%d")
-            
-            # Avoid fetching if from_date is equal to to_date and it's already fetched?
-            # EODHD accepts same date for from and to, it just fetches that day.
-            if self._eodhd_circuit_open:
+
+        news_stock_data = stock_data
+        if news_stock_data is None and not self._indianapi_circuit_open:
+            try:
+                did_external_fetch = True
+                time.sleep(INDIANAPI_DELAY)
+                news_stock_data = self.indianapi_client.get_stock_details(mapping.stock_symbol)
+                self._indianapi_consecutive_failures = 0
+            except httpx.HTTPStatusError as he:
                 if data_status != "FAILED":
-                    data_status = "RATE_LIMITED"
-            else:
+                    data_status = "RATE_LIMITED" if he.response.status_code == 429 else "FAILED"
+                logger.warning(f"IndianAPI news-check HTTP error {he.response.status_code} for {mapping.stock_symbol}")
+                self._note_indianapi_failure(mapping.stock_symbol)
+            except Exception as e:
+                if data_status != "FAILED":
+                    data_status = "FAILED"
+                logger.error(f"Error fetching IndianAPI news for {mapping.stock_symbol}: {e}")
+                self._note_indianapi_failure(mapping.stock_symbol)
+
+        company_name = ""
+        if news_stock_data:
+            # companyName is a top-level field, NOT nested under
+            # stockDetailsReusableData (that block is price/ratio data only --
+            # confirmed live; the old .get("stockDetailsReusableData", {}).get("name")
+            # path always returned "", which combined with the old fail-open
+            # behavior in validate_article_for_stock meant relevance filtering
+            # was never actually running in production before this fix).
+            company_name = news_stock_data.get("companyName", "")
+
+        recent_news = (news_stock_data or {}).get("recentNews") or []
+
+        if recent_news:
+            from sqlalchemy.dialects.postgresql import insert as pg_insert
+            for item in recent_news:
+                headline = (item.get("headline") or "").strip()
+                rel_url = (item.get("url") or "").strip()
+                if not headline or not rel_url:
+                    continue
+
+                # IndianAPI only ever returns a relative path; every sample
+                # observed during investigation resolved against Livemint.
+                url = rel_url if rel_url.startswith("http") else f"https://www.livemint.com{rel_url}"
+
+                existing = self.db.query(models.StockNews.id).filter(models.StockNews.source_url == url).first()
+                if existing:
+                    continue
+
+                if _is_generic_market_wrap(headline):
+                    continue
+
+                pseudo_article = {"title": headline, "content": item.get("summary", ""), "symbols": []}
+                if not validate_article_for_stock(pseudo_article, mapping.stock_symbol, company_name):
+                    logger.info(f"Article skipped (not relevant): {headline} | url: {url}")
+                    continue
+
+                # Prefer full article text for a better-informed sentiment
+                # call; fall back to headline+summary if the fetch/extraction
+                # fails, rather than dropping the article entirely.
+                text_for_scoring = f"{headline}. {item.get('summary', '')}".strip()
+                try:
+                    page = httpx.get(url, timeout=15.0, headers={"User-Agent": "Mozilla/5.0"}, follow_redirects=True)
+                    if page.status_code == 200:
+                        extracted = trafilatura.extract(page.text)
+                        if extracted and len(extracted.strip()) > 50:
+                            text_for_scoring = extracted
+                except Exception as e:
+                    logger.warning(f"Full-text fetch failed for {url}, scoring headline+summary only: {e}")
+
                 try:
                     did_external_fetch = True
-                    news_data = self.fetch_eodhd_news(eodhd_news_symbol, from_date_news, to_date_news)
-                    self._eodhd_consecutive_failures = 0
-                    if isinstance(news_data, list):
-                        # Cache articles in DB with duplicate URL safety
-                        from sqlalchemy.dialects.postgresql import insert as pg_insert
-                        seen_urls = set()
-                        for art in news_data:
-                            url = art.get("link") or art.get("url") or ""
-                            if not url or url in seen_urls:
-                                continue
-                            seen_urls.add(url)
-
-                            # Validate if the article belongs to this company
-                            if not validate_article_for_stock(art, mapping.stock_symbol, company_name):
-                                logger.info(f"Article skipped (mismatch/collision): {art.get('title')} | url: {url}")
-                                continue
-
-                            date_str = art.get("date", "")
-                            try:
-                                dt = datetime.fromisoformat(date_str)
-                            except Exception:
-                                dt = now
-                            polarity = safe_float(art.get("sentiment", {}).get("polarity", 0.0))
-
-                            # Use PostgreSQL ON CONFLICT DO NOTHING to guarantee idempotency and no crashes
-                            stmt = pg_insert(models.StockNews).values(
-                                stock_symbol=mapping.stock_symbol,
-                                article_date=dt,
-                                polarity=polarity,
-                                source_url=url
-                            ).on_conflict_do_nothing(index_elements=['source_url'])
-                            self.db.execute(stmt)
-                        self.db.commit()
-                except httpx.HTTPStatusError as he:
-                    if he.response.status_code == 429:
-                        if data_status != "FAILED":
-                            data_status = "RATE_LIMITED"
-                        logger.warning(f"EODHD rate limit hit (429) for {mapping.stock_symbol}")
-                    else:
-                        data_status = "FAILED"
-                        logger.error(f"EODHD HTTP error {he.response.status_code} for {mapping.stock_symbol}")
-                    self._note_eodhd_failure(mapping.stock_symbol)
+                    polarity = self.score_sentiment(mapping.stock_symbol, company_name, text_for_scoring)
                 except Exception as e:
-                    data_status = "FAILED"
-                    logger.error(f"Error fetching and caching news for {mapping.stock_symbol}: {e}")
-                    self.db.rollback()
-                    self._note_eodhd_failure(mapping.stock_symbol)
+                    logger.error(f"Sentiment scoring failed for {mapping.stock_symbol} ({url}): {e}")
+                    continue
 
-            # Read cached articles for this stock from DB for the rolling 30-day window
-            try:
-                thirty_days_ago = now - timedelta(days=30)
-                db_articles = self.db.query(models.StockNews).filter(
-                    models.StockNews.stock_symbol == mapping.stock_symbol,
-                    models.StockNews.article_date >= thirty_days_ago
-                ).all()
-                
-                if db_articles:
-                    # Convert DB model items to dict list for deduplication and scoring
-                    raw_articles = []
-                    for art in db_articles:
-                        raw_articles.append({
-                            "title": "", # Title deduplication is not needed as source_url has unique DB constraint
-                            "date": art.article_date.isoformat(),
-                            "sentiment": {"polarity": art.polarity}
-                        })
-                    
-                    # Calculate timeframe weighted sentiment
-                    sentiment_scores = {
-                        "short": compute_timeframe_sentiment(raw_articles, 3, now),
-                        "medium": compute_timeframe_sentiment(raw_articles, 15, now),
-                        "long": compute_timeframe_sentiment(raw_articles, 30, now)
-                    }
-                    logger.info(f"Computed database-cached sentiment scores for {mapping.stock_symbol}: {sentiment_scores}")
-            except Exception as e:
-                logger.error(f"Error calculating sentiment from database cache for {mapping.stock_symbol}: {e}")
-                # If the query above (not just the in-memory scoring) is what failed,
-                # the session's transaction is left aborted; every subsequent query
-                # in this call (starting with the StockScore lookup below) would
-                # otherwise raise "current transaction is aborted".
-                self.db.rollback()
+                if polarity is None:
+                    # Groq's own relevance check caught something our
+                    # pre-filter didn't -- skip storing this article entirely
+                    # rather than counting it as a neutral 0.
+                    logger.info(f"Article skipped (Groq flagged not relevant): {headline} | url: {url}")
+                    continue
+
+                date_str = item.get("date", "")
+                try:
+                    article_dt = datetime.fromisoformat(date_str.replace("Z", "+00:00")) if date_str else now
+                except Exception:
+                    article_dt = now
+
+                # Use PostgreSQL ON CONFLICT DO NOTHING to guarantee idempotency and no crashes
+                stmt = pg_insert(models.StockNews).values(
+                    stock_symbol=mapping.stock_symbol,
+                    article_date=article_dt,
+                    polarity=polarity,
+                    source_url=url,
+                    headline=headline,
+                ).on_conflict_do_nothing(index_elements=['source_url'])
+                self.db.execute(stmt)
+            self.db.commit()
+
+        # Read cached articles for this stock from DB for the rolling 30-day window
+        try:
+            thirty_days_ago = now - timedelta(days=30)
+            db_articles = self.db.query(models.StockNews).filter(
+                models.StockNews.stock_symbol == mapping.stock_symbol,
+                models.StockNews.article_date >= thirty_days_ago
+            ).all()
+
+            if db_articles:
+                # Convert DB model items to dict list for deduplication and scoring
+                raw_articles = []
+                for art in db_articles:
+                    raw_articles.append({
+                        "title": "", # Title deduplication is not needed as source_url has unique DB constraint
+                        "date": art.article_date.isoformat(),
+                        "sentiment": {"polarity": art.polarity}
+                    })
+
+                # Calculate timeframe weighted sentiment
+                sentiment_scores = {
+                    "short": compute_timeframe_sentiment(raw_articles, 3, now),
+                    "medium": compute_timeframe_sentiment(raw_articles, 15, now),
+                    "long": compute_timeframe_sentiment(raw_articles, 30, now)
+                }
+                logger.info(f"Computed database-cached sentiment scores for {mapping.stock_symbol}: {sentiment_scores}")
+        except Exception as e:
+            logger.error(f"Error calculating sentiment from database cache for {mapping.stock_symbol}: {e}")
+            # If the query above (not just the in-memory scoring) is what failed,
+            # the session's transaction is left aborted; every subsequent query
+            # in this call (starting with the StockScore lookup below) would
+            # otherwise raise "current transaction is aborted".
+            self.db.rollback()
 
         # 4. Overall Scores
         overall_short = compute_overall_score(tech_scores['short'], safety_scores['scores']['short'], sentiment_scores['short'] if sentiment_scores['short'] != "Not Available" else None, 'short')
@@ -821,6 +968,6 @@ class BatchProcessor:
             f"Batch Processing Loop Complete. "
             f"processed={processed_count} skipped(cache)={skipped_count} critical_errors={critical_error_count} "
             f"time_budget_stopped={time_budget_stopped} "
-            f"eodhd_circuit_open={self._eodhd_circuit_open} (consecutive_failures={self._eodhd_consecutive_failures}) "
-            f"indianapi_circuit_open={self._indianapi_circuit_open} (consecutive_failures={self._indianapi_consecutive_failures})"
+            f"indianapi_circuit_open={self._indianapi_circuit_open} (consecutive_failures={self._indianapi_consecutive_failures}) "
+            f"groq_sentiment_circuit_open={self._groq_sentiment_circuit_open} (consecutive_failures={self._groq_sentiment_consecutive_failures})"
         )

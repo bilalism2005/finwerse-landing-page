@@ -86,6 +86,7 @@ class StockNews(Base):
     article_date = Column(DateTime(timezone=True), index=True)
     polarity = Column(Float)
     source_url = Column(String, unique=True, index=True) # Used for deduplication
+    headline = Column(String, nullable=True) # For auditability -- spot-checking sentiment-service output against what the article actually said
 
 class StockHistoricalScore(Base):
     __tablename__ = "stock_historical_scores"

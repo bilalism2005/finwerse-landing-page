@@ -14,3 +14,6 @@ pgvector==0.2.5
 pymupdf==1.24.9
 langchain-text-splitters==0.3.3
 fake-useragent==1.5.1
+trafilatura==1.12.2
+vaderSentiment==3.3.2
+finvader==1.0.2

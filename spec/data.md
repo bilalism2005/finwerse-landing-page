@@ -61,8 +61,9 @@ News articles used for sentiment scoring and the Sentiment Feed.
 | id | Integer | yes | Autoincrement PK |
 | stock_symbol | String | yes | |
 | article_date | DateTime | yes | |
-| polarity | Float | yes | Sentiment polarity score |
+| polarity | Float | yes | Sentiment polarity score, -1..1 (FinVADER, escalated to Groq for ambiguous/disagreement cases — see `spec/architecture.md`) |
 | source_url | String | yes | Unique — used for dedup |
+| headline | String | no | Article headline, for auditability (added 2026-08-31) |
 
 ### Entity: StockHistoricalScore
 Time series of technical scores — backs the Impulse Analyzer's counterfactual lookups.
