@@ -611,8 +611,8 @@ Auth group (`(auth)/login` — **added to the redesign 2026-08-25**, full spec b
 - [x] No market-index strip renders anywhere.
 - [x] Switching between All Market News / My Portfolio News and searching both still call the same real endpoints (`fetchMarketNews`/`fetchPortfolioSentiment`/`searchSentiment`) unchanged.
 - [x] All 4 states (loading, populated, empty, error/retry) render distinctly and are reachable via a real interaction.
-- [ ] `extractHeadline` no longer exists anywhere in `news.tsx`; every card's headline is `item.headline`
-- [ ] Tapping any card navigates to `/article/{id}` (Article Detail); no card calls `Linking.openURL` directly anymore
+- [x] `extractHeadline` no longer exists anywhere in `news.tsx`; every card's headline is `item.headline`
+- [x] Tapping any card navigates to `/article/{id}` (Article Detail); no card calls `Linking.openURL` directly anymore
 
 ### Screen: Article Detail (`article/[id].tsx`, new) — ADDED 2026-08-31
 
@@ -638,11 +638,11 @@ Auth group (`(auth)/login` — **added to the redesign 2026-08-25**, full spec b
 - **Error/retry:** fetch failure (network error or `404`) — human copy ("Couldn't load this article.") plus tap-to-retry, same pattern as Market News's own error state; no raw error body or status code shown.
 
 **Success Criteria**
-- [ ] All three body variants (full text present / summary-only / neither) render a complete, non-blank screen, verified against real rows in each state
-- [ ] The numeric sentiment score equals `round(polarity * 100)` and its band/color matches `getBand()`'s standard thresholds — no bespoke banding invented for this screen
-- [ ] The "Read full article on {domain}" button, when shown, opens `source_url` via `Linking.openURL` and is labeled with the real domain (via the shared `extractDomain` helper), never a generic "Read more"
-- [ ] Back navigation (`router.back()`) returns to Market News in its prior scroll/search/mode state
-- [ ] Loading and error/retry states render distinctly and are reachable via a real interaction (slow network, invalid/deleted id)
+- [ ] All three body variants (full text present / summary-only / neither) render a complete, non-blank screen, verified against real rows in each state — code-traced as structurally correct for all 3 branches (`qa-auditor`, 2026-08-31), but **not yet run against a real device/simulator** (none available in this environment) — leave unchecked until an actual runtime pass happens
+- [x] The numeric sentiment score equals `round(polarity * 100)` and its band/color matches `getBand()`'s standard thresholds — no bespoke banding invented for this screen
+- [x] The "Read full article on {domain}" button, when shown, opens `source_url` via `Linking.openURL` and is labeled with the real domain (via the shared `extractDomain` helper), never a generic "Read more"
+- [ ] Back navigation (`router.back()`) returns to Market News in its prior scroll/search/mode state — not yet verified at runtime, no device/simulator available
+- [ ] Loading and error/retry states render distinctly and are reachable via a real interaction (slow network, invalid/deleted id) — code confirmed present, not yet exercised at runtime
 
 ### Screen: More (`more.tsx`, new) — NEW 2026-08-25
 

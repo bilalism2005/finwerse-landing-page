@@ -2,7 +2,7 @@
 
 **Scope:** everywhere, always. This is the rule most likely to cause real-world harm if violated.
 
-> **Live finding (2026-08-23):** `apps/api/services/tools.py:354` currently hardcodes a fallback Twitter API key in source (`os.getenv("TWITTER_API_KEY") or "new1_b43898c1acb6453f9ffe8946722ab2f8"`). This is exactly the violation this rule exists to prevent — rotate that key at the provider and remove the hardcoded fallback. Flagged here as a concrete example, not fixed as part of this harness port.
+> **Resolved (fixed 2026-08-26, confirmed still fixed as of the 2026-08-31 whole-tree audit):** `apps/api/services/tools.py` previously hardcoded a fallback Twitter API key in source. It now reads `os.getenv("TWITTER_API_KEY")` only, returning a clear error if unset — no hardcoded fallback anywhere in current source. Kept as a concrete example below of the exact violation this rule exists to prevent. **Still unconfirmed:** whether the exposed key value itself (`new1_b43898...`, still present in git history regardless of the source fix) was ever rotated at the provider — verify this out-of-band if it hasn't been done.
 
 ## What is a secret
 
@@ -49,7 +49,7 @@ raise ValueError("Auth failed. Check your API key in .env.")
 ### Never hardcode a fallback secret value
 
 ```python
-# BAD — this is a real bug in apps/api/services/tools.py today
+# BAD — this was a real bug in apps/api/services/tools.py, fixed 2026-08-26
 api_key = os.getenv("TWITTER_API_KEY") or "new1_b43898c1acb6453f9ffe8946722ab2f8"
 
 # GOOD

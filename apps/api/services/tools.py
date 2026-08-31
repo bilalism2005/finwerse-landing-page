@@ -405,6 +405,7 @@ async def tool_news_sentiment(db: Session, stock_symbol: str):
         polarity_label = "Positive" if n.polarity and n.polarity > 0.15 else ("Negative" if n.polarity and n.polarity < -0.15 else "Neutral")
         articles.append({
             "date": str(n.article_date)[:10],
+            "headline": n.headline,
             "sentiment": polarity_label,
             "url": n.source_url
         })

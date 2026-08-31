@@ -45,7 +45,7 @@ harness/patterns/agentic-ai.md      ← pattern catalogue, with finwerse's actua
 
 ## Known Gaps (tracked deliberately — don't silently "fix" these without surfacing the decision first)
 
-See `spec/roadmap.md` → Build Status for the full list, including: the Ask AI Chatbot's missing historical/backtest tool, the unauthenticated `/analyzer/custom-impulse` endpoint, and a hardcoded secret fallback in `apps/api/services/tools.py:354` that should be rotated and removed (`harness/rules/secret-hygiene.md`).
+See `spec/roadmap.md` → Build Status for the full list, including: the Ask AI Chatbot's missing historical/backtest tool, and the unauthenticated `/analyzer/custom-impulse` endpoint. (The hardcoded Twitter API key fallback in `apps/api/services/tools.py` previously tracked here was fixed 2026-08-26 — see `harness/rules/secret-hygiene.md` for the one remaining unconfirmed item: whether the exposed key value was ever rotated at the provider.)
 
 ## Skills (entry points)
 

@@ -10,7 +10,7 @@ Finwerse is an AI-powered trading-intelligence platform for retail Indian equity
 apps/web (React+Vite SPA)  ──┐
                               ├──►  apps/api (FastAPI)  ──►  Supabase Postgres (+ pgvector)
 apps/mobile (Expo/RN)      ──┘            │
-                                            ├──►  Angel One / IndianAPI / EODHD (market data, batch job)
+                                            ├──►  Angel One / IndianAPI (market data + news, batch job)
                                             ├──►  NSE/BSE filings scrape (batch job)
                                             ├──►  Groq (chatbot + bottleneck report)
                                             └──►  twitterapi.io (chatbot tool)
@@ -33,8 +33,8 @@ Supabase Auth  ──► used by apps/web, apps/mobile, and apps/api (JWT verifi
 ## Data Flow
 
 1. **Trigger:** Render cron `finwerse-batch-cron`, `15 10 * * 1-5` UTC (3:45 PM IST, weekdays) → `python -m scripts.run_daily_batch`.
-2. `services/data_fetcher.py` (Angel One / IndianAPI / EODHD clients) pulls fresh prices, fundamentals, and news for the tracked universe.
-3. `services/nse_scraper.py` scrapes NSE/BSE filings, chunks and embeds them (`sentence-transformers/all-MiniLM-L6-v2`, 384-dim), stores in `corporate_filings` (pgvector).
+2. `services/data_fetcher.py` (Angel One / IndianAPI clients) pulls fresh prices and fundamentals for the tracked universe; IndianAPI's `recentNews` field additionally supplies per-stock news, scored by FinVADER/Groq (see External Dependencies below). `EODHDClient` still exists in this file but is unused dead code — EODHD was dropped entirely (2026-08-31), including for news.
+3. `services/nse_scraper.py` scrapes NSE/BSE filings and chunks them, stores in `corporate_filings` (pgvector). **Embedding was never actually wired up** despite earlier notes here claiming otherwise — the unused `sentence-transformers/all-MiniLM-L6-v2` model load was removed after it caused an OOM kill on the batch cron (2026-08-30); `embedding_vector` stays NULL and retrieval is recency-only. See `spec/capabilities/nse-filings-rag.md`.
 4. `services/scoring.py` (`BatchProcessor` in `batch_processor.py`) computes Technical/Safety/Sentiment/Overall scores per stock per timeframe from the fetched data, writes `StockScore` (current) and `StockHistoricalScore` (dated, append-only — required by the Impulse Analyzer and any future chatbot backtest tool).
 5. `services/alerts_processor.py` runs immediately after scoring completes, evaluates all active `Alert` rows against the freshly written scores, marks matches `triggered`, sends Expo push notifications to registered `UserDevice` tokens.
 6. **Output:** `apps/web`/`apps/mobile` read precomputed scores/portfolio/alerts via `apps/api` REST endpoints (`spec/api.md`); the Ask AI Chatbot (`spec/agent.md`) additionally calls Groq + twitterapi.io live, at request time, since its output is synthesized per-query rather than precomputed.

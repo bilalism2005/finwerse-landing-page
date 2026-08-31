@@ -31,11 +31,11 @@ A browsable news feed with sentiment scores — not just a chatbot input. Defaul
 - [x] `GET /sentiment-feed/market` returns the latest 50 articles regardless of auth state
 - [x] `GET /sentiment-feed/portfolio` falls back to market feed for anonymous users or users with no held stocks — never returns an empty list when market data exists
 - [x] `GET /sentiment-feed/search` resolves aliased/fuzzy stock names via `resolve_symbol` before falling back to raw ILIKE matching
-- [ ] `/market`, `/portfolio`, `/search` responses never contain a `full_text` or `summary` key, even though `StockNews` now has those columns
-- [ ] `GET /sentiment-feed/article/{id}` returns the full single-article row including `full_text`/`summary` (nullable), `404` for an unknown id
-- [ ] `StockNews.full_text` is populated by the batch job only when `trafilatura.extract()` genuinely succeeded (mirrors the existing in-memory `len(extracted.strip()) > 50` condition in `batch_processor.py`) — never populated with the short IndianAPI summary as a substitute
-- [ ] `StockNews.summary` is populated from IndianAPI's `recentNews[].summary` whenever non-empty, independent of whether `full_text` extraction succeeded that same run
-- [ ] Existing rows (scored before this column existed) read back with `full_text`/`summary` both NULL, and the mobile reader renders a complete, non-blank screen for such a row (headline + whichever of {summary, nothing} is available + a labeled external-open link)
+- [x] `/market`, `/portfolio`, `/search` responses never contain a `full_text` or `summary` key, even though `StockNews` now has those columns
+- [x] `GET /sentiment-feed/article/{id}` returns the full single-article row including `full_text`/`summary` (nullable), `404` for an unknown id
+- [x] `StockNews.full_text` is populated by the batch job only when `trafilatura.extract()` genuinely succeeded (mirrors the existing in-memory `len(extracted.strip()) > 50` condition in `batch_processor.py`) — never populated with the short IndianAPI summary as a substitute
+- [x] `StockNews.summary` is populated from IndianAPI's `recentNews[].summary` whenever non-empty, independent of whether `full_text` extraction succeeded that same run
+- [x] Existing rows (scored before this column existed) read back with `full_text`/`summary` both NULL, and the mobile reader renders a complete, non-blank screen for such a row (headline + whichever of {summary, nothing} is available + a labeled external-open link)
 
 ## Known Gaps / Future Work (mobile Market News redesign, 2026-08-25)
 
