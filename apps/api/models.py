@@ -7,7 +7,7 @@ from pgvector.sqlalchemy import Vector
 
 class SymbolMapping(Base):
     __tablename__ = "symbol_mapping"
-    stock_symbol = Column(String, primary_key=True, index=True)
+    stock_symbol = Column(String, primary_key=True)
     angel_token = Column(String, nullable=True)
     indianapi_id = Column(String, nullable=True)
     eodhd_symbol = Column(String, nullable=True)
@@ -15,7 +15,7 @@ class SymbolMapping(Base):
 
 class StockScore(Base):
     __tablename__ = "stock_scores"
-    stock_symbol = Column(String, primary_key=True, index=True)
+    stock_symbol = Column(String, primary_key=True)
     computed_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     data_status = Column(String, nullable=True, server_default="SUCCESS")  # SUCCESS, RATE_LIMITED, FAILED
     
@@ -49,7 +49,7 @@ class StockScore(Base):
 
 class StockCandle(Base):
     __tablename__ = "stock_candles"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     stock_symbol = Column(String, index=True)
     timeframe = Column(String, index=True) # 'D', 'W', 'M'
     date = Column(DateTime(timezone=True), index=True)
@@ -66,7 +66,7 @@ class StockCandle(Base):
 
 class StockFundamental(Base):
     __tablename__ = "stock_fundamentals"
-    stock_symbol = Column(String, primary_key=True, index=True)
+    stock_symbol = Column(String, primary_key=True)
     period = Column(String) # e.g. "Q1 2026", "FY2025"
     sales = Column(Float, nullable=True)
     eps = Column(Float, nullable=True)
@@ -81,7 +81,7 @@ class StockFundamental(Base):
 
 class StockNews(Base):
     __tablename__ = "stock_news"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     stock_symbol = Column(String, index=True)
     article_date = Column(DateTime(timezone=True), index=True)
     polarity = Column(Float)
@@ -99,7 +99,7 @@ class StockNews(Base):
 
 class StockHistoricalScore(Base):
     __tablename__ = "stock_historical_scores"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     stock_symbol = Column(String, index=True)
     date = Column(DateTime(timezone=True), index=True)
     technical_score_short = Column(Float, nullable=True)
@@ -115,7 +115,7 @@ class StockHistoricalScore(Base):
 
 class StockIndicatorValue(Base):
     __tablename__ = "stock_indicator_values"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     stock_symbol = Column(String, index=True)
     date = Column(DateTime(timezone=True), index=True)
     timeframe = Column(String, index=True) # 'D', 'W', 'M'
@@ -140,7 +140,7 @@ from sqlalchemy import Index
 
 class PortfolioHolding(Base):
     __tablename__ = "portfolio_holdings"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(String, index=True, nullable=False) # Supabase auth user UUID stored as string
     stock_symbol = Column(String, index=True, nullable=False)
     quantity = Column(Integer, nullable=False)
@@ -173,7 +173,7 @@ class PortfolioHolding(Base):
 
 class CorporateFiling(Base):
     __tablename__ = "corporate_filings"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     stock_symbol = Column(String, index=True, nullable=False)
     filing_type = Column(String, index=True, nullable=False)
     filing_date = Column(DateTime(timezone=True), index=True, nullable=False)
@@ -185,7 +185,7 @@ class CorporateFiling(Base):
 
 class Alert(Base):
     __tablename__ = "alerts"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(String, index=True, nullable=False)
     alert_type = Column(String, nullable=False) # 'universe_wide', 'specific_stock', 'portfolio_only'
     stock_symbol = Column(String, nullable=True) # Only for specific_stock
@@ -208,7 +208,7 @@ class Alert(Base):
 
 class UserDevice(Base):
     __tablename__ = "user_devices"
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String, index=True, nullable=False)
     expo_push_token = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
